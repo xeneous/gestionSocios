@@ -1,3 +1,4 @@
+# gestionSocios
 # SAO 2026 - Sistema Contable Web
 
 Sistema contable para la Sociedad Argentina de Oftalmología desarrollado en Flutter Web + Supabase.
