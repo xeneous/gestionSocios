@@ -1,0 +1,14 @@
+{
+  "name": "sao-migration",
+  "version": "1.0.0",
+  "description": "Migración de datos SQL Server a Supabase",
+  "type": "module",
+  "scripts": {
+    "migrate": "node migrate.js"
+  },
+  "dependencies": {
+    "mssql": "^10.0.2",
+    "@supabase/supabase-js": "^2.39.0",
+    "dotenv": "^16.3.1"
+  }
+}

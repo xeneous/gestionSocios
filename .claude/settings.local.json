@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(flutter run:*)",
+      "Bash(flutter analyze:*)",
+      "Bash(tree:*)",
+      "Bash(find:*)",
+      "Bash(node migrate_cuentas_corrientes.js:*)",
+      "Bash(timeout 240 node:*)",
+      "Bash(supabase db diff:*)",
+      "Bash(node scripts/migration/migrate_cuentas_corrientes.js:*)"
+    ]
+  }
+}
