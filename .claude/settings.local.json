@@ -11,7 +11,8 @@
       "Bash(node scripts/migration/migrate_cuentas_corrientes.js:*)",
       "Bash(node scripts/migration/migrate_valores_tesoreria.js:*)",
       "Bash(timeout 60 node:*)",
-      "Bash(flutter devices:*)"
+      "Bash(flutter devices:*)",
+      "Bash(flutter pub get:*)"
     ]
   }
 }

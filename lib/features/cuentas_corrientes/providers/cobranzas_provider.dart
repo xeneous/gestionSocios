@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../services/cobranzas_service.dart';
+import '../services/recibo_pdf_service.dart';
 import '../../asientos/services/asientos_service.dart';
 import '../../asientos/providers/asientos_provider.dart';
 import '../../auth/presentation/providers/auth_provider.dart';
@@ -12,6 +13,12 @@ import '../../auth/presentation/providers/auth_provider.dart';
 final cobranzasServiceProvider = Provider<CobranzasService>((ref) {
   final supabase = ref.watch(supabaseProvider);
   return CobranzasService(supabase);
+});
+
+/// Provider del servicio de generación de PDFs de recibos
+final reciboPdfServiceProvider = Provider<ReciboPdfService>((ref) {
+  final supabase = ref.watch(supabaseProvider);
+  return ReciboPdfService(supabase);
 });
 
 /// Notifier para manejar operaciones de cobranzas

@@ -8,6 +8,7 @@ import '../../providers/cobranzas_provider.dart';
 import '../../models/cuenta_corriente_completa_model.dart';
 import '../../models/concepto_tesoreria_model.dart';
 import '../../../socios/providers/socios_provider.dart';
+import '../../../auth/presentation/providers/auth_provider.dart';
 
 /// Página principal de cobranzas con selección múltiple
 class CobranzasPage extends ConsumerStatefulWidget {
@@ -28,6 +29,24 @@ class _CobranzasPageState extends ConsumerState<CobranzasPage> {
 
   // Formas de pago seleccionadas
   final Map<int, double> _formasPago = {}; // conceptoId -> monto
+
+  // Controllers para campos de formas de pago (evita cursor errático)
+  final Map<int, TextEditingController> _formasPagoControllers = {};
+
+  // Controllers para campos de pagos parciales
+  final Map<int, TextEditingController> _pagosControllers = {};
+
+  @override
+  void dispose() {
+    // Limpiar controllers
+    for (var controller in _formasPagoControllers.values) {
+      controller.dispose();
+    }
+    for (var controller in _pagosControllers.values) {
+      controller.dispose();
+    }
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -336,27 +355,45 @@ class _CobranzasPageState extends ConsumerState<CobranzasPage> {
               isSelected
                   ? SizedBox(
                       width: 100,
-                      child: TextField(
-                        decoration: const InputDecoration(
-                          prefixText: '\$',
-                          isDense: true,
-                          contentPadding: EdgeInsets.all(8),
-                          border: OutlineInputBorder(),
-                        ),
-                        keyboardType: TextInputType.number,
-                        controller: TextEditingController(
-                          text: _selectedPagos[idTransaccion]
-                              ?.toStringAsFixed(2),
-                        ),
-                        onChanged: (value) {
-                          final monto = double.tryParse(value);
-                          if (monto != null &&
-                              monto > 0 &&
-                              monto <= saldoPendiente) {
-                            setState(() {
-                              _selectedPagos[idTransaccion] = monto;
-                            });
+                      child: Builder(
+                        builder: (context) {
+                          // Obtener o crear controller para esta transacción
+                          if (!_pagosControllers.containsKey(idTransaccion)) {
+                            _pagosControllers[idTransaccion] = TextEditingController(
+                              text: _selectedPagos[idTransaccion]?.toStringAsFixed(2),
+                            );
+                          } else {
+                            // Actualizar texto solo si cambió el monto programáticamente
+                            final currentValue = _pagosControllers[idTransaccion]!.text;
+                            final montoActual = _selectedPagos[idTransaccion];
+                            if (montoActual != null) {
+                              final expectedValue = montoActual.toStringAsFixed(2);
+                              if (currentValue != expectedValue && double.tryParse(currentValue) != montoActual) {
+                                _pagosControllers[idTransaccion]!.text = expectedValue;
+                              }
+                            }
                           }
+
+                          return TextField(
+                            decoration: const InputDecoration(
+                              prefixText: '\$',
+                              isDense: true,
+                              contentPadding: EdgeInsets.all(8),
+                              border: OutlineInputBorder(),
+                            ),
+                            keyboardType: TextInputType.number,
+                            controller: _pagosControllers[idTransaccion],
+                            onChanged: (value) {
+                              final monto = double.tryParse(value);
+                              if (monto != null &&
+                                  monto > 0 &&
+                                  monto <= saldoPendiente) {
+                                setState(() {
+                                  _selectedPagos[idTransaccion] = monto;
+                                });
+                              }
+                            },
+                          );
                         },
                       ),
                     )
@@ -513,6 +550,20 @@ class _CobranzasPageState extends ConsumerState<CobranzasPage> {
                                             .where((c) => c.id == conceptoId)
                                             .firstOrNull;
 
+                                        // Obtener o crear controller para este concepto
+                                        if (!_formasPagoControllers.containsKey(conceptoId)) {
+                                          _formasPagoControllers[conceptoId] = TextEditingController(
+                                            text: monto.toStringAsFixed(2),
+                                          );
+                                        } else {
+                                          // Actualizar texto solo si cambió el monto programáticamente
+                                          final currentValue = _formasPagoControllers[conceptoId]!.text;
+                                          final expectedValue = monto.toStringAsFixed(2);
+                                          if (currentValue != expectedValue && double.tryParse(currentValue) != monto) {
+                                            _formasPagoControllers[conceptoId]!.text = expectedValue;
+                                          }
+                                        }
+
                                         return ListTile(
                                           title: Text(
                                               concepto?.descripcion ?? ''),
@@ -526,9 +577,7 @@ class _CobranzasPageState extends ConsumerState<CobranzasPage> {
                                               ),
                                               keyboardType:
                                                   TextInputType.number,
-                                              controller: TextEditingController(
-                                                text: monto.toStringAsFixed(2),
-                                              ),
+                                              controller: _formasPagoControllers[conceptoId],
                                               onChanged: (value) {
                                                 final newMonto =
                                                     double.tryParse(value);
@@ -759,9 +808,64 @@ class _CobranzasPageState extends ConsumerState<CobranzasPage> {
               child: const Text('Cerrar'),
             ),
             FilledButton.icon(
-              onPressed: () {
-                Navigator.pop(context);
-                // TODO: Implementar impresión de recibo
+              onPressed: () async {
+                final messenger = ScaffoldMessenger.of(context);
+                try {
+                  // Generar PDF (obtiene datos desde la BD usando el número de recibo)
+                  final pdfService = ref.read(reciboPdfServiceProvider);
+                  final pdf = await pdfService.generarReciboPdf(
+                    numeroRecibo: numeroRecibo,
+                  );
+
+                  // Obtener nombre del socio para el nombre del archivo
+                  final socioData = await ref
+                      .read(supabaseProvider)
+                      .from('socios')
+                      .select('apellido, nombre')
+                      .eq('id', widget.socioId)
+                      .single();
+
+                  final nombreSocio =
+                      '${socioData['apellido']}, ${socioData['nombre']}';
+
+                  // Compartir PDF (permite enviar por email, guardar, etc.)
+                  await pdfService.compartirRecibo(
+                    pdf: pdf,
+                    numeroRecibo: numeroRecibo,
+                    nombreSocio: nombreSocio,
+                  );
+                } catch (e) {
+                  messenger.showSnackBar(
+                    SnackBar(
+                      content: Text('Error al compartir PDF: $e'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                }
+              },
+              icon: const Icon(Icons.share),
+              label: const Text('Compartir'),
+            ),
+            FilledButton.icon(
+              onPressed: () async {
+                final messenger = ScaffoldMessenger.of(context);
+                try {
+                  // Generar PDF (obtiene datos desde la BD usando el número de recibo)
+                  final pdfService = ref.read(reciboPdfServiceProvider);
+                  final pdf = await pdfService.generarReciboPdf(
+                    numeroRecibo: numeroRecibo,
+                  );
+
+                  // Imprimir PDF
+                  await pdfService.imprimirRecibo(pdf);
+                } catch (e) {
+                  messenger.showSnackBar(
+                    SnackBar(
+                      content: Text('Error al imprimir PDF: $e'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                }
               },
               icon: const Icon(Icons.print),
               label: const Text('Imprimir'),
