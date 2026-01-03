@@ -241,11 +241,17 @@ class _CuentaCorrienteSocioTablePageState
     for (final cuenta in movimientos.reversed) {
       // Calcular debe/haber según el signo del tipo de comprobante
       // signo = 1 para débito (debe), signo = -1 para crédito (haber)
-      final importe = cuenta.header.importe ?? 0;
+
+      // Si estamos mostrando solo pendientes, usar el saldo pendiente (importe - cancelado)
+      // en lugar del importe total
+      final importeAMostrar = _soloPendientes
+          ? (cuenta.header.importe ?? 0) - (cuenta.header.cancelado ?? 0)
+          : cuenta.header.importe ?? 0;
+
       final signo = cuenta.header.signo ?? 1;  // Default a débito si no hay signo
 
-      final debe = signo == 1 ? importe : 0.0;
-      final haber = signo == -1 ? importe : 0.0;
+      final debe = signo == 1 ? importeAMostrar : 0.0;
+      final haber = signo == -1 ? importeAMostrar : 0.0;
 
       saldoAcumulado += debe - haber;
 

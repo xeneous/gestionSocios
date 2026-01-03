@@ -1,6 +1,13 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/asiento_model.dart';
+import '../services/asientos_service.dart';
 import '../../auth/presentation/providers/auth_provider.dart';
+
+/// Provider del servicio de asientos
+final asientosServiceProvider = Provider<AsientosService>((ref) {
+  final supabase = ref.watch(supabaseProvider);
+  return AsientosService(supabase);
+});
 
 // Provider para listar asientos
 final asientosProvider = FutureProvider<List<AsientoCompleto>>((ref) async {
@@ -61,22 +68,25 @@ class AsientosNotifier extends Notifier<AsyncValue<void>> {
   Future<void> createAsiento(AsientoCompleto asiento) async {
     state = const AsyncValue.loading();
     try {
-      final supabase = ref.read(supabaseProvider);
+      final service = ref.read(asientosServiceProvider);
 
-      // Validar que esté balanceado
-      if (!asiento.isBalanced) {
-        throw Exception(
-            'El asiento no está balanceado. Debe = ${asiento.totalDebe}, Haber = ${asiento.totalHaber}');
-      }
+      // Convertir items a AsientoItemData
+      final itemsData = asiento.items.map((item) => AsientoItemData(
+        cuentaId: item.cuentaId,
+        debe: item.debe,
+        haber: item.haber,
+        observacion: item.observacion,
+        centroCosto: item.centroCosto,
+      )).toList();
 
-      // Insertar header
-      await supabase.from('asientos_header').insert(asiento.header.toJson());
-
-      // Insertar items
-      final itemsToInsert = asiento.items.map((item) => item.toJson()).toList();
-      if (itemsToInsert.isNotEmpty) {
-        await supabase.from('asientos_items').insert(itemsToInsert);
-      }
+      // Usar el servicio centralizado
+      await service.crearAsiento(
+        tipoAsiento: asiento.header.tipoAsiento,
+        fecha: asiento.header.fecha,
+        detalle: asiento.header.detalle ?? '',
+        items: itemsData,
+        centroCosto: asiento.header.centroCosto,
+      );
 
       ref.invalidate(asientosProvider);
       state = const AsyncValue.data(null);

@@ -108,6 +108,19 @@ class AppDrawer extends StatelessWidget {
               }
             },
           ),
+
+          // Cobranzas
+          ListTile(
+            leading: const Icon(Icons.payments),
+            title: const Text('Cobranzas'),
+            selected: currentRoute.startsWith('/cobranzas'),
+            onTap: () {
+              Navigator.pop(context);
+              if (!currentRoute.startsWith('/cobranzas')) {
+                context.go('/cobranzas');
+              }
+            },
+          ),
         ],
       ),
     );

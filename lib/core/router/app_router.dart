@@ -12,6 +12,8 @@ import '../../features/socios/presentation/pages/socio_form_page.dart';
 import '../../features/cuentas_corrientes/presentation/pages/cuentas_corrientes_list_page.dart';
 import '../../features/cuentas_corrientes/presentation/pages/cuenta_corriente_form_page.dart';
 import '../../features/cuentas_corrientes/presentation/pages/cuenta_corriente_socio_table_page.dart';
+import '../../features/cuentas_corrientes/presentation/pages/cobranzas_select_socio_page.dart';
+import '../../features/cuentas_corrientes/presentation/pages/cobranzas_page.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   final authState = ref.watch(authStateProvider);
@@ -129,6 +131,20 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) {
           final id = int.parse(state.pathParameters['id']!);
           return CuentaCorrienteFormPage(idtransaccion: id);
+        },
+      ),
+      // Cobranzas
+      GoRoute(
+        path: '/cobranzas',
+        name: 'cobranzas-select-socio',
+        builder: (context, state) => const CobranzasSelectSocioPage(),
+      ),
+      GoRoute(
+        path: '/cobranzas/:socioId',
+        name: 'cobranzas',
+        builder: (context, state) {
+          final socioId = int.parse(state.pathParameters['socioId']!);
+          return CobranzasPage(socioId: socioId);
         },
       ),
     ],

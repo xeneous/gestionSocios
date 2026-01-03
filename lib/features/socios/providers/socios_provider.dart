@@ -28,7 +28,7 @@ final sociosSearchProvider =
 
   // Filtrar por grupos activos o todos
   // Si soloActivos = true, filtrar solo socios de grupos activos
-  // Si soloActivos = false/null, mostrar todos los socios
+  // Se aplica siempre que soloActivos sea true, sin importar si hay otros filtros
   if (params.soloActivos == true) {
     // Solo socios de grupos activos: A, H, T, V
     query = query.inFilter('grupo', ['A', 'H', 'T', 'V']);

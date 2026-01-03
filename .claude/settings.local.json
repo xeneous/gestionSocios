@@ -8,7 +8,10 @@
       "Bash(node migrate_cuentas_corrientes.js:*)",
       "Bash(timeout 240 node:*)",
       "Bash(supabase db diff:*)",
-      "Bash(node scripts/migration/migrate_cuentas_corrientes.js:*)"
+      "Bash(node scripts/migration/migrate_cuentas_corrientes.js:*)",
+      "Bash(node scripts/migration/migrate_valores_tesoreria.js:*)",
+      "Bash(timeout 60 node:*)",
+      "Bash(flutter devices:*)"
     ]
   }
 }

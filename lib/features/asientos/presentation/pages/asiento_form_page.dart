@@ -39,7 +39,14 @@ class _AsientoFormPageState extends ConsumerState<AsientoFormPage> {
   void initState() {
     super.initState();
     _fechaController.text = DateFormat('dd/MM/yyyy').format(_selectedDate);
-    
+
+    // Listener para habilitar/deshabilitar botón guardar cuando cambia el detalle
+    _detalleController.addListener(() {
+      setState(() {
+        // Trigger rebuild to update button state
+      });
+    });
+
     // Si es edición, cargar datos
     if (widget.asiento != null && widget.anioMes != null && widget.tipoAsiento != null) {
       _loadAsientoData();
@@ -677,7 +684,7 @@ class _AsientoFormPageState extends ConsumerState<AsientoFormPage> {
                             ),
                             const SizedBox(width: 16),
                             FilledButton(
-                              onPressed: _isLoading || !_isBalanced ? null : _saveAsiento,
+                              onPressed: _isLoading || !_isBalanced || _detalleController.text.trim().isEmpty ? null : _saveAsiento,
                               child: const Text('Guardar Asiento'),
                             ),
                           ],
