@@ -16,7 +16,7 @@ class ReciboPdfService {
   /// Genera un PDF del recibo de cobranza
   ///
   /// Obtiene todos los datos directamente de la base de datos usando el número de recibo.
-  /// Esto garantiza que siempre se muestren los datos correctos y persistidos.
+  /// Usa las tablas de trazabilidad para información precisa y estructurada.
   ///
   /// Parámetros:
   /// - numeroRecibo: Número del recibo a generar
@@ -25,29 +25,19 @@ class ReciboPdfService {
   Future<pw.Document> generarReciboPdf({
     required int numeroRecibo,
   }) async {
-    // 1. Obtener valores de tesorería del recibo (formas de pago)
-    final valoresTesoreria = await _supabase
-        .from('valores_tesoreria')
-        .select('*, conceptos_tesoreria(*)')
-        .eq('numero_interno', numeroRecibo)
-        .eq('tipo_movimiento', 1); // 1 = Ingreso/Cobro
-
-    if (valoresTesoreria.isEmpty) {
-      throw Exception('No se encontró el recibo $numeroRecibo');
-    }
-
-    // 2. Obtener el registro COB para saber el socio
-    final registroCOB = await _supabase
-        .from('cuentas_corrientes')
-        .select('socio_id, fecha')
-        .eq('tipo_comprobante', 'COB')
-        .eq('documento_numero', numeroRecibo.toString())
+    // 1. Obtener operación de cobranza desde tabla de trazabilidad
+    final operacion = await _supabase
+        .from('operaciones_contables')
+        .select('*')
+        .eq('tipo_operacion', 'COBRANZA_SOCIO')
+        .eq('numero_comprobante', numeroRecibo)
         .single();
 
-    final socioId = registroCOB['socio_id'] as int;
-    final fechaRecibo = DateTime.parse(registroCOB['fecha']);
+    final socioId = operacion['entidad_id'] as int;
+    final fechaRecibo = DateTime.parse(operacion['fecha']);
+    final totalCobrado = (operacion['total'] as num).toDouble();
 
-    // 3. Obtener datos del socio
+    // 2. Obtener datos del socio
     final socioData = await _supabase
         .from('socios')
         .select('id, apellido, nombre, domicilio, telefono')
@@ -58,51 +48,53 @@ class ReciboPdfService {
     final domicilio = socioData['domicilio'] as String? ?? '';
     final telefono = socioData['telefono'] as String? ?? '';
 
-    // 4. Preparar formas de pago desde valores_tesoreria
+    // 3. Obtener formas de pago con JOIN desde tabla de trazabilidad
+    final formasPagoData = await _supabase
+        .from('operaciones_detalle_valores_tesoreria')
+        .select('''
+          *,
+          valores_tesoreria!inner(
+            importe,
+            conceptos_tesoreria!inner(descripcion)
+          )
+        ''')
+        .eq('operacion_id', operacion['id']);
+
     final formasPagoList = <Map<String, dynamic>>[];
-    double totalCobrado = 0;
-
-    for (final valor in valoresTesoreria) {
-      final importe = (valor['importe'] as num).toDouble();
-      totalCobrado += importe;
-
+    for (final item in formasPagoData) {
+      final valorTesoreria = item['valores_tesoreria'];
       formasPagoList.add({
-        'descripcion': valor['conceptos_tesoreria']['descripcion'] as String,
-        'monto': importe,
+        'descripcion': valorTesoreria['conceptos_tesoreria']['descripcion'] as String,
+        'monto': (valorTesoreria['importe'] as num).toDouble(),
       });
     }
 
-    // 5. Obtener transacciones que fueron pagadas con este recibo
-    // Buscamos en observaciones de asientos que contengan el número de recibo
+    // 4. Obtener transacciones pagadas con JOIN desde tabla de trazabilidad
+    final transaccionesData = await _supabase
+        .from('operaciones_detalle_cuentas_corrientes')
+        .select('''
+          monto,
+          cuentas_corrientes!inner(
+            tipo_comprobante,
+            documento_numero,
+            importe,
+            fecha,
+            vencimiento
+          )
+        ''')
+        .eq('operacion_id', operacion['id']);
+
     final transaccionesList = <Map<String, dynamic>>[];
-
-    // Obtener asiento items que referencian este recibo en HABER
-    final asientoItems = await _supabase
-        .from('asientos_items')
-        .select('observacion, haber')
-        .ilike('observacion', '%Recibo Nro. $numeroRecibo%')
-        .gt('haber', 0);
-
-    // Extraer información de las observaciones
-    for (final item in asientoItems) {
-      final observacion = item['observacion'] as String?;
-      final haber = (item['haber'] as num).toDouble();
-
-      if (observacion != null && observacion.contains('-')) {
-        // Formato: "Recibo Nro. 123 - MAE 202512"
-        final partes = observacion.split(' - ');
-        if (partes.length >= 2) {
-          final comprobante = partes[1].trim();
-          transaccionesList.add({
-            'tipo_comprobante': comprobante.split(' ').first,
-            'documento_numero': comprobante.split(' ').skip(1).join(' '),
-            'importe_total': haber, // Aproximación
-            'fecha': null,
-            'vencimiento': null,
-            'monto_pagado': haber,
-          });
-        }
-      }
+    for (final item in transaccionesData) {
+      final cc = item['cuentas_corrientes'];
+      transaccionesList.add({
+        'tipo_comprobante': cc['tipo_comprobante'] as String,
+        'documento_numero': cc['documento_numero'] as String?,
+        'importe_total': (cc['importe'] as num).toDouble(),
+        'fecha': cc['fecha'] as String?,
+        'vencimiento': cc['vencimiento'] as String?,
+        'monto_pagado': (item['monto'] as num).toDouble(),
+      });
     }
 
     // 6. Generar PDF
