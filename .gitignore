@@ -67,3 +67,8 @@ desktop.ini
 
 # IDE
 .fleet/
+
+# Firebase
+.firebase/
+firebase-debug.log
+firebase-debug.*.log

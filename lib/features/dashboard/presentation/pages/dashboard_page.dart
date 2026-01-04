@@ -15,7 +15,7 @@ class DashboardPage extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('SAO 2026 - Dashboard'),
+        title: const Text('SAO - Dashboard'),
         actions: [
           IconButton(
             icon: const Icon(Icons.lock_reset),
@@ -49,7 +49,7 @@ class DashboardPage extends ConsumerWidget {
             ),
             const SizedBox(height: 24),
             Text(
-              '¡Bienvenido al Sistema SAO 2026!',
+              '¡Bienvenido al Sistema SAO!',
               style: Theme.of(context).textTheme.headlineSmall,
             ),
             const SizedBox(height: 16),
