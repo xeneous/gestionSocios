@@ -240,7 +240,7 @@ class _ConceptoSearchDialogState extends State<_ConceptoSearchDialog> {
         _filtered = widget.conceptos
             .where((c) =>
                 c.concepto.toLowerCase().contains(query.toLowerCase()) ||
-                c.descripcion.toLowerCase().contains(query.toLowerCase()))
+                (c.descripcion?.toLowerCase() ?? '').contains(query.toLowerCase()))
             .toList();
       }
     });
@@ -271,7 +271,7 @@ class _ConceptoSearchDialogState extends State<_ConceptoSearchDialog> {
                 itemBuilder: (context, index) {
                   final concepto = _filtered[index];
                   return ListTile(
-                    title: Text(concepto.descripcion),
+                    title: Text(concepto.descripcion ?? ''),
                     subtitle: Text(
                       '${concepto.concepto} - '
                       '${concepto.importe != null ? '\$${concepto.importe!.toStringAsFixed(2)}' : 'Sin importe'}',

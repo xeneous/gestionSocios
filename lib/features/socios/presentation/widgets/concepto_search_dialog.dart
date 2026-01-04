@@ -28,7 +28,7 @@ class _ConceptoSearchDialogState extends State<ConceptoSearchDialog> {
     final searchLower = _searchTerm.toLowerCase();
     return widget.conceptos.where((c) {
       return c.concepto.toLowerCase().contains(searchLower) ||
-          c.descripcion.toLowerCase().contains(searchLower);
+          (c.descripcion?.toLowerCase() ?? '').contains(searchLower);
     }).toList();
   }
 
@@ -131,7 +131,7 @@ class _ConceptoSearchDialogState extends State<ConceptoSearchDialog> {
                                 ),
                               ),
                             ),
-                            title: Text(concepto.descripcion),
+                            title: Text(concepto.descripcion ?? ''),
                             subtitle: concepto.importe != null
                                 ? Text('Importe: \$${concepto.importe!.toStringAsFixed(2)}')
                                 : null,

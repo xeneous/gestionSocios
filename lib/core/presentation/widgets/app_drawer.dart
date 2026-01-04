@@ -52,37 +52,9 @@ class AppDrawer extends StatelessWidget {
               }
             },
           ),
-          
+
           const Divider(),
-          
-          // Plan de Cuentas
-          ListTile(
-            leading: const Icon(Icons.account_balance),
-            title: const Text('Plan de Cuentas'),
-            selected: currentRoute.startsWith('/cuentas'),
-            onTap: () {
-              Navigator.pop(context);
-              if (!currentRoute.startsWith('/cuentas')) {
-                context.go('/cuentas');
-              }
-            },
-          ),
-          
-          // Asientos Contables
-          ListTile(
-            leading: const Icon(Icons.receipt_long),
-            title: const Text('Asientos Contables'),
-            selected: currentRoute.startsWith('/asientos'),
-            onTap: () {
-              Navigator.pop(context);
-              if (!currentRoute.startsWith('/asientos')) {
-                context.go('/asientos');
-              }
-            },
-          ),
-          
-          const Divider(),
-          
+
           // Socios
           ListTile(
             leading: const Icon(Icons.people),
@@ -96,15 +68,15 @@ class AppDrawer extends StatelessWidget {
             },
           ),
 
-          // Cuentas Corrientes
+          // Asientos Contables
           ListTile(
-            leading: const Icon(Icons.account_balance_wallet),
-            title: const Text('Cuentas Corrientes'),
-            selected: currentRoute.startsWith('/cuentas-corrientes'),
+            leading: const Icon(Icons.receipt_long),
+            title: const Text('Asientos Contables'),
+            selected: currentRoute.startsWith('/asientos'),
             onTap: () {
               Navigator.pop(context);
-              if (!currentRoute.startsWith('/cuentas-corrientes')) {
-                context.go('/cuentas-corrientes');
+              if (!currentRoute.startsWith('/asientos')) {
+                context.go('/asientos');
               }
             },
           ),

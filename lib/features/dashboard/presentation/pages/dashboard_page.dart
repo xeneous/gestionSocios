@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
+import '../../../auth/presentation/providers/user_role_provider.dart';
 import '../../../../core/presentation/widgets/app_drawer.dart';
 
 class DashboardPage extends ConsumerWidget {
@@ -9,11 +11,23 @@ class DashboardPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final user = ref.watch(currentUserProvider);
+    final userRole = ref.watch(userRoleProvider);
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('SAO 2026 - Dashboard'),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.lock_reset),
+            onPressed: () => context.go('/change-password'),
+            tooltip: 'Cambiar Contraseña',
+          ),
+          if (userRole.puedeAccederMantenimiento)
+            IconButton(
+              icon: const Icon(Icons.settings),
+              onPressed: () => context.go('/mantenimiento'),
+              tooltip: 'Mantenimiento',
+            ),
           IconButton(
             icon: const Icon(Icons.logout),
             onPressed: () {
@@ -44,17 +58,51 @@ class DashboardPage extends ConsumerWidget {
                 'Usuario: ${user.email}',
                 style: Theme.of(context).textTheme.bodyLarge,
               ),
+              Text(
+                'Rol: ${userRole.displayName}',
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
               const SizedBox(height: 32),
+              if (userRole.puedeAccederMantenimiento) ...[
+                ElevatedButton.icon(
+                  onPressed: () => context.go('/mantenimiento'),
+                  icon: const Icon(Icons.settings),
+                  label: const Text('Ir a Mantenimiento'),
+                  style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 32,
+                      vertical: 16,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+              ],
+              if (userRole.puedeFacturarMasivo) ...[
+                ElevatedButton.icon(
+                  onPressed: () => context.go('/facturador-global'),
+                  icon: const Icon(Icons.receipt_long),
+                  label: const Text('Facturador Global de Cuotas'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.green,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 32,
+                      vertical: 16,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+              ],
               const Text(
-                'Próximamente:',
+                'Módulos disponibles:',
                 style: TextStyle(fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 8),
-              const Text('• Plan de Cuentas'),
-              const Text('• Asientos Contables'),
               const Text('• Gestión de Socios'),
-              const Text('• Facturación'),
-              const Text('• Compras y Ventas'),
+              const Text('• Cuentas Corrientes'),
+              const Text('• Cobranzas'),
+              const Text('• Asientos Contables'),
+              const Text('• Plan de Cuentas'),
             ],
           ],
         ),

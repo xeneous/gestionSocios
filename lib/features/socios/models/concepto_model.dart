@@ -1,31 +1,31 @@
 class Concepto {
   final String concepto;  // This is the primary key
-  final String descripcion;
+  final String? descripcion;
   final int? entidad;
   final String? modalidad;
   final double? importe;
   final String? grupo;
-  final bool? activo;
+  final bool activo;
 
   Concepto({
     required this.concepto,
-    required this.descripcion,
+    this.descripcion,
     this.entidad,
     this.modalidad,
     this.importe,
     this.grupo,
-    this.activo,
+    this.activo = true,
   });
 
   factory Concepto.fromJson(Map<String, dynamic> json) {
     return Concepto(
       concepto: json['concepto'] as String? ?? '',
-      descripcion: json['descripcion'] as String? ?? '',
+      descripcion: json['descripcion'] as String?,
       entidad: json['entidad'] as int?,
       modalidad: json['modalidad'] as String?,
       importe: json['importe'] != null ? (json['importe'] as num).toDouble() : null,
       grupo: json['grupo'] as String?,
-      activo: json['activo'] as bool?,
+      activo: json['activo'] as bool? ?? true,
     );
   }
 

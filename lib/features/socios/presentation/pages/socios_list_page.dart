@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../providers/socios_provider.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
+import '../../../auth/presentation/providers/user_role_provider.dart';
 import '../../providers/grupos_agrupados_provider.dart';
 import '../../../../core/presentation/widgets/app_drawer.dart';
 
@@ -372,46 +373,53 @@ class _SociosListPageState extends ConsumerState<SociosListPage> {
                             ),
                         ],
                       ),
-                      trailing: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          if (!['A', 'H', 'T', 'V'].contains(socio.grupo))
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 8, vertical: 4),
-                              decoration: BoxDecoration(
-                                color: Colors.grey[300],
-                                borderRadius: BorderRadius.circular(4),
+                      trailing: Consumer(
+                        builder: (context, ref, child) {
+                          final userRole = ref.watch(userRoleProvider);
+                          return Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              if (!['A', 'H', 'T', 'V'].contains(socio.grupo))
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 8, vertical: 4),
+                                  decoration: BoxDecoration(
+                                    color: Colors.grey[300],
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                  child: const Text(
+                                    'INACTIVO',
+                                    style: TextStyle(
+                                        fontSize: 10, fontWeight: FontWeight.bold),
+                                  ),
+                                ),
+                              const SizedBox(width: 8),
+                              IconButton(
+                                icon: const Icon(Icons.account_balance_wallet,
+                                    color: Colors.green),
+                                onPressed: () {
+                                  context
+                                      .go('/socios/${socio.id}/cuenta-corriente');
+                                },
+                                tooltip: 'Cuenta Corriente',
                               ),
-                              child: const Text(
-                                'INACTIVO',
-                                style: TextStyle(
-                                    fontSize: 10, fontWeight: FontWeight.bold),
+                              IconButton(
+                                icon: const Icon(Icons.edit, color: Colors.blue),
+                                onPressed: () {
+                                  context.go('/socios/${socio.id}');
+                                },
+                                tooltip: 'Editar',
                               ),
-                            ),
-                          const SizedBox(width: 8),
-                          IconButton(
-                            icon: const Icon(Icons.account_balance_wallet,
-                                color: Colors.green),
-                            onPressed: () {
-                              context
-                                  .go('/socios/${socio.id}/cuenta-corriente');
-                            },
-                            tooltip: 'Cuenta Corriente',
-                          ),
-                          IconButton(
-                            icon: const Icon(Icons.edit, color: Colors.blue),
-                            onPressed: () {
-                              context.go('/socios/${socio.id}');
-                            },
-                            tooltip: 'Editar',
-                          ),
-                          IconButton(
-                            icon: const Icon(Icons.delete, color: Colors.red),
-                            onPressed: () => _confirmDelete(context, socio),
-                            tooltip: 'Eliminar',
-                          ),
-                        ],
+                              // Solo administradores pueden eliminar socios
+                              if (userRole.esAdministrador)
+                                IconButton(
+                                  icon: const Icon(Icons.delete, color: Colors.red),
+                                  onPressed: () => _confirmDelete(context, socio),
+                                  tooltip: 'Eliminar',
+                                ),
+                            ],
+                          );
+                        },
                       ),
                       isThreeLine: true,
                     ),

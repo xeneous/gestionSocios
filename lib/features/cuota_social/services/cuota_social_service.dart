@@ -150,4 +150,68 @@ class CuotaSocialService {
 
     return List<Map<String, dynamic>>.from(response);
   }
+
+  // ==================== CRUD VALORES CUOTA SOCIAL ====================
+
+  /// Crea un nuevo valor de cuota social
+  Future<ValorCuotaSocial> crearValorCuota({
+    required int anioMesInicio,
+    required int? anioMesCierre,
+    required double valorResidente,
+    required double valorTitular,
+  }) async {
+    final response = await _supabase
+        .from('valores_cuota_social')
+        .insert({
+          'anio_mes_inicio': anioMesInicio,
+          'anio_mes_cierre': anioMesCierre,
+          'valor_residente': valorResidente,
+          'valor_titular': valorTitular,
+        })
+        .select()
+        .single();
+
+    return ValorCuotaSocial.fromJson(response);
+  }
+
+  /// Actualiza un valor de cuota social existente
+  Future<ValorCuotaSocial> actualizarValorCuota({
+    required int id,
+    required int anioMesInicio,
+    required int? anioMesCierre,
+    required double valorResidente,
+    required double valorTitular,
+  }) async {
+    final response = await _supabase
+        .from('valores_cuota_social')
+        .update({
+          'anio_mes_inicio': anioMesInicio,
+          'anio_mes_cierre': anioMesCierre,
+          'valor_residente': valorResidente,
+          'valor_titular': valorTitular,
+          'updated_at': DateTime.now().toIso8601String(),
+        })
+        .eq('id', id)
+        .select()
+        .single();
+
+    return ValorCuotaSocial.fromJson(response);
+  }
+
+  /// Elimina un valor de cuota social
+  Future<void> eliminarValorCuota(int id) async {
+    await _supabase.from('valores_cuota_social').delete().eq('id', id);
+  }
+
+  /// Obtiene un valor de cuota social por ID
+  Future<ValorCuotaSocial?> getValorCuotaPorId(int id) async {
+    final response = await _supabase
+        .from('valores_cuota_social')
+        .select()
+        .eq('id', id)
+        .maybeSingle();
+
+    if (response == null) return null;
+    return ValorCuotaSocial.fromJson(response);
+  }
 }

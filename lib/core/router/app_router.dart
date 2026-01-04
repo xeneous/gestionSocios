@@ -16,6 +16,13 @@ import '../../features/cuentas_corrientes/presentation/pages/cobranzas_select_so
 import '../../features/cuentas_corrientes/presentation/pages/cobranzas_page.dart';
 import '../../features/conceptos_tesoreria/presentation/pages/conceptos_tesoreria_list_page.dart';
 import '../../features/conceptos_tesoreria/presentation/pages/concepto_tesoreria_form_page.dart';
+import '../../features/socios/presentation/pages/conceptos_list_page.dart';
+import '../../features/socios/presentation/pages/concepto_form_page.dart';
+import '../../features/admin/presentation/pages/mantenimiento_page.dart';
+import '../../features/auth/presentation/pages/usuarios_list_page.dart';
+import '../../features/auth/presentation/pages/usuario_form_page.dart';
+import '../../features/auth/presentation/pages/change_password_page.dart';
+import '../../features/facturador/presentation/pages/facturador_global_page.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   final authState = ref.watch(authStateProvider);
@@ -167,6 +174,62 @@ final routerProvider = Provider<GoRouter>((ref) {
           final id = int.parse(state.pathParameters['id']!);
           return ConceptoTesoreriaFormPage(conceptoId: id);
         },
+      ),
+      // Conceptos (Socios)
+      GoRoute(
+        path: '/conceptos',
+        name: 'conceptos',
+        builder: (context, state) => const ConceptosListPage(),
+      ),
+      GoRoute(
+        path: '/conceptos/new',
+        name: 'conceptos-new',
+        builder: (context, state) => const ConceptoFormPage(),
+      ),
+      GoRoute(
+        path: '/conceptos/:codigo',
+        name: 'conceptos-edit',
+        builder: (context, state) {
+          final codigo = state.pathParameters['codigo']!;
+          return ConceptoFormPage(conceptoCodigo: codigo);
+        },
+      ),
+      // Mantenimiento/Administración
+      GoRoute(
+        path: '/mantenimiento',
+        name: 'mantenimiento',
+        builder: (context, state) => const MantenimientoPage(),
+      ),
+      // Usuarios
+      GoRoute(
+        path: '/usuarios',
+        name: 'usuarios',
+        builder: (context, state) => const UsuariosListPage(),
+      ),
+      GoRoute(
+        path: '/usuarios/new',
+        name: 'usuarios-new',
+        builder: (context, state) => const UsuarioFormPage(),
+      ),
+      GoRoute(
+        path: '/usuarios/:id',
+        name: 'usuarios-edit',
+        builder: (context, state) {
+          final id = state.pathParameters['id']!;
+          return UsuarioFormPage(usuarioId: id);
+        },
+      ),
+      // Cambiar contraseña
+      GoRoute(
+        path: '/change-password',
+        name: 'change-password',
+        builder: (context, state) => const ChangePasswordPage(),
+      ),
+      // Facturador Global
+      GoRoute(
+        path: '/facturador-global',
+        name: 'facturador-global',
+        builder: (context, state) => const FacturadorGlobalPage(),
       ),
     ],
   );

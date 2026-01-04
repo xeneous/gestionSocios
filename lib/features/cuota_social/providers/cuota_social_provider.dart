@@ -52,3 +52,88 @@ class ItemsCuotaParams {
   int get hashCode =>
       esResidente.hashCode ^ cantidadMeses.hashCode ^ fechaInicio.hashCode;
 }
+
+/// Notifier para manejar el CRUD de valores de cuota social
+class ValoresCuotaNotifier extends Notifier<AsyncValue<List<ValorCuotaSocial>>> {
+  @override
+  AsyncValue<List<ValorCuotaSocial>> build() {
+    // Cargar valores inicialmente
+    _loadValores();
+    return const AsyncValue.loading();
+  }
+
+  Future<void> _loadValores() async {
+    state = const AsyncValue.loading();
+    try {
+      final service = ref.read(cuotaSocialServiceProvider);
+      final valores = await service.getValoresCuota();
+      state = AsyncValue.data(valores);
+    } catch (e, st) {
+      state = AsyncValue.error(e, st);
+    }
+  }
+
+  /// Refresca la lista de valores
+  Future<void> refresh() => _loadValores();
+
+  /// Crea un nuevo valor de cuota
+  Future<void> crear({
+    required int anioMesInicio,
+    required int? anioMesCierre,
+    required double valorResidente,
+    required double valorTitular,
+  }) async {
+    try {
+      final service = ref.read(cuotaSocialServiceProvider);
+      await service.crearValorCuota(
+        anioMesInicio: anioMesInicio,
+        anioMesCierre: anioMesCierre,
+        valorResidente: valorResidente,
+        valorTitular: valorTitular,
+      );
+      await refresh();
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  /// Actualiza un valor de cuota existente
+  Future<void> actualizar({
+    required int id,
+    required int anioMesInicio,
+    required int? anioMesCierre,
+    required double valorResidente,
+    required double valorTitular,
+  }) async {
+    try {
+      final service = ref.read(cuotaSocialServiceProvider);
+      await service.actualizarValorCuota(
+        id: id,
+        anioMesInicio: anioMesInicio,
+        anioMesCierre: anioMesCierre,
+        valorResidente: valorResidente,
+        valorTitular: valorTitular,
+      );
+      await refresh();
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  /// Elimina un valor de cuota
+  Future<void> eliminar(int id) async {
+    try {
+      final service = ref.read(cuotaSocialServiceProvider);
+      await service.eliminarValorCuota(id);
+      await refresh();
+    } catch (e) {
+      rethrow;
+    }
+  }
+}
+
+/// Provider del notifier de valores de cuota
+final valoresCuotaNotifierProvider =
+    NotifierProvider<ValoresCuotaNotifier, AsyncValue<List<ValorCuotaSocial>>>(
+  () => ValoresCuotaNotifier(),
+);
