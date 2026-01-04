@@ -87,8 +87,8 @@ final cuentasCorrientesSearchProvider = FutureProvider.family<
           'fecha', params.fechaHasta!.toIso8601String().split('T')[0]);
     }
 
-    // Ordenar por fecha descendente
-    final headersResponse = await query.order('fecha', ascending: false);
+    // Ordenar por fecha ascendente
+    final headersResponse = await query.order('fecha', ascending: true);
 
     final headers = (headersResponse as List).map((json) {
       final header = CuentaCorriente.fromJson(json);

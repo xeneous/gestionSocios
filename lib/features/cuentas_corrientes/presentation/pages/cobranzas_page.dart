@@ -730,6 +730,9 @@ class _CobranzasPageState extends ConsumerState<CobranzasPage> {
     );
 
     try {
+      // Guardar el total ANTES de generar el recibo (para mostrarlo después)
+      final totalCobrado = _getTotalSeleccionado();
+
       // Generar el recibo usando el servicio
       final resultado = await ref
           .read(cobranzasNotifierProvider.notifier)
@@ -793,7 +796,7 @@ class _CobranzasPageState extends ConsumerState<CobranzasPage> {
               ),
               const SizedBox(height: 16),
               Text(
-                'Total: \$${_getTotalSeleccionado().toStringAsFixed(2)}',
+                'Total: \$${totalCobrado.toStringAsFixed(2)}',
                 style: const TextStyle(fontSize: 16),
               ),
               const SizedBox(height: 8),

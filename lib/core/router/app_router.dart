@@ -14,6 +14,8 @@ import '../../features/cuentas_corrientes/presentation/pages/cuenta_corriente_fo
 import '../../features/cuentas_corrientes/presentation/pages/cuenta_corriente_socio_table_page.dart';
 import '../../features/cuentas_corrientes/presentation/pages/cobranzas_select_socio_page.dart';
 import '../../features/cuentas_corrientes/presentation/pages/cobranzas_page.dart';
+import '../../features/conceptos_tesoreria/presentation/pages/conceptos_tesoreria_list_page.dart';
+import '../../features/conceptos_tesoreria/presentation/pages/concepto_tesoreria_form_page.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   final authState = ref.watch(authStateProvider);
@@ -145,6 +147,25 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) {
           final socioId = int.parse(state.pathParameters['socioId']!);
           return CobranzasPage(socioId: socioId);
+        },
+      ),
+      // Conceptos de Tesorería
+      GoRoute(
+        path: '/conceptos-tesoreria',
+        name: 'conceptos-tesoreria',
+        builder: (context, state) => const ConceptosTesoreriaListPage(),
+      ),
+      GoRoute(
+        path: '/conceptos-tesoreria/new',
+        name: 'conceptos-tesoreria-new',
+        builder: (context, state) => const ConceptoTesoreriaFormPage(),
+      ),
+      GoRoute(
+        path: '/conceptos-tesoreria/:id',
+        name: 'conceptos-tesoreria-edit',
+        builder: (context, state) {
+          final id = int.parse(state.pathParameters['id']!);
+          return ConceptoTesoreriaFormPage(conceptoId: id);
         },
       ),
     ],

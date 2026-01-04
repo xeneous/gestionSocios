@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
@@ -18,6 +19,7 @@ import '../../providers/conceptos_provider.dart';
 import '../../models/concepto_model.dart';
 import '../../models/concepto_socio_model.dart';
 import '../../models/observacion_socio_model.dart';
+import '../../../cuota_social/presentation/dialogs/cargar_cuotas_dialog.dart';
 
 class SocioFormPage extends ConsumerStatefulWidget {
   final int? socioId;
@@ -43,13 +45,13 @@ class _SocioFormPageState extends ConsumerState<SocioFormPage>
   DateTime? _fechaNacimiento;
 
   // Datos Profesionales
-  String? _grupo;
+  String? _grupo = 'A'; // Grupo por defecto: 'A' = Asociado
   DateTime? _grupoDesde;
   final _matriculaNacionalController = TextEditingController();
   final _matriculaProvincialController = TextEditingController();
   bool _residente = false;
   DateTime? _fechaInicioResidencia;
-  DateTime? _fechaIngreso;
+  DateTime? _fechaIngreso = DateTime.now(); // Fecha actual por defecto
 
   // Domicilio y Contacto
   final _domicilioController = TextEditingController();
@@ -225,12 +227,15 @@ class _SocioFormPageState extends ConsumerState<SocioFormPage>
         debitarDesde: _debitarDesde,
       );
 
+      int? nuevoSocioId;
+      bool isNewSocio = widget.socioId == null;
+
       if (widget.socioId != null) {
         await ref
             .read(sociosNotifierProvider.notifier)
             .updateSocio(widget.socioId!, socio);
       } else {
-        await ref.read(sociosNotifierProvider.notifier).createSocio(socio);
+        nuevoSocioId = await ref.read(sociosNotifierProvider.notifier).createSocio(socio);
       }
 
       if (mounted) {
@@ -241,6 +246,54 @@ class _SocioFormPageState extends ConsumerState<SocioFormPage>
                 : 'Socio creado correctamente'),
           ),
         );
+
+        // Si es un nuevo socio, mostrar diálogo de cargar cuotas
+        if (isNewSocio && nuevoSocioId != null) {
+          final resultado = await showDialog<bool>(
+            context: context,
+            barrierDismissible: false,
+            builder: (context) => CargarCuotasDialog(
+              socioId: nuevoSocioId!,
+              esResidente: _residente,
+              nombreSocio: '${_apellidoController.text}, ${_nombreController.text}',
+            ),
+          );
+
+          if (resultado == true && mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Cuotas sociales creadas correctamente'),
+                backgroundColor: Colors.green,
+              ),
+            );
+
+            // Preguntar si desea cargar la cobranza
+            final cargarCobranza = await showDialog<bool>(
+              context: context,
+              builder: (context) => AlertDialog(
+                title: const Text('Cargar Cobranza'),
+                content: const Text('¿Desea cargar la cobranza para las cuotas sociales creadas?'),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.of(context).pop(false),
+                    child: const Text('No'),
+                  ),
+                  FilledButton(
+                    onPressed: () => Navigator.of(context).pop(true),
+                    child: const Text('Sí'),
+                  ),
+                ],
+              ),
+            );
+
+            // Si confirma, navegar a la pantalla de cobranzas
+            if (cargarCobranza == true && mounted) {
+              context.go('/cobranzas/$nuevoSocioId');
+              return; // Salir sin volver a /socios
+            }
+          }
+        }
+
         if (closeAfterSave) {
           context.go('/socios');
         }
@@ -559,7 +612,15 @@ class _SocioFormPageState extends ConsumerState<SocioFormPage>
                   }
                   return null;
                 },
-                textCapitalization: TextCapitalization.words,
+                textCapitalization: TextCapitalization.characters,
+                inputFormatters: [
+                  TextInputFormatter.withFunction((oldValue, newValue) {
+                    return TextEditingValue(
+                      text: newValue.text.toUpperCase(),
+                      selection: newValue.selection,
+                    );
+                  }),
+                ],
               ),
             ),
             const SizedBox(width: 16),
@@ -577,7 +638,15 @@ class _SocioFormPageState extends ConsumerState<SocioFormPage>
                   }
                   return null;
                 },
-                textCapitalization: TextCapitalization.words,
+                textCapitalization: TextCapitalization.characters,
+                inputFormatters: [
+                  TextInputFormatter.withFunction((oldValue, newValue) {
+                    return TextEditingValue(
+                      text: newValue.text.toUpperCase(),
+                      selection: newValue.selection,
+                    );
+                  }),
+                ],
               ),
             ),
           ],

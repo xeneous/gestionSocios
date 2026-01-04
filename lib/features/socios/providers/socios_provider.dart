@@ -84,14 +84,23 @@ class SociosNotifier extends Notifier<AsyncValue<void>> {
     return const AsyncValue.data(null);
   }
 
-  Future<void> createSocio(Socio socio) async {
+  Future<int> createSocio(Socio socio) async {
     state = const AsyncValue.loading();
     try {
       final supabase = ref.read(supabaseProvider);
 
-      await supabase.from('socios').insert(socio.toJson());
+      // Remover el campo 'id' del JSON para que PostgreSQL lo genere automáticamente
+      final json = socio.toJson();
+      json.remove('id');
+
+      final response = await supabase
+          .from('socios')
+          .insert(json)
+          .select('id')
+          .single();
 
       state = const AsyncValue.data(null);
+      return response['id'] as int;
     } catch (e, st) {
       state = AsyncValue.error(e, st);
       rethrow;

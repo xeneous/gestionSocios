@@ -8,6 +8,7 @@ class ConceptoTesoreria {
   final int? unificador;
   final int mostrador;
   final int monedaExtranjera;
+  final bool activo;
 
   ConceptoTesoreria({
     required this.id,
@@ -19,6 +20,7 @@ class ConceptoTesoreria {
     this.unificador,
     required this.mostrador,
     required this.monedaExtranjera,
+    this.activo = true,
   });
 
   factory ConceptoTesoreria.fromJson(Map<String, dynamic> json) {
@@ -32,6 +34,7 @@ class ConceptoTesoreria {
       unificador: json['unificador'] as int?,
       mostrador: json['mostrador'] as int? ?? 0,
       monedaExtranjera: json['moneda_extranjera'] as int? ?? 0,
+      activo: json['activo'] as bool? ?? true,
     );
   }
 
@@ -46,6 +49,7 @@ class ConceptoTesoreria {
       'unificador': unificador,
       'mostrador': mostrador,
       'moneda_extranjera': monedaExtranjera,
+      'activo': activo,
     };
   }
 
