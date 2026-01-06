@@ -23,6 +23,8 @@ import '../../features/auth/presentation/pages/usuarios_list_page.dart';
 import '../../features/auth/presentation/pages/usuario_form_page.dart';
 import '../../features/auth/presentation/pages/change_password_page.dart';
 import '../../features/facturador/presentation/pages/facturador_global_page.dart';
+import '../../features/cuota_social/presentation/pages/valores_cuota_page.dart';
+import '../../features/debitos_automaticos/presentation/pages/debitos_automaticos_page.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   final authState = ref.watch(authStateProvider);
@@ -230,6 +232,18 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/facturador-global',
         name: 'facturador-global',
         builder: (context, state) => const FacturadorGlobalPage(),
+      ),
+      // Valores de Cuota Social
+      GoRoute(
+        path: '/valores-cuota',
+        name: 'valores-cuota',
+        builder: (context, state) => const ValoresCuotaPage(),
+      ),
+      // Débitos Automáticos
+      GoRoute(
+        path: '/debitos-automaticos',
+        name: 'debitos-automaticos',
+        builder: (context, state) => const DebitosAutomaticosPage(),
       ),
     ],
   );

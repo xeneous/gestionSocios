@@ -92,6 +92,20 @@ class DashboardPage extends ConsumerWidget {
                   ),
                 ),
                 const SizedBox(height: 16),
+                ElevatedButton.icon(
+                  onPressed: () => context.go('/debitos-automaticos'),
+                  icon: const Icon(Icons.credit_card),
+                  label: const Text('Presentación Débitos Automáticos'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.purple,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 32,
+                      vertical: 16,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
               ],
               const Text(
                 'Módulos disponibles:',
