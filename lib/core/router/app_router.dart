@@ -25,6 +25,7 @@ import '../../features/auth/presentation/pages/change_password_page.dart';
 import '../../features/facturador/presentation/pages/facturador_global_page.dart';
 import '../../features/cuota_social/presentation/pages/valores_cuota_page.dart';
 import '../../features/debitos_automaticos/presentation/pages/debitos_automaticos_page.dart';
+import '../../features/seguimiento_deudas/presentation/pages/seguimiento_deudas_page.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   final authState = ref.watch(authStateProvider);
@@ -244,6 +245,12 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/debitos-automaticos',
         name: 'debitos-automaticos',
         builder: (context, state) => const DebitosAutomaticosPage(),
+      ),
+      // Seguimiento de Deudas
+      GoRoute(
+        path: '/seguimiento-deudas',
+        name: 'seguimiento-deudas',
+        builder: (context, state) => const SeguimientoDeudasPage(),
       ),
     ],
   );

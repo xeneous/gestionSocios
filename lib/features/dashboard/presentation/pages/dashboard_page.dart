@@ -106,6 +106,20 @@ class DashboardPage extends ConsumerWidget {
                   ),
                 ),
                 const SizedBox(height: 16),
+                ElevatedButton.icon(
+                  onPressed: () => context.go('/seguimiento-deudas'),
+                  icon: const Icon(Icons.monitor_heart),
+                  label: const Text('Seguimiento de Deudas'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.red,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 32,
+                      vertical: 16,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
               ],
               const Text(
                 'Módulos disponibles:',
