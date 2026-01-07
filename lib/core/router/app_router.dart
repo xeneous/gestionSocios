@@ -26,6 +26,7 @@ import '../../features/facturador/presentation/pages/facturador_global_page.dart
 import '../../features/cuota_social/presentation/pages/valores_cuota_page.dart';
 import '../../features/debitos_automaticos/presentation/pages/debitos_automaticos_page.dart';
 import '../../features/seguimiento_deudas/presentation/pages/seguimiento_deudas_page.dart';
+import '../../features/cuentas_corrientes/presentation/pages/resumen_cuentas_corrientes_page.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   final authState = ref.watch(authStateProvider);
@@ -251,6 +252,12 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/seguimiento-deudas',
         name: 'seguimiento-deudas',
         builder: (context, state) => const SeguimientoDeudasPage(),
+      ),
+      // Resumen Cuentas Corrientes
+      GoRoute(
+        path: '/resumen-cuentas-corrientes',
+        name: 'resumen-cuentas-corrientes',
+        builder: (context, state) => const ResumenCuentasCorrientesPage(),
       ),
     ],
   );

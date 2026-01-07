@@ -13,7 +13,9 @@
       "Bash(timeout 60 node:*)",
       "Bash(flutter devices:*)",
       "Bash(flutter pub get:*)",
-      "Bash(flutter clean:*)"
+      "Bash(flutter clean:*)",
+      "Bash(flutter pub add:*)",
+      "Bash(supabase --version)"
     ]
   }
 }

@@ -2,6 +2,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/cuenta_corriente_model.dart';
 import '../models/detalle_cuenta_corriente_model.dart';
 import '../models/cuenta_corriente_completa_model.dart';
+import '../models/cuenta_corriente_resumen.dart';
+import '../services/cuentas_corrientes_service.dart';
 import '../../auth/presentation/providers/auth_provider.dart';
 
 // ============================================================================
@@ -490,4 +492,48 @@ final saldoSocioProvider =
   return ref
       .read(cuentasCorrientesNotifierProvider.notifier)
       .getSaldoSocio(socioId);
+});
+
+// ============================================================================
+// PROVIDER PARA RESUMEN DE CUENTAS CORRIENTES (LISTADO CON PAGINACIÓN)
+// ============================================================================
+
+/// Provider del servicio de resumen de cuentas corrientes
+final cuentasCorrientesResumenServiceProvider = Provider<CuentasCorrientesService>((ref) {
+  final supabase = ref.watch(supabaseProvider);
+  return CuentasCorrientesService(supabase);
+});
+
+/// Notifier para manejar el estado de la página actual del resumen
+class ResumenPaginaNotifier extends Notifier<int> {
+  @override
+  int build() => 0;
+
+  void setPagina(int pagina) {
+    state = pagina;
+  }
+
+  void reset() {
+    state = 0;
+  }
+}
+
+/// Provider de estado para la página actual del resumen
+final resumenCuentasCorrientesPaginaProvider = NotifierProvider<ResumenPaginaNotifier, int>(() {
+  return ResumenPaginaNotifier();
+});
+
+/// Tamaño de página para resumen
+const int resumenPageSize = 50;
+
+/// Provider para obtener el resumen de cuentas corrientes paginado
+final resumenCuentasCorrientesProvider =
+    FutureProvider<Map<String, dynamic>>((ref) async {
+  final service = ref.watch(cuentasCorrientesResumenServiceProvider);
+  final pagina = ref.watch(resumenCuentasCorrientesPaginaProvider);
+
+  return service.obtenerResumenCuentasCorrientes(
+    limit: resumenPageSize,
+    offset: pagina * resumenPageSize,
+  );
 });

@@ -19,6 +19,8 @@ class _SeguimientoDeudasPageState extends ConsumerState<SeguimientoDeudasPage> {
   bool _soloDebitoAutomatico = false;
   int? _tarjetaSeleccionada;
   bool _mostrarResultados = false;
+  bool _mesesOMas = true; // Por defecto "o más"
+  int _paginaActual = 0;
 
   @override
   void dispose() {
@@ -65,17 +67,45 @@ class _SeguimientoDeudasPageState extends ConsumerState<SeguimientoDeudasPage> {
                     children: [
                       // Meses impagos
                       Expanded(
-                        child: TextFormField(
-                          controller: _mesesImpagosController,
-                          decoration: const InputDecoration(
-                            labelText: 'Meses Impagos (mínimo)',
-                            border: OutlineInputBorder(),
-                            prefixIcon: Icon(Icons.calendar_month),
-                            helperText: 'Cantidad mínima de meses adeudados',
-                          ),
-                          keyboardType: TextInputType.number,
-                          inputFormatters: [
-                            FilteringTextInputFormatter.digitsOnly,
+                        flex: 2,
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: TextFormField(
+                                controller: _mesesImpagosController,
+                                decoration: InputDecoration(
+                                  labelText: 'Meses Impagos',
+                                  border: const OutlineInputBorder(),
+                                  prefixIcon: const Icon(Icons.calendar_month),
+                                  helperText: _mesesOMas
+                                    ? 'Cantidad mínima de meses adeudados'
+                                    : 'Cantidad exacta de meses adeudados',
+                                ),
+                                keyboardType: TextInputType.number,
+                                inputFormatters: [
+                                  FilteringTextInputFormatter.digitsOnly,
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const SizedBox(height: 8),
+                                Checkbox(
+                                  value: _mesesOMas,
+                                  onChanged: (value) {
+                                    setState(() {
+                                      _mesesOMas = value ?? true;
+                                    });
+                                  },
+                                ),
+                                const Text(
+                                  'o más',
+                                  style: TextStyle(fontSize: 12),
+                                ),
+                              ],
+                            ),
                           ],
                         ),
                       ),
@@ -221,12 +251,22 @@ class _SeguimientoDeudasPageState extends ConsumerState<SeguimientoDeudasPage> {
       mesesImpagos: mesesImpagos,
       soloDebitoAutomatico: _soloDebitoAutomatico,
       tarjetaId: _tarjetaSeleccionada,
+      mesesOMas: _mesesOMas,
     );
 
-    final sociosAsync = ref.watch(sociosConDeudaProvider(filtro));
+    final params = FiltroSeguimientoParamsConPaginacion(
+      filtro: filtro,
+      pagina: _paginaActual,
+    );
+
+    final sociosAsync = ref.watch(sociosConDeudaProvider(params));
 
     return sociosAsync.when(
-      data: (socios) => _buildGrilla(socios),
+      data: (data) {
+        final socios = data['items'] as List<SocioDeudaItem>;
+        final totalCount = data['totalCount'] as int;
+        return _buildGrilla(socios, totalCount);
+      },
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (error, stack) => Center(
         child: Column(
@@ -250,7 +290,7 @@ class _SeguimientoDeudasPageState extends ConsumerState<SeguimientoDeudasPage> {
     );
   }
 
-  Widget _buildGrilla(List<SocioDeudaItem> socios) {
+  Widget _buildGrilla(List<SocioDeudaItem> socios, int totalCount) {
     if (socios.isEmpty) {
       return Center(
         child: Column(
@@ -277,20 +317,33 @@ class _SeguimientoDeudasPageState extends ConsumerState<SeguimientoDeudasPage> {
 
     return Column(
       children: [
-        // Estadística
+        // Estadística y paginación info
         Container(
           padding: const EdgeInsets.all(16),
           color: Colors.blue.shade50,
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
+          child: Column(
             children: [
-              const Icon(Icons.people, color: Colors.blue, size: 32),
-              const SizedBox(width: 16),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.people, color: Colors.blue, size: 32),
+                  const SizedBox(width: 16),
+                  Text(
+                    '$totalCount socios con deudas encontrados',
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
               Text(
-                '${socios.length} socios con deudas encontrados',
+                'Mostrando ${_paginaActual * 50 + 1}-${(_paginaActual * 50 + socios.length).clamp(0, totalCount)} de $totalCount socios',
                 style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
+                  fontSize: 12,
+                  color: Colors.grey,
+                  fontWeight: FontWeight.w500,
                 ),
               ),
             ],
@@ -417,6 +470,92 @@ class _SeguimientoDeudasPageState extends ConsumerState<SeguimientoDeudasPage> {
             ),
           ),
         ),
+
+        // Controles de paginación
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            border: Border(
+              top: BorderSide(color: Colors.grey.shade300),
+            ),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              // Botón primera página
+              IconButton(
+                icon: const Icon(Icons.first_page),
+                tooltip: 'Primera página',
+                onPressed: _paginaActual > 0
+                    ? () {
+                        setState(() {
+                          _paginaActual = 0;
+                        });
+                      }
+                    : null,
+              ),
+              const SizedBox(width: 8),
+
+              // Botón anterior
+              IconButton(
+                icon: const Icon(Icons.chevron_left),
+                tooltip: 'Página anterior',
+                onPressed: _paginaActual > 0
+                    ? () {
+                        setState(() {
+                          _paginaActual--;
+                        });
+                      }
+                    : null,
+              ),
+              const SizedBox(width: 16),
+
+              // Indicador de página
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                decoration: BoxDecoration(
+                  color: Colors.blue.shade50,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  'Página ${_paginaActual + 1} de ${((totalCount - 1) ~/ 50) + 1}',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 16),
+
+              // Botón siguiente
+              IconButton(
+                icon: const Icon(Icons.chevron_right),
+                tooltip: 'Página siguiente',
+                onPressed: (_paginaActual + 1) * 50 < totalCount
+                    ? () {
+                        setState(() {
+                          _paginaActual++;
+                        });
+                      }
+                    : null,
+              ),
+              const SizedBox(width: 8),
+
+              // Botón última página
+              IconButton(
+                icon: const Icon(Icons.last_page),
+                tooltip: 'Última página',
+                onPressed: (_paginaActual + 1) * 50 < totalCount
+                    ? () {
+                        setState(() {
+                          _paginaActual = ((totalCount - 1) ~/ 50);
+                        });
+                      }
+                    : null,
+              ),
+            ],
+          ),
+        ),
       ],
     );
   }
@@ -441,6 +580,7 @@ class _SeguimientoDeudasPageState extends ConsumerState<SeguimientoDeudasPage> {
 
     setState(() {
       _mostrarResultados = true;
+      _paginaActual = 0; // Reset pagination when searching
     });
   }
 

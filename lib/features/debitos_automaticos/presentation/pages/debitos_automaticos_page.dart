@@ -1,8 +1,17 @@
+import 'dart:convert';
+import 'dart:io';
+
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:universal_html/html.dart' as html;
+
 import '../../models/debito_automatico_item.dart';
+import '../../models/presentacion_config.dart';
 import '../../providers/debitos_automaticos_provider.dart';
+import '../../services/presentacion_tarjetas_service.dart';
 import '../../../socios/providers/tarjetas_provider.dart';
 
 class DebitosAutomaticosPage extends ConsumerStatefulWidget {
@@ -529,7 +538,7 @@ class _DebitosAutomaticosPageState
         title: const Text('Confirmar Ejecución'),
         content: Text(
           '¿Está seguro que desea procesar ${movimientos.length} débitos automáticos?\n\n'
-          'Esta acción generará la presentación para la tarjeta seleccionada.',
+          'Esta acción generará el archivo de presentación para la tarjeta seleccionada.',
         ),
         actions: [
           TextButton(
@@ -549,23 +558,86 @@ class _DebitosAutomaticosPageState
 
     if (confirmar != true || !mounted) return;
 
-    // TODO: Implementar lógica de ejecución
-    // Por ahora mostrar mensaje de éxito
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Presentación ejecutada: ${movimientos.length} movimientos procesados',
-          ),
-          backgroundColor: Colors.green,
-          duration: const Duration(seconds: 3),
-        ),
-      );
+    try {
+      // Importar servicio
+      final service = PresentacionTarjetasService();
+      
+      // Determinar tipo de tarjeta (Visa o Mastercard)
+      final esVisa = _tarjetaSeleccionada == PresentacionConfig.visaTarjetaId;
+      
+      // Generar archivo según tipo de tarjeta
+      final String contenidoArchivo;
+      final String nombreArchivo;
+      
+      if (esVisa) {
+        contenidoArchivo = service.generarArchivoVisa(movimientos, _fechaSeleccionada);
+        nombreArchivo = 'Visamov_${DateFormat('yyyyMMdd').format(_fechaSeleccionada)}.txt';
+      } else {
+        contenidoArchivo = service.generarArchivoMastercard(movimientos, _fechaSeleccionada);
+        nombreArchivo = 'Pesos_${DateFormat('yyyyMMdd').format(_fechaSeleccionada)}.txt';
+      }
 
-      // Resetear vista
-      setState(() {
-        _mostrarVistaPrevia = false;
-      });
+      // Descargar archivo
+      if (kIsWeb) {
+        _descargarArchivoWeb(contenidoArchivo, nombreArchivo);
+      } else {
+        await _descargarArchivoDesktop(contenidoArchivo, nombreArchivo);
+      }
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Archivo generado exitosamente: $nombreArchivo\n'
+              '${movimientos.length} movimientos procesados',
+            ),
+            backgroundColor: Colors.green,
+            duration: const Duration(seconds: 5),
+          ),
+        );
+
+        // Resetear vista
+        setState(() {
+          _mostrarVistaPrevia = false;
+        });
+      }
+    } catch (e, stackTrace) {
+      print('Error al generar presentación: $e');
+      print(stackTrace);
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error al generar archivo: $e'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 5),
+          ),
+        );
+      }
     }
   }
+
+  /// Descarga archivo en Flutter Web usando blob
+  void _descargarArchivoWeb(String contenido, String nombreArchivo) {
+    final bytes = utf8.encode(contenido);
+    final blob = html.Blob([bytes]);
+    final url = html.Url.createObjectUrlFromBlob(blob);
+    final anchor = html.AnchorElement(href: url)
+      ..setAttribute('download', nombreArchivo)
+      ..click();
+    html.Url.revokeObjectUrl(url);
+  }
+
+  /// Descarga archivo en Desktop/Mobile
+  Future<void> _descargarArchivoDesktop(String contenido, String nombreArchivo) async {
+    final directory = await getDownloadsDirectory();
+    if (directory == null) {
+      throw Exception('No se pudo acceder al directorio de descargas');
+    }
+
+    final filePath = '${directory.path}/$nombreArchivo';
+    final file = File(filePath);
+    await file.writeAsString(contenido);
+  }
+
 }

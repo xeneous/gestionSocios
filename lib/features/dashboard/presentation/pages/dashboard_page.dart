@@ -120,6 +120,20 @@ class DashboardPage extends ConsumerWidget {
                   ),
                 ),
                 const SizedBox(height: 16),
+                ElevatedButton.icon(
+                  onPressed: () => context.go('/resumen-cuentas-corrientes'),
+                  icon: const Icon(Icons.account_balance_wallet),
+                  label: const Text('Resumen Cuentas Corrientes'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.teal,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 32,
+                      vertical: 16,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
               ],
               const Text(
                 'Módulos disponibles:',
