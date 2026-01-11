@@ -109,4 +109,94 @@ class DebitosAutomaticosService {
       'total_importe': totalImporte,
     };
   }
+
+  /// Registra contablemente una presentación de débitos automáticos
+  ///
+  /// Esta función:
+  /// 1. Crea un comprobante 'DA' por cada socio
+  /// 2. Actualiza el campo cancelado en los CS que originaron el débito
+  /// 3. Registra la trazabilidad en operaciones_contables
+  /// 4. Genera el asiento contable tipo 6 (Resumen Débito Automático)
+  ///
+  /// Parámetros:
+  /// - items: Lista de items de la presentación (agrupados por socio)
+  /// - anioMes: Período de presentación (ej: 202512)
+  /// - fechaPresentacion: Fecha de la presentación
+  /// - nombreTarjeta: Nombre de la tarjeta (ej: 'Visa', 'Mastercard')
+  /// - operadorId: ID del operador (opcional)
+  ///
+  /// Retorna: Map con {operacion_id, numero_asiento}
+  Future<Map<String, int>> registrarPresentacionDebitoAutomatico({
+    required List<DebitoAutomaticoItem> items,
+    required int anioMes,
+    required DateTime fechaPresentacion,
+    required String nombreTarjeta,
+    int? operadorId,
+  }) async {
+    if (items.isEmpty) {
+      throw Exception('No hay items para registrar');
+    }
+
+    // Agrupar items por socio_id
+    final Map<int, List<DebitoAutomaticoItem>> itemsPorSocio = {};
+    for (final item in items) {
+      if (!itemsPorSocio.containsKey(item.socioId)) {
+        itemsPorSocio[item.socioId] = [];
+      }
+      itemsPorSocio[item.socioId]!.add(item);
+    }
+
+    // Construir el JSON para la función PostgreSQL
+    final presentacionData = itemsPorSocio.entries.map((entry) {
+      final socioId = entry.key;
+      final itemsSocio = entry.value;
+
+      // Calcular importe total para este socio
+      final importeTotal = itemsSocio.fold<double>(
+        0.0,
+        (sum, item) => sum + item.importe,
+      );
+
+      // Construir array de transacciones
+      final transacciones = itemsSocio.map((item) => {
+        'idtransaccion': item.idtransaccion,
+        'monto': item.importe,
+      }).toList();
+
+      return {
+        'socio_id': socioId,
+        'entidad_id': 0, // 0 = Socios (siempre)
+        'importe_total': importeTotal,
+        'transacciones': transacciones,
+      };
+    }).toList();
+
+    try {
+      // Llamar a la función PostgreSQL
+      final response = await _supabase.rpc(
+        'registrar_debito_automatico',
+        params: {
+          'p_presentacion_data': presentacionData,
+          'p_anio_mes': anioMes,
+          'p_fecha_presentacion': fechaPresentacion.toIso8601String().split('T')[0],
+          'p_nombre_tarjeta': nombreTarjeta,
+          'p_operador_id': operadorId,
+        },
+      );
+
+      if (response == null || (response as List).isEmpty) {
+        throw Exception('Error al registrar débito automático: respuesta vacía');
+      }
+
+      // La función retorna una tabla con una fila: {operacion_id, numero_asiento}
+      final resultado = (response as List).first;
+      return {
+        'operacion_id': resultado['operacion_id'] as int,
+        'numero_asiento': resultado['numero_asiento'] as int,
+      };
+    } catch (e) {
+      // Si hay error, la transacción en PostgreSQL hace rollback automático
+      rethrow;
+    }
+  }
 }

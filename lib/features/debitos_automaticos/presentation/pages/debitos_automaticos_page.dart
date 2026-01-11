@@ -6,6 +6,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
 import 'package:universal_html/html.dart' as html;
 
 import '../../models/debito_automatico_item.dart';
@@ -296,6 +298,18 @@ class _DebitosAutomaticosPageState
                       ),
                     ),
                   ),
+                  OutlinedButton.icon(
+                    onPressed: () => _generarPDF(tarjetasValidas),
+                    icon: const Icon(Icons.picture_as_pdf),
+                    label: const Text('Generar PDF'),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 24,
+                        vertical: 16,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
                   FilledButton.icon(
                     onPressed: () => _ejecutarPresentacion(tarjetasValidas),
                     icon: const Icon(Icons.play_arrow),
@@ -592,9 +606,55 @@ class _DebitosAutomaticosPageState
               '${movimientos.length} movimientos procesados',
             ),
             backgroundColor: Colors.green,
-            duration: const Duration(seconds: 5),
+            duration: const Duration(seconds: 3),
           ),
         );
+
+        // NUEVO: Preguntar si desea registrar contablemente
+        final registrar = await showDialog<bool>(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) => AlertDialog(
+            title: const Text('Registrar Presentación'),
+            content: const Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '¿Desea registrar contablemente esta presentación de débito automático?',
+                  style: TextStyle(fontSize: 16),
+                ),
+                SizedBox(height: 16),
+                Text(
+                  'Esto creará:',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+                SizedBox(height: 8),
+                Text('• Comprobantes DA en cuenta corriente'),
+                Text('• Actualización de cancelado en CS'),
+                Text('• Asiento contable tipo 6'),
+                Text('• Trazabilidad completa'),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('No registrar'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(context, true),
+                style: FilledButton.styleFrom(
+                  backgroundColor: Colors.green,
+                ),
+                child: const Text('Sí, Registrar'),
+              ),
+            ],
+          ),
+        );
+
+        if (registrar == true && mounted) {
+          await _registrarPresentacion(movimientos, esVisa);
+        }
 
         // Resetear vista
         setState(() {
@@ -638,6 +698,360 @@ class _DebitosAutomaticosPageState
     final filePath = '${directory.path}/$nombreArchivo';
     final file = File(filePath);
     await file.writeAsString(contenido);
+  }
+
+  /// Genera un PDF con la previsualización de la presentación
+  Future<void> _generarPDF(List<DebitoAutomaticoItem> movimientos) async {
+    try {
+      // Mostrar indicador de carga
+      if (mounted) {
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) => const AlertDialog(
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CircularProgressIndicator(),
+                SizedBox(height: 16),
+                Text('Generando PDF...'),
+              ],
+            ),
+          ),
+        );
+      }
+
+      // Importar paquetes necesarios
+      final pdf = pw.Document();
+      final currencyFormat = NumberFormat.currency(symbol: '\$', decimalDigits: 2);
+
+      // Obtener nombre de la tarjeta
+      final tarjetasAsync = ref.read(tarjetasProvider);
+      String nombreTarjeta = 'Débito Automático';
+      if (tarjetasAsync.hasValue && _tarjetaSeleccionada != null) {
+        final tarjeta = tarjetasAsync.value!.firstWhere(
+          (t) => t.id == _tarjetaSeleccionada,
+          orElse: () => tarjetasAsync.value!.first,
+        );
+        nombreTarjeta = tarjeta.descripcion;
+      }
+
+      // Calcular estadísticas
+      final totalSocios = movimientos.map((m) => m.socioId).toSet().length;
+      final totalImporte = movimientos.fold<double>(0.0, (sum, item) => sum + item.importe);
+
+      // Crear página del PDF
+      pdf.addPage(
+        pw.MultiPage(
+          pageFormat: PdfPageFormat.a4.landscape,
+          margin: const pw.EdgeInsets.all(32),
+          build: (context) => [
+            // Título
+            pw.Header(
+              level: 0,
+              child: pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
+                  pw.Text(
+                    'Presentación Débito Automático',
+                    style: pw.TextStyle(fontSize: 20, fontWeight: pw.FontWeight.bold),
+                  ),
+                  pw.SizedBox(height: 8),
+                  pw.Text(
+                    '$nombreTarjeta - Período: ${DateFormat('MM/yyyy').format(_fechaSeleccionada)}',
+                    style: const pw.TextStyle(fontSize: 14),
+                  ),
+                  pw.SizedBox(height: 4),
+                  pw.Text(
+                    'Fecha generación: ${DateFormat('dd/MM/yyyy HH:mm').format(DateTime.now())}',
+                    style: pw.TextStyle(fontSize: 10, color: PdfColors.grey700),
+                  ),
+                ],
+              ),
+            ),
+            pw.SizedBox(height: 20),
+
+            // Estadísticas
+            pw.Container(
+              padding: const pw.EdgeInsets.all(12),
+              decoration: pw.BoxDecoration(
+                color: PdfColors.blue50,
+                borderRadius: pw.BorderRadius.circular(8),
+              ),
+              child: pw.Row(
+                mainAxisAlignment: pw.MainAxisAlignment.spaceAround,
+                children: [
+                  pw.Column(
+                    children: [
+                      pw.Text('Total Socios', style: pw.TextStyle(fontSize: 10, color: PdfColors.grey700)),
+                      pw.SizedBox(height: 4),
+                      pw.Text(totalSocios.toString(), style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold)),
+                    ],
+                  ),
+                  pw.Column(
+                    children: [
+                      pw.Text('Total Registros', style: pw.TextStyle(fontSize: 10, color: PdfColors.grey700)),
+                      pw.SizedBox(height: 4),
+                      pw.Text(movimientos.length.toString(), style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold)),
+                    ],
+                  ),
+                  pw.Column(
+                    children: [
+                      pw.Text('Importe Total', style: pw.TextStyle(fontSize: 10, color: PdfColors.grey700)),
+                      pw.SizedBox(height: 4),
+                      pw.Text(currencyFormat.format(totalImporte), style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold)),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            pw.SizedBox(height: 20),
+
+            // Tabla de movimientos
+            pw.TableHelper.fromTextArray(
+              headerStyle: pw.TextStyle(
+                fontSize: 9,
+                fontWeight: pw.FontWeight.bold,
+                color: PdfColors.white,
+              ),
+              headerDecoration: const pw.BoxDecoration(color: PdfColors.blue),
+              cellStyle: const pw.TextStyle(fontSize: 8),
+              cellHeight: 25,
+              cellAlignments: {
+                0: pw.Alignment.centerLeft,   // Socio
+                1: pw.Alignment.centerLeft,   // Nombre
+                2: pw.Alignment.center,       // Tarjeta
+                3: pw.Alignment.centerLeft,   // Tipo Comp
+                4: pw.Alignment.center,       // Doc Nro
+                5: pw.Alignment.centerRight,  // Importe
+              },
+              headers: ['Socio', 'Nombre', 'Tarjeta', 'Tipo', 'Doc. Nro', 'Importe'],
+              data: movimientos.map((item) {
+                return [
+                  item.socioId.toString(),
+                  '${item.apellido}, ${item.nombre}'.substring(0, 30),
+                  item.numeroTarjetaEnmascarado.substring(0, 19),
+                  item.tipoComprobante,
+                  item.documentoNumero,
+                  currencyFormat.format(item.importe),
+                ];
+              }).toList(),
+            ),
+          ],
+        ),
+      );
+
+      // Generar bytes del PDF
+      final pdfBytes = await pdf.save();
+
+      // Cerrar indicador de carga
+      if (mounted) {
+        Navigator.pop(context);
+      }
+
+      // Descargar PDF
+      final nombreArchivo = 'Presentacion_DA_${DateFormat('yyyyMMdd_HHmmss').format(DateTime.now())}.pdf';
+
+      if (kIsWeb) {
+        // Descarga en Web
+        final blob = html.Blob([pdfBytes], 'application/pdf');
+        final url = html.Url.createObjectUrlFromBlob(blob);
+        final anchor = html.AnchorElement(href: url)
+          ..setAttribute('download', nombreArchivo)
+          ..click();
+        html.Url.revokeObjectUrl(url);
+      } else {
+        // Descarga en Desktop/Mobile
+        final directory = await getDownloadsDirectory();
+        if (directory == null) {
+          throw Exception('No se pudo acceder al directorio de descargas');
+        }
+        final filePath = '${directory.path}/$nombreArchivo';
+        final file = File(filePath);
+        await file.writeAsBytes(pdfBytes);
+      }
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('PDF generado exitosamente: $nombreArchivo'),
+            backgroundColor: Colors.green,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    } catch (e, stackTrace) {
+      print('Error al generar PDF: $e');
+      print(stackTrace);
+
+      // Cerrar indicador de carga si está abierto
+      if (mounted) {
+        Navigator.pop(context);
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error al generar PDF: $e'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 5),
+          ),
+        );
+      }
+    }
+  }
+
+  /// Registra contablemente la presentación de débito automático
+  Future<void> _registrarPresentacion(
+    List<DebitoAutomaticoItem> movimientos,
+    bool esVisa,
+  ) async {
+    try {
+      // Mostrar indicador de carga
+      if (mounted) {
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) => const AlertDialog(
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CircularProgressIndicator(),
+                SizedBox(height: 16),
+                Text('Registrando presentación...'),
+              ],
+            ),
+          ),
+        );
+      }
+
+      // Obtener el servicio
+      final service = ref.read(debitosAutomaticosServiceProvider);
+
+      // Calcular parámetros
+      final anioMes = _fechaSeleccionada.year * 100 + _fechaSeleccionada.month;
+      final nombreTarjeta = esVisa ? 'Visa' : 'Mastercard';
+
+      // Registrar la presentación
+      final resultado = await service.registrarPresentacionDebitoAutomatico(
+        items: movimientos,
+        anioMes: anioMes,
+        fechaPresentacion: _fechaSeleccionada,
+        nombreTarjeta: nombreTarjeta,
+        operadorId: null, // TODO: Obtener del auth provider si es necesario
+      );
+
+      // Cerrar indicador de carga
+      if (mounted) {
+        Navigator.pop(context);
+
+        // Mostrar éxito
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Row(
+              children: [
+                Icon(Icons.check_circle, color: Colors.green, size: 32),
+                SizedBox(width: 12),
+                Text('Registro Exitoso'),
+              ],
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'La presentación de débito automático ha sido registrada correctamente.',
+                  style: const TextStyle(fontSize: 16),
+                ),
+                const SizedBox(height: 16),
+                const Divider(),
+                const SizedBox(height: 8),
+                Text(
+                  'Operación ID: ${resultado['operacion_id']}',
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+                Text(
+                  'Asiento generado: ${resultado['numero_asiento']}',
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Socios procesados: ${movimientos.map((m) => m.socioId).toSet().length}',
+                ),
+                Text(
+                  'Total presentado: \$${movimientos.fold<double>(0.0, (sum, item) => sum + item.importe).toStringAsFixed(2)}',
+                ),
+              ],
+            ),
+            actions: [
+              FilledButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Aceptar'),
+              ),
+            ],
+          ),
+        );
+      }
+    } catch (e, stackTrace) {
+      print('Error al registrar presentación: $e');
+      print(stackTrace);
+
+      // Cerrar indicador de carga si está abierto
+      if (mounted) {
+        Navigator.pop(context);
+
+        // Mostrar error
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Row(
+              children: [
+                Icon(Icons.error, color: Colors.red, size: 32),
+                SizedBox(width: 12),
+                Text('Error al Registrar'),
+              ],
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'No se pudo registrar la presentación:',
+                  style: TextStyle(fontSize: 16),
+                ),
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.red.shade50,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.red.shade200),
+                  ),
+                  child: Text(
+                    e.toString(),
+                    style: TextStyle(
+                      color: Colors.red.shade900,
+                      fontSize: 14,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  'El archivo ya fue generado, pero no se registró contablemente. '
+                  'Puede intentar registrarlo nuevamente más tarde.',
+                  style: TextStyle(fontSize: 12, color: Colors.grey),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Cerrar'),
+              ),
+            ],
+          ),
+        );
+      }
+    }
   }
 
 }
