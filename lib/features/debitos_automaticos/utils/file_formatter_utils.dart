@@ -1,5 +1,3 @@
-import 'package:intl/intl.dart';
-
 /// Utilidades para formateo de archivos de presentación de tarjetas
 class FileFormatterUtils {
   /// Formatea una fecha en formato DDMMYY
@@ -24,6 +22,8 @@ class FileFormatterUtils {
 
   /// Formatea un importe multiplicándolo por 100 y agregando padding
   /// Ejemplo: 32.50 -> "000000003250000" (15 dígitos)
+  /// Ejemplo: 14.33 -> "00000001433" (11 dígitos)
+  /// Convierte el importe a centavos (sin decimales)
   static String formatImporte(double importe, int length) {
     final importeCentavos = (importe * 100).round();
     return formatNumeroConPadding(importeCentavos, length);

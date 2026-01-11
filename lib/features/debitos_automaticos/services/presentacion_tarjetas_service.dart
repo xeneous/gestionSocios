@@ -155,7 +155,9 @@ class PresentacionTarjetasService {
     linea.write(FileFormatterUtils.espacios(8)); // 35-42
     linea.write(FileFormatterUtils.formatImporte(item.importe, 15)); // 43-57
     linea.write(FileFormatterUtils.espacios(7)); // 58-64
-    linea.write(FileFormatterUtils.formatNumeroConPadding(item.socioId, 15)); // 65-79
+    // Socio ID con entidad: se multiplica por 10 y se agrega 0 (entidad socios)
+    final socioIdConEntidad = item.socioId * 10;
+    linea.write(FileFormatterUtils.formatNumeroConPadding(socioIdConEntidad, 15)); // 65-79
     linea.write(' '); // 80
 
     final resultado = linea.toString();
@@ -206,7 +208,9 @@ class PresentacionTarjetasService {
 
     linea.write(PresentacionConfig.mastercardDetalle); // 1-9: "066812812"
     linea.write(tarjeta.padLeft(16, '0')); // 10-25: número de tarjeta (16 dígitos)
-    linea.write(FileFormatterUtils.formatNumeroConPadding(item.socioId, 12)); // 26-37
+    // Socio ID con entidad: se multiplica por 10 y se agrega 0 (entidad socios)
+    final socioIdConEntidad = item.socioId * 10;
+    linea.write(FileFormatterUtils.formatNumeroConPadding(socioIdConEntidad, 12)); // 26-37
     linea.write(PresentacionConfig.mastercardConstante); // 38-45: "00199901"
     linea.write(FileFormatterUtils.formatImporte(item.importe, 11)); // 46-56
     linea.write(FileFormatterUtils.formatFechaMMYY(fechaLimite)); // 57-61: "MM/YY"

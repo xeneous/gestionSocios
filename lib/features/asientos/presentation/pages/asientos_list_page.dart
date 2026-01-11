@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import '../../models/asiento_model.dart';
 import '../../providers/asientos_provider.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../../../core/presentation/widgets/app_drawer.dart';
@@ -16,10 +17,24 @@ class AsientosListPage extends ConsumerStatefulWidget {
 class _AsientosListPageState extends ConsumerState<AsientosListPage> {
   String _searchTerm = '';
   int? _filterTipo;
+  int? _filterAnioMes;
+  int? _filterNumeroAsiento;
+  bool _hasSearched = false;
+
+  AsientosSearchParams get _searchParams => AsientosSearchParams(
+        anioMes: _filterAnioMes,
+        tipoAsiento: _filterTipo,
+        numeroAsiento: _filterNumeroAsiento,
+        detalle: _searchTerm.isNotEmpty ? _searchTerm : null,
+        limit: 20,
+      );
 
   @override
   Widget build(BuildContext context) {
-    final asientosAsync = ref.watch(asientosProvider);
+    // Solo hacer la búsqueda si el usuario ha buscado
+    final asientosAsync = _hasSearched
+        ? ref.watch(asientosSearchProvider(_searchParams))
+        : const AsyncValue<List<AsientoCompleto>>.data([]);
 
     return Scaffold(
       appBar: AppBar(
@@ -46,56 +61,150 @@ class _AsientosListPageState extends ConsumerState<AsientosListPage> {
           Container(
             padding: const EdgeInsets.all(16),
             color: Colors.grey[100],
-            child: Row(
+            child: Column(
               children: [
-                Expanded(
-                  flex: 3,
-                  child: TextField(
-                    decoration: InputDecoration(
-                      hintText: 'Buscar por número, detalle...',
-                      prefixIcon: const Icon(Icons.search),
-                      border: const OutlineInputBorder(),
-                      filled: true,
-                      fillColor: Colors.white,
-                      suffixIcon: _searchTerm.isNotEmpty
-                          ? IconButton(
-                              icon: const Icon(Icons.clear),
-                              onPressed: () {
-                                setState(() => _searchTerm = '');
-                              },
-                            )
-                          : null,
+                // Primera fila: Año/Mes, Número de Asiento, Tipo
+                Row(
+                  children: [
+                    Expanded(
+                      flex: 3,
+                      child: TextField(
+                        decoration: const InputDecoration(
+                          labelText: 'Año/Mes (YYYYMM) *',
+                          hintText: 'Ej: 202601',
+                          border: OutlineInputBorder(),
+                          filled: true,
+                          fillColor: Colors.white,
+                        ),
+                        keyboardType: TextInputType.number,
+                        onChanged: (value) {
+                          setState(() {
+                            _filterAnioMes = int.tryParse(value);
+                          });
+                        },
+                      ),
                     ),
-                    onChanged: (value) {
-                      setState(() => _searchTerm = value);
-                    },
-                  ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      flex: 2,
+                      child: TextField(
+                        decoration: const InputDecoration(
+                          labelText: 'Nº Asiento',
+                          hintText: 'Opcional',
+                          border: OutlineInputBorder(),
+                          filled: true,
+                          fillColor: Colors.white,
+                        ),
+                        keyboardType: TextInputType.number,
+                        onChanged: (value) {
+                          setState(() {
+                            _filterNumeroAsiento = int.tryParse(value);
+                          });
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      flex: 3,
+                      child: DropdownButtonFormField<int?>(
+                        initialValue: _filterTipo,
+                        decoration: const InputDecoration(
+                          labelText: 'Tipo de asiento',
+                          border: OutlineInputBorder(),
+                          filled: true,
+                          fillColor: Colors.white,
+                        ),
+                        items: const [
+                          DropdownMenuItem(value: null, child: Text('Todos')),
+                          DropdownMenuItem(value: 0, child: Text('0 - Diario')),
+                          DropdownMenuItem(
+                              value: 1, child: Text('1 - Caja Ingresos')),
+                          DropdownMenuItem(
+                              value: 2, child: Text('2 - Caja Egresos')),
+                          DropdownMenuItem(value: 3, child: Text('3 - Compras')),
+                          DropdownMenuItem(value: 4, child: Text('4 - Ventas')),
+                        ],
+                        onChanged: (value) {
+                          setState(() => _filterTipo = value);
+                        },
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(width: 16),
-                Expanded(
-                  flex: 2,
-                  child: DropdownButtonFormField<int?>(
-                    initialValue: _filterTipo,
-                    decoration: const InputDecoration(
-                      labelText: 'Tipo de asiento',
-                      border: OutlineInputBorder(),
-                      filled: true,
-                      fillColor: Colors.white,
+                const SizedBox(height: 16),
+                // Segunda fila: Detalle y botones
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        decoration: InputDecoration(
+                          labelText: 'Buscar en detalle',
+                          hintText: 'Texto del detalle...',
+                          prefixIcon: const Icon(Icons.search),
+                          border: const OutlineInputBorder(),
+                          filled: true,
+                          fillColor: Colors.white,
+                          suffixIcon: _searchTerm.isNotEmpty
+                              ? IconButton(
+                                  icon: const Icon(Icons.clear),
+                                  onPressed: () {
+                                    setState(() => _searchTerm = '');
+                                  },
+                                )
+                              : null,
+                        ),
+                        onChanged: (value) {
+                          setState(() => _searchTerm = value);
+                        },
+                      ),
                     ),
-                    items: const [
-                      DropdownMenuItem(value: null, child: Text('Todos')),
-                      DropdownMenuItem(value: 0, child: Text('0 - Diario')),
-                      DropdownMenuItem(
-                          value: 1, child: Text('1 - Caja Ingresos')),
-                      DropdownMenuItem(
-                          value: 2, child: Text('2 - Caja Egresos')),
-                      DropdownMenuItem(value: 3, child: Text('3 - Compras')),
-                      DropdownMenuItem(value: 4, child: Text('4 - Ventas')),
-                    ],
-                    onChanged: (value) {
-                      setState(() => _filterTipo = value);
-                    },
-                  ),
+                    const SizedBox(width: 16),
+                    ElevatedButton.icon(
+                      onPressed: () {
+                        if (_filterAnioMes == null) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Debe completar el campo Año/Mes para buscar'),
+                              backgroundColor: Colors.orange,
+                              duration: Duration(seconds: 2),
+                            ),
+                          );
+                          return;
+                        }
+                        setState(() {
+                          _hasSearched = true;
+                        });
+                      },
+                      icon: const Icon(Icons.search),
+                      label: const Text('Buscar'),
+                      style: ElevatedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 24,
+                          vertical: 20,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    ElevatedButton.icon(
+                      onPressed: () {
+                        setState(() {
+                          _searchTerm = '';
+                          _filterTipo = null;
+                          _filterAnioMes = null;
+                          _filterNumeroAsiento = null;
+                          _hasSearched = false;
+                        });
+                      },
+                      icon: const Icon(Icons.clear_all),
+                      label: const Text('Limpiar'),
+                      style: ElevatedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 24,
+                          vertical: 20,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -104,22 +213,29 @@ class _AsientosListPageState extends ConsumerState<AsientosListPage> {
           Expanded(
             child: asientosAsync.when(
               data: (asientos) {
-                // Filter asientos
-                final filteredAsientos = asientos.where((asiento) {
-                  final matchesSearch = _searchTerm.isEmpty ||
-                      asiento.header.asiento.toString().contains(_searchTerm) ||
-                      (asiento.header.detalle
-                              ?.toLowerCase()
-                              .contains(_searchTerm.toLowerCase()) ??
-                          false);
+                // Mostrar mensaje si no se ha buscado aún
+                if (!_hasSearched) {
+                  return const Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.search, size: 64, color: Colors.grey),
+                        SizedBox(height: 16),
+                        Text(
+                          'Usa los filtros para buscar asientos',
+                          style: TextStyle(fontSize: 16),
+                        ),
+                        SizedBox(height: 8),
+                        Text(
+                          'La búsqueda está limitada a 20 resultados',
+                          style: TextStyle(color: Colors.grey, fontSize: 14),
+                        ),
+                      ],
+                    ),
+                  );
+                }
 
-                  final matchesTipo = _filterTipo == null ||
-                      asiento.header.tipoAsiento == _filterTipo;
-
-                  return matchesSearch && matchesTipo;
-                }).toList();
-
-                if (filteredAsientos.isEmpty) {
+                if (asientos.isEmpty) {
                   return const Center(
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
@@ -137,14 +253,14 @@ class _AsientosListPageState extends ConsumerState<AsientosListPage> {
 
                 return ListView.builder(
                   padding: const EdgeInsets.all(16),
-                  itemCount: filteredAsientos.length + 1,
+                  itemCount: asientos.length + 1,
                   itemBuilder: (context, index) {
                     // First item: results counter
                     if (index == 0) {
                       return Padding(
                         padding: const EdgeInsets.only(bottom: 16),
                         child: Text(
-                          '${filteredAsientos.length} asiento(s) encontrado(s)',
+                          '${asientos.length} asiento(s) encontrado(s) (máximo 20)',
                           style: TextStyle(
                             color: Colors.grey[600],
                             fontWeight: FontWeight.w500,
@@ -153,7 +269,7 @@ class _AsientosListPageState extends ConsumerState<AsientosListPage> {
                       );
                     }
 
-                    final asiento = filteredAsientos[index - 1];
+                    final asiento = asientos[index - 1];
                     final header = asiento.header;
                     final dateFormat = DateFormat('dd/MM/yyyy');
 

@@ -9,16 +9,37 @@ final asientosServiceProvider = Provider<AsientosService>((ref) {
   return AsientosService(supabase);
 });
 
-// Provider para listar asientos
-final asientosProvider = FutureProvider<List<AsientoCompleto>>((ref) async {
+// Provider para búsqueda de asientos con filtros
+final asientosSearchProvider = FutureProvider.family<List<AsientoCompleto>, AsientosSearchParams>((ref, params) async {
   final supabase = ref.watch(supabaseProvider);
 
-  // Obtener headers
-  final headersResponse = await supabase
-      .from('asientos_header')
-      .select()
+  // Construir query con filtros
+  var query = supabase.from('asientos_header').select();
+
+  // Filtro por año/mes
+  if (params.anioMes != null) {
+    query = query.eq('anio_mes', params.anioMes!);
+  }
+
+  // Filtro por tipo de asiento
+  if (params.tipoAsiento != null) {
+    query = query.eq('tipo_asiento', params.tipoAsiento!);
+  }
+
+  // Filtro por número de asiento
+  if (params.numeroAsiento != null) {
+    query = query.eq('asiento', params.numeroAsiento!);
+  }
+
+  // Filtro por detalle (búsqueda parcial)
+  if (params.detalle != null && params.detalle!.isNotEmpty) {
+    query = query.ilike('detalle', '%${params.detalle}%');
+  }
+
+  // Ordenar y limitar
+  final headersResponse = await query
       .order('fecha', ascending: false)
-      .limit(200);
+      .limit(params.limit);
 
   final headers = (headersResponse as List)
       .map((json) => AsientoHeader.fromJson(json))
@@ -58,6 +79,42 @@ final asientosProvider = FutureProvider<List<AsientoCompleto>>((ref) async {
   return asientosCompletos;
 });
 
+// Clase para parámetros de búsqueda
+class AsientosSearchParams {
+  final int? anioMes;
+  final int? tipoAsiento;
+  final int? numeroAsiento;
+  final String? detalle;
+  final int limit;
+
+  AsientosSearchParams({
+    this.anioMes,
+    this.tipoAsiento,
+    this.numeroAsiento,
+    this.detalle,
+    this.limit = 20,
+  });
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is AsientosSearchParams &&
+          runtimeType == other.runtimeType &&
+          anioMes == other.anioMes &&
+          tipoAsiento == other.tipoAsiento &&
+          numeroAsiento == other.numeroAsiento &&
+          detalle == other.detalle &&
+          limit == other.limit;
+
+  @override
+  int get hashCode =>
+      anioMes.hashCode ^
+      tipoAsiento.hashCode ^
+      numeroAsiento.hashCode ^
+      detalle.hashCode ^
+      limit.hashCode;
+}
+
 // Notifier para operaciones CRUD
 class AsientosNotifier extends Notifier<AsyncValue<void>> {
   @override
@@ -88,7 +145,7 @@ class AsientosNotifier extends Notifier<AsyncValue<void>> {
         centroCosto: asiento.header.centroCosto,
       );
 
-      ref.invalidate(asientosProvider);
+      // No necesitamos invalidar el provider porque ahora es bajo demanda
       state = const AsyncValue.data(null);
     } catch (e, st) {
       state = AsyncValue.error(e, st);
@@ -109,7 +166,7 @@ class AsientosNotifier extends Notifier<AsyncValue<void>> {
           .eq('anio_mes', anioMes)
           .eq('tipo_asiento', tipoAsiento);
 
-      ref.invalidate(asientosProvider);
+      // No necesitamos invalidar el provider porque ahora es bajo demanda
       state = const AsyncValue.data(null);
     } catch (e, st) {
       state = AsyncValue.error(e, st);
@@ -194,18 +251,18 @@ class AsientosNotifier extends Notifier<AsyncValue<void>> {
             'El asiento no está balanceado. Debe = ${asientoCompleto.totalDebe}, Haber = ${asientoCompleto.totalHaber}');
       }
 
-      // Actualizar header
+      // IMPORTANTE: Borrar items viejos PRIMERO para evitar conflicto de foreign key
       await supabase
-          .from('asientos_header')
-          .update(asientoCompleto.header.toJson())
+          .from('asientos_items')
+          .delete()
           .eq('asiento', asiento)
           .eq('anio_mes', anioMes)
           .eq('tipo_asiento', tipoAsiento);
 
-      // Borrar items viejos (CASCADE los borra automáticamente al borrar header, pero mejor hacerlo explícito)
+      // Actualizar header DESPUÉS de borrar los items
       await supabase
-          .from('asientos_items')
-          .delete()
+          .from('asientos_header')
+          .update(asientoCompleto.header.toJson())
           .eq('asiento', asiento)
           .eq('anio_mes', anioMes)
           .eq('tipo_asiento', tipoAsiento);
@@ -217,7 +274,7 @@ class AsientosNotifier extends Notifier<AsyncValue<void>> {
         await supabase.from('asientos_items').insert(itemsToInsert);
       }
 
-      ref.invalidate(asientosProvider);
+      // No necesitamos invalidar el provider porque ahora es bajo demanda
       state = const AsyncValue.data(null);
     } catch (e, st) {
       state = AsyncValue.error(e, st);

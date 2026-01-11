@@ -15,7 +15,22 @@
       "Bash(flutter pub get:*)",
       "Bash(flutter clean:*)",
       "Bash(flutter pub add:*)",
-      "Bash(supabase --version)"
+      "Bash(supabase --version)",
+      "Bash(grep:*)",
+      "Bash(node migrate_asientos_diario.js:*)",
+      "Bash(node check_asientos_tables.js:*)",
+      "Bash(node check_supabase_asientos_schema.js:*)",
+      "Bash(node migrate_socios_only.js:*)",
+      "Bash(node check_socios_structure.js:*)",
+      "Bash(node migrate_valores_tesoreria.js:*)",
+      "Bash(ls:*)",
+      "Bash(node compare_pesos_files.js:*)",
+      "Bash(node analyze_number_differences.js:*)",
+      "Bash(node final_analysis.js:*)",
+      "Bash(node detailed_comparison.js:*)",
+      "Bash(flutter test:*)",
+      "Bash(node analizar_formato.js:*)",
+      "Bash(node -e \"\nconst { createClient } = require\\(''@supabase/supabase-js''\\);\nconst fs = require\\(''fs''\\);\n\nconst envContent = fs.readFileSync\\(''.env'', ''utf-8''\\);\nconst supabaseUrl = envContent.match\\(/SUPABASE_URL=\\(.+\\)/\\)[1].trim\\(\\);\nconst supabaseKey = envContent.match\\(/SUPABASE_ANON_KEY=\\(.+\\)/\\)[1].trim\\(\\);\n\nconst supabase = createClient\\(supabaseUrl, supabaseKey\\);\n\nasync function checkPolicies\\(\\) {\n  const { data, error } = await supabase.rpc\\(''exec_sql'', {\n    sql_query: \\\\`\n      SELECT schemaname, tablename, policyname, permissive, roles, cmd, qual, with_check\n      FROM pg_policies\n      WHERE tablename IN \\(''asientos_header'', ''asientos_items''\\)\n      ORDER BY tablename, policyname;\n    \\\\`\n  }\\);\n  \n  if \\(error\\) {\n    console.log\\(''Error:'', error\\);\n  } else {\n    console.log\\(JSON.stringify\\(data, null, 2\\)\\);\n  }\n}\n\ncheckPolicies\\(\\);\n\")"
     ]
   }
 }
