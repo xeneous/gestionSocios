@@ -119,8 +119,7 @@ BEGIN
       documento_numero,
       importe,
       cancelado,
-      vencimiento,
-      observaciones
+      vencimiento
     ) VALUES (
       v_socio_id,
       v_entidad_id,
@@ -129,8 +128,7 @@ BEGIN
       p_anio_mes::VARCHAR,
       v_importe_total,
       v_importe_total,  -- Se considera cancelado (el DA cancela los CS)
-      p_fecha_presentacion,
-      'Débito Automático ' || p_anio_mes::TEXT
+      p_fecha_presentacion
     )
     RETURNING idtransaccion INTO v_idtransaccion_da;
 
