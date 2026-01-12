@@ -827,10 +827,12 @@ class _DebitosAutomaticosPageState
               },
               headers: ['Socio', 'Nombre', 'Tarjeta', 'Tipo', 'Doc. Nro', 'Importe'],
               data: movimientos.map((item) {
+                final nombreCompleto = '${item.apellido}, ${item.nombre}';
+                final tarjeta = item.numeroTarjetaEnmascarado;
                 return [
                   item.socioId.toString(),
-                  '${item.apellido}, ${item.nombre}'.substring(0, 30),
-                  item.numeroTarjetaEnmascarado.substring(0, 19),
+                  nombreCompleto.length > 30 ? nombreCompleto.substring(0, 30) : nombreCompleto,
+                  tarjeta.length > 19 ? tarjeta.substring(0, 19) : tarjeta,
                   item.tipoComprobante,
                   item.documentoNumero,
                   currencyFormat.format(item.importe),
