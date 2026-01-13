@@ -124,7 +124,7 @@ BEGIN
       v_socio_id,
       v_entidad_id,
       p_fecha_presentacion,
-      'DA',
+      'DA ',
       p_anio_mes::VARCHAR,
       v_importe_total,
       v_importe_total,  -- Se considera cancelado (el DA cancela los CS)
