@@ -88,7 +88,6 @@ BEGIN
     entidad_tipo,
     entidad_id,
     total,
-    observaciones,
     operador_id
   ) VALUES (
     'DEBITO_AUTOMATICO',
@@ -97,7 +96,6 @@ BEGIN
     'MULTIPLE',  -- Múltiples socios
     NULL,        -- No es un solo socio
     v_total_presentacion,
-    'Presentación DA período ' || p_anio_mes::TEXT,
     p_operador_id
   )
   RETURNING id INTO v_operacion_id;
