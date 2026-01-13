@@ -1,3 +1,7 @@
+-- Borrar la función anterior (con cualquier signatura)
+DROP FUNCTION IF EXISTS public.registrar_debito_automatico;
+
+
 -- ============================================================================
 -- FUNCIÓN PARA REGISTRAR DÉBITO AUTOMÁTICO PRESENTADO
 -- ============================================================================
@@ -179,7 +183,7 @@ BEGIN
 
   -- Obtener IDs de las cuentas contables
   -- Cuenta Banco Galicia Cta Cte (DEBE)
-  SELECT id INTO v_cuenta_banco_id
+  SELECT cuenta INTO v_cuenta_banco_id
   FROM public.cuentas
   WHERE cuenta = 1103020101;
 
@@ -188,7 +192,7 @@ BEGIN
   END IF;
 
   -- Cuenta Deudores por Venta (HABER)
-  SELECT id INTO v_cuenta_deudores_id
+  SELECT cuenta INTO v_cuenta_deudores_id
   FROM public.cuentas
   WHERE cuenta = 1101010101;
 
