@@ -38,10 +38,7 @@ CREATE OR REPLACE FUNCTION public.registrar_debito_automatico(
   p_nombre_tarjeta VARCHAR,
   p_operador_id INTEGER DEFAULT NULL
 )
-RETURNS TABLE (
-  operacion_id BIGINT,
-  numero_asiento INTEGER
-)
+RETURNS JSONB
 LANGUAGE plpgsql
 SECURITY DEFINER
 AS $$
@@ -264,7 +261,10 @@ BEGIN
   WHERE id = v_operacion_id;
 
   -- Retornar el ID de la operación y el número de asiento
-  RETURN QUERY SELECT v_operacion_id, v_numero_asiento;
+  RETURN jsonb_build_object(
+    'operacion_id', v_operacion_id,
+    'numero_asiento', v_numero_asiento
+  );
 END;
 $$;
 

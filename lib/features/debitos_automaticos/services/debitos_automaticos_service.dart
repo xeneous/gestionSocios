@@ -15,9 +15,7 @@ class DebitosAutomaticosService {
         .eq('activo', true)
         .order('nombre');
 
-    return (response as List)
-        .map((json) => Tarjeta.fromJson(json))
-        .toList();
+    return (response as List).map((json) => Tarjeta.fromJson(json)).toList();
   }
 
   /// Obtiene los movimientos pendientes de cuenta corriente para débito automático
@@ -158,10 +156,12 @@ class DebitosAutomaticosService {
       );
 
       // Construir array de transacciones
-      final transacciones = itemsSocio.map((item) => {
-        'idtransaccion': item.idtransaccion,
-        'monto': item.importe,
-      }).toList();
+      final transacciones = itemsSocio
+          .map((item) => {
+                'idtransaccion': item.idtransaccion,
+                'monto': item.importe,
+              })
+          .toList();
 
       return {
         'socio_id': socioId,
@@ -172,29 +172,44 @@ class DebitosAutomaticosService {
     }).toList();
 
     try {
+      print('DEBUG: Llamando a registrar_debito_automatico');
+      print('DEBUG: presentacionData = $presentacionData');
+      print('DEBUG: anioMes = $anioMes');
+      print('DEBUG: fechaPresentacion = ${fechaPresentacion.toIso8601String().split('T')[0]}');
+      print('DEBUG: nombreTarjeta = $nombreTarjeta');
+
       // Llamar a la función PostgreSQL
       final response = await _supabase.rpc(
         'registrar_debito_automatico',
         params: {
           'p_presentacion_data': presentacionData,
           'p_anio_mes': anioMes,
-          'p_fecha_presentacion': fechaPresentacion.toIso8601String().split('T')[0],
+          'p_fecha_presentacion':
+              fechaPresentacion.toIso8601String().split('T')[0],
           'p_nombre_tarjeta': nombreTarjeta,
           'p_operador_id': operadorId,
         },
       );
 
-      if (response == null || (response as List).isEmpty) {
-        throw Exception('Error al registrar débito automático: respuesta vacía');
+      print('DEBUG: Response recibida = $response');
+      print('DEBUG: Response type = ${response.runtimeType}');
+
+      if (response == null) {
+        throw Exception(
+            'Error al registrar débito automático: respuesta vacía');
       }
 
-      // La función retorna una tabla con una fila: {operacion_id, numero_asiento}
-      final resultado = (response as List).first;
+      // La función retorna JSONB: {operacion_id, numero_asiento}
+      final resultado = response as Map<String, dynamic>;
+      print('DEBUG: resultado = $resultado');
+
       return {
         'operacion_id': resultado['operacion_id'] as int,
         'numero_asiento': resultado['numero_asiento'] as int,
       };
     } catch (e) {
+      print('DEBUG: Error capturado = $e');
+      print('DEBUG: Error type = ${e.runtimeType}');
       // Si hay error, la transacción en PostgreSQL hace rollback automático
       rethrow;
     }
