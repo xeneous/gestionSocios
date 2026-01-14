@@ -1,6 +1,6 @@
 -- ============================================================================
 -- SCRIPT DE LIMPIEZA PARA RE-MIGRACIÓN
--- Fecha: 2026-01-07
+-- Fecha: 2026-01-13
 -- Descripción: Limpia las tablas respetando integridad referencial
 -- IMPORTANTE: Este script BORRA TODOS LOS DATOS de las siguientes tablas:
 --   - asientos_header
@@ -10,6 +10,8 @@
 --   - operaciones_detalle_cuentas_corrientes
 --   - detalle_cuentas_corrientes
 --   - cuentas_corrientes
+--   - conceptos_socios
+--   - socios
 -- ============================================================================
 
 -- Verificar que estamos usando la base de datos correcta
@@ -51,6 +53,14 @@ BEGIN
     -- 1.7 Limpiar cuentas_corrientes (tabla padre)
     DELETE FROM public.cuentas_corrientes;
     RAISE NOTICE '✅ Tabla cuentas_corrientes limpiada';
+
+    -- 1.8 Limpiar conceptos_socios (depende de socios)
+    DELETE FROM public.conceptos_socios;
+    RAISE NOTICE '✅ Tabla conceptos_socios limpiada';
+
+    -- 1.9 Limpiar socios (tabla padre)
+    DELETE FROM public.socios WHERE id != 0;
+    RAISE NOTICE '✅ Tabla socios limpiada';
 END $$;
 
 -- ============================================================================
@@ -79,6 +89,8 @@ DECLARE
     count_operaciones_detalle_cc INTEGER;
     count_detalle_cc INTEGER;
     count_cc INTEGER;
+    count_conceptos_socios INTEGER;
+    count_socios INTEGER;
 BEGIN
     SELECT COUNT(*) INTO count_asientos_header FROM public.asientos_header;
     SELECT COUNT(*) INTO count_asientos_items FROM public.asientos_items;
@@ -87,6 +99,8 @@ BEGIN
     SELECT COUNT(*) INTO count_operaciones_detalle_cc FROM public.operaciones_detalle_cuentas_corrientes;
     SELECT COUNT(*) INTO count_detalle_cc FROM public.detalle_cuentas_corrientes;
     SELECT COUNT(*) INTO count_cc FROM public.cuentas_corrientes;
+    SELECT COUNT(*) INTO count_conceptos_socios FROM public.conceptos_socios;
+    SELECT COUNT(*) INTO count_socios FROM public.socios WHERE id != 0;
 
     RAISE NOTICE '';
     RAISE NOTICE '============================================================';
@@ -99,11 +113,14 @@ BEGIN
     RAISE NOTICE 'operaciones_detalle_cuentas_corrientes: % registros', count_operaciones_detalle_cc;
     RAISE NOTICE 'detalle_cuentas_corrientes: % registros', count_detalle_cc;
     RAISE NOTICE 'cuentas_corrientes: % registros', count_cc;
+    RAISE NOTICE 'conceptos_socios: % registros', count_conceptos_socios;
+    RAISE NOTICE 'socios: % registros', count_socios;
     RAISE NOTICE '============================================================';
 
     IF count_asientos_header = 0 AND count_asientos_items = 0 AND
        count_operaciones_detalle_vt = 0 AND count_valores = 0 AND
-       count_operaciones_detalle_cc = 0 AND count_detalle_cc = 0 AND count_cc = 0 THEN
+       count_operaciones_detalle_cc = 0 AND count_detalle_cc = 0 AND
+       count_cc = 0 AND count_conceptos_socios = 0 AND count_socios = 0 THEN
         RAISE NOTICE '✅ TODAS LAS TABLAS LIMPIADAS EXITOSAMENTE';
     ELSE
         RAISE WARNING '⚠️  ADVERTENCIA: Algunas tablas aún tienen datos';
