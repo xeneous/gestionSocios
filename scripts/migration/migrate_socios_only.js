@@ -87,14 +87,13 @@ async function migrateSociosOnly() {
         // 4. Leer socios de SQL Server
         console.log('📖 Leyendo socios de SQL Server...');
         const result = await pool.request().query(`
-            SELECT 
+            SELECT
                 socio, Apellido, nombre, tipodocto, numedocto, cuil,
                 Nacionalidad, Sexo, Nacido as fechanac,
                 Grupo, gDesde, Residente, fresidencia, nroMatricula, Matricula,
                 FechaIngreso, Domicilio, localidad, provincia, cpostal, pais,
                 telefono, Fax, Email, EmailAlt1,
-                Tarjeta, numero, Adherido, Vencimiento, DebitarDesde,
-                CategoriaIVA
+                Tarjeta, numero, Adherido, Vencimiento, DebitarDesde
             FROM socios
         `);
 
@@ -116,7 +115,7 @@ async function migrateSociosOnly() {
                 tipo_documento: tipoDocumentoMap[s.tipodocto] || 'DNI',
                 numero_documento: s.numedocto?.toString().trim(),
                 cuil: s.cuil?.trim(),
-                sexo: s.Sexo ? (sexoMap[s.Sexo.trim()] || 0) : 0,
+                sexo: s.Sexo ? (sexoMap[typeof s.Sexo === 'string' ? s.Sexo.trim() : s.Sexo] || 0) : 0,
                 fecha_nacimiento: s.fechanac,
                 grupo: s.Grupo?.trim(),
                 grupo_desde: s.gDesde,
@@ -138,8 +137,7 @@ async function migrateSociosOnly() {
                 tarjeta_id: s.Tarjeta || 0,
                 numero_tarjeta: s.numero?.toString().trim(),
                 vencimiento_tarjeta: s.Vencimiento,
-                debitar_desde: s.DebitarDesde,
-                categoria_iva: s.CategoriaIVA?.trim()
+                debitar_desde: s.DebitarDesde
             }));
 
             const { error } = await supabase
