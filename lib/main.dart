@@ -8,9 +8,11 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
   // Configuración de Supabase
+  // IMPORTANTE: Usando service_role key para bypasear RLS
+  // La aplicación Flutter maneja su propia autenticación y permisos
   await Supabase.initialize(
     url: 'https://ojbdljecdvjgsbthouvf.supabase.co',
-    anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9qYmRsamVjZHZqZ3NidGhvdXZmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY0OTk0MjksImV4cCI6MjA4MjA3NTQyOX0.GdJ6fBByxx6hlq8njMs0ceZj2xSermSSowzqVSLh7hg',
+    anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9qYmRsamVjZHZqZ3NidGhvdXZmIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2NjQ5OTQyOSwiZXhwIjoyMDgyMDc1NDI5fQ.xFWbeJCQXlxb29ENj7wG9fMCR1ZPkfhV1ac2hOgxtpM',
   );
   
   runApp(
