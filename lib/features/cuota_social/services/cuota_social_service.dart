@@ -78,14 +78,24 @@ class CuotaSocialService {
     required int socioId,
     required List<CuotaSocialItem> items,
   }) async {
+    print('DEBUG crearCuotasSociales: ====================');
+    print('DEBUG: socioId = $socioId');
+    print('DEBUG: items total = ${items.length}');
+
     final itemsACrear = items.where((item) => item.incluir && item.valor > 0);
+    print('DEBUG: items a crear = ${itemsACrear.length}');
 
     if (itemsACrear.isEmpty) {
+      print('DEBUG: No hay items para crear, retornando');
       return;
     }
 
     // Crear cada transacción con su detalle
+    int contador = 0;
     for (final item in itemsACrear) {
+      contador++;
+      print('DEBUG: Procesando item $contador - anioMes: ${item.anioMes}, valor: ${item.valor}');
+
       final fecha = ValorCuotaSocial.anioMesToDate(item.anioMes);
       final primerDia = DateTime(fecha.year, fecha.month, 1);
       final ultimoDia = DateTime(fecha.year, fecha.month + 1, 0);
@@ -102,25 +112,39 @@ class CuotaSocialService {
         'vencimiento': ultimoDia.toIso8601String(),
       };
 
-      final response = await _supabase
-          .from('cuentas_corrientes')
-          .insert(transaccion)
-          .select('idtransaccion')
-          .single();
+      print('DEBUG: Insertando transacción: $transaccion');
 
-      final idtransaccion = response['idtransaccion'] as int;
+      try {
+        final response = await _supabase
+            .from('cuentas_corrientes')
+            .insert(transaccion)
+            .select('idtransaccion')
+            .single();
 
-      // Crear detalle de la transacción
-      final detalle = {
-        'idtransaccion': idtransaccion,
-        'item': 1,
-        'concepto': 'CS',
-        'cantidad': 1,
-        'importe': item.valor,
-      };
+        final idtransaccion = response['idtransaccion'] as int;
+        print('DEBUG: Cuota creada con idtransaccion = $idtransaccion');
 
-      await _supabase.from('detalle_cuentas_corrientes').insert(detalle);
+        // Crear detalle de la transacción
+        final detalle = {
+          'idtransaccion': idtransaccion,
+          'item': 1,
+          'concepto': 'CS ', // Espacio al final por CHAR(3) en BD
+          'cantidad': 1,
+          'importe': item.valor,
+        };
+
+        print('DEBUG: Insertando detalle: $detalle');
+        await _supabase.from('detalle_cuentas_corrientes').insert(detalle);
+        print('DEBUG: Detalle creado exitosamente');
+      } catch (e, st) {
+        print('ERROR al crear cuota: $e');
+        print('ERROR stacktrace: $st');
+        rethrow;
+      }
     }
+
+    print('DEBUG: Total cuotas creadas: $contador');
+    print('DEBUG: ====================');
   }
 
   /// Verifica si ya existe una cuota social para un socio y período
