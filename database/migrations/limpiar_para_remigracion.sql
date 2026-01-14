@@ -11,6 +11,7 @@
 --   - detalle_cuentas_corrientes
 --   - cuentas_corrientes
 --   - conceptos_socios
+--   - observaciones_socios
 --   - socios
 -- ============================================================================
 
@@ -58,7 +59,11 @@ BEGIN
     DELETE FROM public.conceptos_socios;
     RAISE NOTICE '✅ Tabla conceptos_socios limpiada';
 
-    -- 1.9 Limpiar socios (tabla padre)
+    -- 1.9 Limpiar observaciones_socios (depende de socios)
+    DELETE FROM public.observaciones_socios;
+    RAISE NOTICE '✅ Tabla observaciones_socios limpiada';
+
+    -- 1.10 Limpiar socios (tabla padre)
     DELETE FROM public.socios WHERE id != 0;
     RAISE NOTICE '✅ Tabla socios limpiada';
 END $$;
@@ -90,6 +95,7 @@ DECLARE
     count_detalle_cc INTEGER;
     count_cc INTEGER;
     count_conceptos_socios INTEGER;
+    count_observaciones_socios INTEGER;
     count_socios INTEGER;
 BEGIN
     SELECT COUNT(*) INTO count_asientos_header FROM public.asientos_header;
@@ -100,6 +106,7 @@ BEGIN
     SELECT COUNT(*) INTO count_detalle_cc FROM public.detalle_cuentas_corrientes;
     SELECT COUNT(*) INTO count_cc FROM public.cuentas_corrientes;
     SELECT COUNT(*) INTO count_conceptos_socios FROM public.conceptos_socios;
+    SELECT COUNT(*) INTO count_observaciones_socios FROM public.observaciones_socios;
     SELECT COUNT(*) INTO count_socios FROM public.socios WHERE id != 0;
 
     RAISE NOTICE '';
@@ -114,13 +121,15 @@ BEGIN
     RAISE NOTICE 'detalle_cuentas_corrientes: % registros', count_detalle_cc;
     RAISE NOTICE 'cuentas_corrientes: % registros', count_cc;
     RAISE NOTICE 'conceptos_socios: % registros', count_conceptos_socios;
+    RAISE NOTICE 'observaciones_socios: % registros', count_observaciones_socios;
     RAISE NOTICE 'socios: % registros', count_socios;
     RAISE NOTICE '============================================================';
 
     IF count_asientos_header = 0 AND count_asientos_items = 0 AND
        count_operaciones_detalle_vt = 0 AND count_valores = 0 AND
        count_operaciones_detalle_cc = 0 AND count_detalle_cc = 0 AND
-       count_cc = 0 AND count_conceptos_socios = 0 AND count_socios = 0 THEN
+       count_cc = 0 AND count_conceptos_socios = 0 AND
+       count_observaciones_socios = 0 AND count_socios = 0 THEN
         RAISE NOTICE '✅ TODAS LAS TABLAS LIMPIADAS EXITOSAMENTE';
     ELSE
         RAISE WARNING '⚠️  ADVERTENCIA: Algunas tablas aún tienen datos';
