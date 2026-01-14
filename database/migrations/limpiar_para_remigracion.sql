@@ -10,6 +10,7 @@
 --   - operaciones_detalle_cuentas_corrientes
 --   - detalle_cuentas_corrientes
 --   - cuentas_corrientes
+--   - cuentas
 --   - conceptos_socios
 --   - observaciones_socios
 --   - socios
@@ -55,15 +56,19 @@ BEGIN
     DELETE FROM public.cuentas_corrientes;
     RAISE NOTICE '✅ Tabla cuentas_corrientes limpiada';
 
-    -- 1.8 Limpiar conceptos_socios (depende de socios)
+    -- 1.8 Limpiar cuentas (plan de cuentas contable)
+    DELETE FROM public.cuentas;
+    RAISE NOTICE '✅ Tabla cuentas limpiada';
+
+    -- 1.9 Limpiar conceptos_socios (depende de socios)
     DELETE FROM public.conceptos_socios;
     RAISE NOTICE '✅ Tabla conceptos_socios limpiada';
 
-    -- 1.9 Limpiar observaciones_socios (depende de socios)
+    -- 1.10 Limpiar observaciones_socios (depende de socios)
     DELETE FROM public.observaciones_socios;
     RAISE NOTICE '✅ Tabla observaciones_socios limpiada';
 
-    -- 1.10 Limpiar socios (tabla padre)
+    -- 1.11 Limpiar socios (tabla padre)
     DELETE FROM public.socios WHERE id != 0;
     RAISE NOTICE '✅ Tabla socios limpiada';
 END $$;
