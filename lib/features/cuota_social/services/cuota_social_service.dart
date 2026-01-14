@@ -105,7 +105,7 @@ class CuotaSocialService {
         'socio_id': socioId,
         'entidad_id': 0, // 0 = Socios
         'fecha': primerDia.toIso8601String(),
-        'tipo_comprobante': 'CS ', // Espacio al final por CHAR(3) en BD
+        'tipo_comprobante': 'CS',
         'documento_numero': item.anioMes.toString(),
         'importe': item.valor,
         'cancelado': 0,
