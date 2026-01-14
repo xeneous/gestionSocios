@@ -128,7 +128,7 @@ class CuotaSocialService {
         final detalle = {
           'idtransaccion': idtransaccion,
           'item': 1,
-          'concepto': 'CS ', // Espacio al final por CHAR(3) en BD
+          'concepto': 'CS',
           'cantidad': 1,
           'importe': item.valor,
         };
