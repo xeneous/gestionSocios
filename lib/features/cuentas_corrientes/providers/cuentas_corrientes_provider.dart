@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/cuenta_corriente_model.dart';
 import '../models/detalle_cuenta_corriente_model.dart';
 import '../models/cuenta_corriente_completa_model.dart';
+import '../models/cuenta_corriente_resumen.dart';
 import '../services/cuentas_corrientes_service.dart';
 import '../../auth/presentation/providers/auth_provider.dart';
 
@@ -58,13 +59,11 @@ final cuentasCorrientesSearchProvider = FutureProvider.family<
     final supabase = ref.watch(supabaseProvider);
 
     // Query con joins para traer info relacionada
-    // Nota: socios usa !inner porque siempre debe existir
-    // entidades y tipos_comprobante_socios usan LEFT JOIN (sin !inner) porque pueden ser NULL
     var query = supabase.from('cuentas_corrientes').select('''
           *,
           socios!inner(apellido, nombre),
-          entidades(descripcion),
-          tipos_comprobante_socios(descripcion, signo)
+          entidades!inner(descripcion),
+          tipos_comprobante_socios!inner(descripcion, signo)
         ''');
 
     // Aplicar filtros
@@ -339,8 +338,8 @@ class CuentasCorrientesNotifier extends Notifier<AsyncValue<void>> {
           await supabase.from('cuentas_corrientes').select('''
             *,
             socios!inner(apellido, nombre),
-            entidades(descripcion),
-            tipos_comprobante_socios(descripcion, signo)
+            entidades!inner(descripcion),
+            tipos_comprobante_socios!inner(descripcion, signo)
           ''').eq('idtransaccion', idtransaccion).single();
 
       final header = CuentaCorriente.fromJson(headerResponse);
@@ -435,7 +434,7 @@ class CuentasCorrientesNotifier extends Notifier<AsyncValue<void>> {
       final response = await supabase.from('cuentas_corrientes').select('''
             importe,
             cancelado,
-            tipos_comprobante_socios(signo)
+            tipos_comprobante_socios!inner(signo)
           ''').eq('socio_id', socioId);
 
       double totalDebe = 0.0;
@@ -500,8 +499,7 @@ final saldoSocioProvider =
 // ============================================================================
 
 /// Provider del servicio de resumen de cuentas corrientes
-final cuentasCorrientesResumenServiceProvider =
-    Provider<CuentasCorrientesService>((ref) {
+final cuentasCorrientesResumenServiceProvider = Provider<CuentasCorrientesService>((ref) {
   final supabase = ref.watch(supabaseProvider);
   return CuentasCorrientesService(supabase);
 });
@@ -521,8 +519,7 @@ class ResumenPaginaNotifier extends Notifier<int> {
 }
 
 /// Provider de estado para la página actual del resumen
-final resumenCuentasCorrientesPaginaProvider =
-    NotifierProvider<ResumenPaginaNotifier, int>(() {
+final resumenCuentasCorrientesPaginaProvider = NotifierProvider<ResumenPaginaNotifier, int>(() {
   return ResumenPaginaNotifier();
 });
 
