@@ -156,7 +156,7 @@ class CuotaSocialService {
         .from('cuentas_corrientes')
         .select('idtransaccion')
         .eq('socio_id', socioId)
-        .eq('tipo_comprobante', 'CS ') // Espacio al final por CHAR(3) en BD
+        .eq('tipo_comprobante', 'CS')
         .eq('documento_numero', anioMes.toString())
         .maybeSingle();
 
@@ -169,7 +169,7 @@ class CuotaSocialService {
         .from('cuentas_corrientes')
         .select()
         .eq('socio_id', socioId)
-        .eq('tipo_comprobante', 'CS ') // Espacio al final por CHAR(3) en BD
+        .eq('tipo_comprobante', 'CS')
         .order('documento_numero', ascending: false);
 
     return List<Map<String, dynamic>>.from(response);

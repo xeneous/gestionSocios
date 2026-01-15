@@ -14,17 +14,17 @@
 -- APT (226 registros)   - Anticipo
 -- CM  (4 registros)     - Crédito por Migración
 
--- NOTA: Los espacios al final son importantes, SQL Server los tiene así
+-- NOTA: Se eliminaron espacios finales para evitar problemas con JOINs
 
 INSERT INTO tipos_comprobante_socios (comprobante, descripcion, id_tipo_movimiento, signo) VALUES
-  ('DA ', 'Débito Automático', 1, 1),           -- Débito: aumenta deuda
-  ('CS ', 'Cuota Social', 1, 1),                -- Débito: aumenta deuda
+  ('DA', 'Débito Automático', 1, 1),           -- Débito: aumenta deuda
+  ('CS', 'Cuota Social', 1, 1),                -- Débito: aumenta deuda
   ('COB', 'Recibo de Caja', 2, -1),             -- Crédito: disminuye deuda (pago)
-  ('FC ', 'Factura', 1, 1),                     -- Débito: aumenta deuda
+  ('FC', 'Factura', 1, 1),                     -- Débito: aumenta deuda
   ('RDA', 'Reversión Débito Automático', 2, -1), -- Crédito: disminuye deuda
   ('PTT', 'Pago Total', 2, -1),                 -- Crédito: disminuye deuda
   ('APT', 'Anticipo', 2, -1),                   -- Crédito: disminuye deuda
-  ('CM ', 'Crédito por Migración', 2, -1)       -- Crédito: disminuye deuda
+  ('CM', 'Crédito por Migración', 2, -1)       -- Crédito: disminuye deuda
 ON CONFLICT (comprobante) DO UPDATE SET
   descripcion = EXCLUDED.descripcion,
   id_tipo_movimiento = EXCLUDED.id_tipo_movimiento,

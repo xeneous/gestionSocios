@@ -59,7 +59,7 @@ class FacturadorService {
           .from('cuentas_corrientes')
           .select('socio_id, documento_numero')
           .inFilter('socio_id', socioIds)
-          .eq('tipo_comprobante', 'CS ')
+          .eq('tipo_comprobante', 'CS')
           .inFilter('documento_numero', anioMeses)
           .range(cuotasOffset, cuotasOffset + cuotasPageSize - 1);
 
@@ -155,7 +155,7 @@ class FacturadorService {
           'socio_id': item.socioId,
           'entidad_id': 0,
           'fecha': fecha.toIso8601String(),
-          'tipo_comprobante': 'CS ',
+          'tipo_comprobante': 'CS',
           'documento_numero': periodo.anioMes.toString(),
           'importe': importe,
           'cancelado': 0,
