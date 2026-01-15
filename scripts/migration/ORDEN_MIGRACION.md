@@ -14,8 +14,9 @@ Este documento describe el orden correcto para ejecutar todos los scripts de mig
 
 ```bash
 # Ejecutar en este orden:
-1. limpiar_para_remigracion.sql    # Limpia tablas transaccionales
-2. implementar_rls_completo.sql    # Habilita Row Level Security
+1. limpiar_para_remigracion.sql              # Limpia tablas transaccionales
+2. limpiar_espacios_tipos_comprobante.sql    # Elimina espacios de tipos de comprobante
+3. deshabilitar_rls.sql                      # Deshabilita Row Level Security
 ```
 
 **Importante:** El script `limpiar_para_remigracion.sql` borra TODOS los datos de las siguientes tablas:

@@ -196,15 +196,8 @@ async function migrateCuentasCorrientes() {
             return null;  // Skip este registro
           }
 
-          // Normalizar tipo_comprobante: algunos tienen espacio final en Supabase
-          let tipoComprobante = row.Concepto || null;
-          if (tipoComprobante && !validComprobantes.has(tipoComprobante)) {
-            // Intentar con espacio al final
-            const withSpace = tipoComprobante + ' ';
-            if (validComprobantes.has(withSpace)) {
-              tipoComprobante = withSpace;
-            }
-          }
+          // Normalizar tipo_comprobante: SIEMPRE quitar espacios finales
+          let tipoComprobante = row.Concepto?.toString().trim() || null;
 
           return {
             idtransaccion: row.IdTransaccion,
@@ -330,21 +323,8 @@ async function migrateCuentasCorrientes() {
           return true;
         })
         .map(row => {
-          // Normalizar concepto: algunos conceptos tienen espacio
+          // Normalizar concepto: SIEMPRE quitar espacios finales
           let concepto = row.Concepto?.toString().trim() || null;
-          if (concepto && !validConceptos.has(concepto)) {
-            // Intentar con espacio al final
-            const withSpace = concepto + ' ';
-            if (validConceptos.has(withSpace)) {
-              concepto = withSpace;
-            } else {
-              // Intentar sin espacio
-              const withoutSpace = concepto.trim();
-              if (validConceptos.has(withoutSpace)) {
-                concepto = withoutSpace;
-              }
-            }
-          }
 
           return {
             idtransaccion: row.idTransaccion,
