@@ -72,3 +72,7 @@ desktop.ini
 .firebase/
 firebase-debug.log
 firebase-debug.*.log
+
+# Claude Code
+tmpclaude-*
+nul
