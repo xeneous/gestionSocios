@@ -39,6 +39,7 @@ ALTER TABLE public.tarjetas DISABLE ROW LEVEL SECURITY;
 ALTER TABLE public.cuentas DISABLE ROW LEVEL SECURITY;
 ALTER TABLE public.operaciones_contables DISABLE ROW LEVEL SECURITY;
 ALTER TABLE public.operaciones_detalle_cuentas_corrientes DISABLE ROW LEVEL SECURITY;
+ALTER TABLE public.usuarios DISABLE ROW LEVEL SECURITY;
 
 -- Eliminar todas las políticas existentes
 DO $$
@@ -89,7 +90,8 @@ BEGIN
             'tarjetas',
             'cuentas',
             'operaciones_contables',
-            'operaciones_detalle_cuentas_corrientes'
+            'operaciones_detalle_cuentas_corrientes',
+            'usuarios'
         )
         ORDER BY tablename
     LOOP

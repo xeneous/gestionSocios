@@ -141,6 +141,23 @@ if errorlevel 1 (
 )
 
 REM ============================================================================
+REM PASO 3: SCRIPTS SQL POST-MIGRACION
+REM ============================================================================
+echo.
+echo ============================================================================
+echo PASO 3: SCRIPTS SQL POST-MIGRACION (EJECUTAR MANUALMENTE)
+echo ============================================================================
+echo.
+echo Por favor, ejecuta el siguiente script en Supabase SQL Editor:
+echo.
+echo   -- Resetear secuencias de tablas migradas
+echo   SELECT setval('valores_tesoreria_id_seq', COALESCE((SELECT MAX(id) FROM valores_tesoreria), 0) + 1, false);
+echo   SELECT setval('cuentas_corrientes_idtransaccion_seq', COALESCE((SELECT MAX(idtransaccion) FROM cuentas_corrientes), 0) + 1, false);
+echo   SELECT setval('detalle_cuentas_corrientes_id_seq', COALESCE((SELECT MAX(id) FROM detalle_cuentas_corrientes), 0) + 1, false);
+echo.
+pause
+
+REM ============================================================================
 REM FINALIZACION
 REM ============================================================================
 echo.

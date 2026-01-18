@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart' hide Border;
 import 'package:flutter/material.dart' as material show Border, BorderSide;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:excel/excel.dart';
 import 'dart:io' show File, Platform;
@@ -20,6 +21,11 @@ class ResumenCuentasCorrientesPage extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.home),
+          tooltip: 'Ir a Inicio',
+          onPressed: () => context.go('/'),
+        ),
         title: const Text('Resumen Cuentas Corrientes'),
         actions: [
           IconButton(
@@ -91,48 +97,25 @@ class ResumenCuentasCorrientesPage extends ConsumerWidget {
 
     return Column(
       children: [
-        // Estadísticas y paginación info
+        // Info de paginación simplificada
         Container(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           color: Colors.blue.shade50,
-          child: Column(
+          child: Row(
             children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  _buildStat(
-                    'Total Socios',
-                    totalCount.toString(),
-                    Icons.people,
-                    Colors.blue,
-                  ),
-                  _buildStat(
-                    'Con Saldo',
-                    socios.where((s) => s.tieneSaldoPendiente).length.toString(),
-                    Icons.warning,
-                    Colors.orange,
-                  ),
-                  _buildStat(
-                    'Saldo Total',
-                    currencyFormat.format(
-                      socios.fold<double>(0, (sum, s) => sum + s.saldo),
-                    ),
-                    Icons.attach_money,
-                    Colors.green,
-                  ),
-                  _buildStat(
-                    'RDA Pendiente',
-                    currencyFormat.format(
-                      socios.fold<double>(0, (sum, s) => sum + s.rdaPendiente),
-                    ),
-                    Icons.receipt,
-                    Colors.red,
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
+              Icon(Icons.people, color: Colors.blue.shade700),
+              const SizedBox(width: 8),
               Text(
-                'Mostrando ${paginaActual * 50 + 1}-${(paginaActual * 50 + socios.length).clamp(0, totalCount)} de $totalCount socios',
+                '$totalCount socios',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.blue.shade700,
+                ),
+              ),
+              const Spacer(),
+              Text(
+                'Mostrando ${paginaActual * 50 + 1}-${(paginaActual * 50 + socios.length).clamp(0, totalCount)} de $totalCount',
                 style: const TextStyle(
                   fontSize: 12,
                   color: Colors.grey,
@@ -189,6 +172,13 @@ class ResumenCuentasCorrientesPage extends ConsumerWidget {
                     ),
                     DataColumn(
                       label: Text(
+                        'Meses',
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      numeric: true,
+                    ),
+                    DataColumn(
+                      label: Text(
                         'RDA Pendiente',
                         style: TextStyle(fontWeight: FontWeight.bold),
                       ),
@@ -215,7 +205,7 @@ class ResumenCuentasCorrientesPage extends ConsumerWidget {
                   ],
                   rows: socios.map((socio) {
                     return DataRow(
-                      onSelectChanged: (_) => _mostrarDetalleCuenta(context, ref, socio),
+                      onSelectChanged: (_) => context.push('/socios/${socio.socioId}/cuenta-corriente'),
                       cells: [
                         DataCell(Text(socio.socioId.toString())),
                         DataCell(Text(socio.apellido)),
@@ -229,6 +219,17 @@ class ResumenCuentasCorrientesPage extends ConsumerWidget {
                               color: socio.tieneSaldoPendiente
                                   ? Colors.red
                                   : Colors.green,
+                            ),
+                          ),
+                        ),
+                        DataCell(
+                          Text(
+                            socio.mesesImpagos.toString(),
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: socio.mesesImpagos > 0
+                                  ? Colors.orange
+                                  : Colors.grey,
                             ),
                           ),
                         ),
@@ -256,13 +257,24 @@ class ResumenCuentasCorrientesPage extends ConsumerWidget {
                                 ),
                         ),
                         DataCell(
-                          IconButton(
-                            icon: const Icon(Icons.email),
-                            tooltip: 'Enviar resumen por email',
-                            color: socio.tieneEmail ? Colors.blue : Colors.grey,
-                            onPressed: socio.tieneEmail
-                                ? () => _enviarEmail(context, ref, socio)
-                                : null,
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              IconButton(
+                                icon: const Icon(Icons.account_balance_wallet),
+                                tooltip: 'Ver cuenta corriente',
+                                color: Colors.blue,
+                                onPressed: () => context.push('/socios/${socio.socioId}/cuenta-corriente'),
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.email),
+                                tooltip: 'Enviar resumen por email',
+                                color: socio.tieneEmail ? Colors.green : Colors.grey,
+                                onPressed: socio.tieneEmail
+                                    ? () => _enviarEmail(context, ref, socio)
+                                    : null,
+                              ),
+                            ],
                           ),
                         ),
                       ],
@@ -347,280 +359,6 @@ class ResumenCuentasCorrientesPage extends ConsumerWidget {
     );
   }
 
-  Widget _buildStat(String label, String value, IconData icon, Color color) {
-    return Column(
-      children: [
-        Icon(icon, color: color, size: 32),
-        const SizedBox(height: 8),
-        Text(
-          value,
-          style: TextStyle(
-            fontSize: 24,
-            fontWeight: FontWeight.bold,
-            color: color,
-          ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          label,
-          style: const TextStyle(
-            fontSize: 12,
-            color: Colors.grey,
-          ),
-        ),
-      ],
-    );
-  }
-
-  Future<void> _mostrarDetalleCuenta(
-    BuildContext context,
-    WidgetRef ref,
-    CuentaCorrienteResumen socio,
-  ) async {
-    // Obtener el detalle completo de la cuenta corriente del socio
-    final cuentasAsync = await ref.read(
-      cuentasCorrientesSearchProvider(
-        CuentasCorrientesSearchParams(socioId: socio.socioId),
-      ).future,
-    );
-
-    if (!context.mounted) return;
-
-    final currencyFormat = NumberFormat.currency(symbol: '\$', decimalDigits: 2);
-    final dateFormat = DateFormat('dd/MM/yyyy');
-
-    showDialog(
-      context: context,
-      builder: (context) => Dialog(
-        child: Container(
-          constraints: const BoxConstraints(maxWidth: 1200, maxHeight: 800),
-          child: Column(
-            children: [
-              // Encabezado
-              Container(
-                padding: const EdgeInsets.all(16),
-                color: Theme.of(context).colorScheme.primaryContainer,
-                child: Row(
-                  children: [
-                    const Icon(Icons.account_balance_wallet, size: 32),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Detalle Cuenta Corriente',
-                            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          Text(
-                            'Socio #${socio.socioId} - ${socio.apellido}, ${socio.nombre}',
-                            style: Theme.of(context).textTheme.bodyMedium,
-                          ),
-                        ],
-                      ),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.close),
-                      onPressed: () => Navigator.pop(context),
-                    ),
-                  ],
-                ),
-              ),
-
-              // Estadísticas
-              Container(
-                padding: const EdgeInsets.all(16),
-                color: Colors.blue.shade50,
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                  children: [
-                    _buildStatSmall(
-                      'Saldo Total',
-                      currencyFormat.format(socio.saldo),
-                      socio.tieneSaldoPendiente ? Colors.red : Colors.green,
-                    ),
-                    _buildStatSmall(
-                      'RDA Pendiente',
-                      currencyFormat.format(socio.rdaPendiente),
-                      Colors.orange,
-                    ),
-                    _buildStatSmall(
-                      'Movimientos',
-                      cuentasAsync.length.toString(),
-                      Colors.blue,
-                    ),
-                  ],
-                ),
-              ),
-
-              // Tabla de movimientos
-              Expanded(
-                child: cuentasAsync.isEmpty
-                    ? const Center(
-                        child: Text('No hay movimientos registrados'),
-                      )
-                    : SingleChildScrollView(
-                        padding: const EdgeInsets.all(16),
-                        child: SingleChildScrollView(
-                          scrollDirection: Axis.horizontal,
-                          child: DataTable(
-                            headingRowColor: WidgetStateProperty.all(
-                              Theme.of(context).colorScheme.secondaryContainer,
-                            ),
-                            columns: const [
-                              DataColumn(
-                                label: Text(
-                                  'Fecha',
-                                  style: TextStyle(fontWeight: FontWeight.bold),
-                                ),
-                              ),
-                              DataColumn(
-                                label: Text(
-                                  'Tipo',
-                                  style: TextStyle(fontWeight: FontWeight.bold),
-                                ),
-                              ),
-                              DataColumn(
-                                label: Text(
-                                  'Comprobante',
-                                  style: TextStyle(fontWeight: FontWeight.bold),
-                                ),
-                              ),
-                              DataColumn(
-                                label: Text(
-                                  'Doc. Nro',
-                                  style: TextStyle(fontWeight: FontWeight.bold),
-                                ),
-                              ),
-                              DataColumn(
-                                label: Text(
-                                  'Importe',
-                                  style: TextStyle(fontWeight: FontWeight.bold),
-                                ),
-                                numeric: true,
-                              ),
-                              DataColumn(
-                                label: Text(
-                                  'Cancelado',
-                                  style: TextStyle(fontWeight: FontWeight.bold),
-                                ),
-                                numeric: true,
-                              ),
-                              DataColumn(
-                                label: Text(
-                                  'Saldo',
-                                  style: TextStyle(fontWeight: FontWeight.bold),
-                                ),
-                                numeric: true,
-                              ),
-                              DataColumn(
-                                label: Text(
-                                  'Estado',
-                                  style: TextStyle(fontWeight: FontWeight.bold),
-                                ),
-                              ),
-                            ],
-                            rows: cuentasAsync.map((cuenta) {
-                              final saldo = cuenta.header.saldoPendiente;
-                              return DataRow(
-                                cells: [
-                                  DataCell(
-                                    Text(dateFormat.format(cuenta.header.fecha)),
-                                  ),
-                                  DataCell(
-                                    Text(cuenta.header.tipoComprobanteDescripcion ?? '-'),
-                                  ),
-                                  DataCell(
-                                    Text(cuenta.header.tipoComprobante),
-                                  ),
-                                  DataCell(
-                                    Text(cuenta.header.documentoNumero ?? '-'),
-                                  ),
-                                  DataCell(
-                                    Text(
-                                      currencyFormat.format(cuenta.header.importe ?? 0),
-                                      style: const TextStyle(fontWeight: FontWeight.bold),
-                                    ),
-                                  ),
-                                  DataCell(
-                                    Text(
-                                      currencyFormat.format(cuenta.header.cancelado ?? 0),
-                                    ),
-                                  ),
-                                  DataCell(
-                                    Text(
-                                      currencyFormat.format(saldo),
-                                      style: TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        color: saldo > 0 ? Colors.red : Colors.green,
-                                      ),
-                                    ),
-                                  ),
-                                  DataCell(
-                                    Chip(
-                                      label: Text(
-                                        cuenta.header.estaCancelado ? 'Cancelado' : 'Pendiente',
-                                        style: const TextStyle(fontSize: 12),
-                                      ),
-                                      backgroundColor: cuenta.header.estaCancelado
-                                          ? Colors.green.shade100
-                                          : Colors.orange.shade100,
-                                      padding: EdgeInsets.zero,
-                                    ),
-                                  ),
-                                ],
-                              );
-                            }).toList(),
-                          ),
-                        ),
-                      ),
-              ),
-
-              // Botones de acción
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    TextButton(
-                      onPressed: () => Navigator.pop(context),
-                      child: const Text('Cerrar'),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildStatSmall(String label, String value, Color color) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Text(
-          value,
-          style: TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-            color: color,
-          ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          label,
-          style: const TextStyle(
-            fontSize: 12,
-            color: Colors.grey,
-          ),
-        ),
-      ],
-    );
-  }
 
   Future<void> _enviarEmail(
     BuildContext context,

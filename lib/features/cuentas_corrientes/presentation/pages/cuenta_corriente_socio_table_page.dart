@@ -22,7 +22,7 @@ class CuentaCorrienteSocioTablePage extends ConsumerStatefulWidget {
 
 class _CuentaCorrienteSocioTablePageState
     extends ConsumerState<CuentaCorrienteSocioTablePage> {
-  bool _soloPendientes = false;
+  bool _soloPendientes = true;
 
   @override
   Widget build(BuildContext context) {
@@ -39,6 +39,11 @@ class _CuentaCorrienteSocioTablePageState
 
     return Scaffold(
       appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.home),
+          tooltip: 'Ir a Inicio',
+          onPressed: () => context.go('/'),
+        ),
         title: socioAsync.when(
           data: (socio) =>
               Text('Cuenta Corriente - ${socio?.apellido}, ${socio?.nombre}'),
@@ -117,7 +122,7 @@ class _CuentaCorrienteSocioTablePageState
                     ),
                 ],
               ),
-              loading: () => const CircularProgressIndicator(),
+              loading: () => const Text('Cargando...'),
               error: (_, __) => const Text('Error cargando socio'),
             ),
           ),
@@ -144,7 +149,7 @@ class _CuentaCorrienteSocioTablePageState
                 ],
               );
             },
-            loading: () => const CircularProgressIndicator(),
+            loading: () => const Text('...'),
             error: (_, __) => const Text('Error'),
           ),
         ],
@@ -220,7 +225,13 @@ class _CuentaCorrienteSocioTablePageState
           ),
         );
       },
-      loading: () => const Center(child: CircularProgressIndicator()),
+      loading: () => const Center(
+        child: SizedBox(
+          width: 40,
+          height: 40,
+          child: CircularProgressIndicator(),
+        ),
+      ),
       error: (error, stack) => Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -238,7 +249,8 @@ class _CuentaCorrienteSocioTablePageState
     double saldoAcumulado = 0;
     final rows = <DataRow>[];
 
-    for (final cuenta in movimientos.reversed) {
+    // Iterar en orden cronológico (ya vienen ordenados por fecha ASC)
+    for (final cuenta in movimientos) {
       // Calcular debe/haber según el signo del tipo de comprobante
       // signo = 1 para débito (debe), signo = -1 para crédito (haber)
 
@@ -347,7 +359,7 @@ class _CuentaCorrienteSocioTablePageState
       );
     }
 
-    return rows.reversed.toList();
+    return rows;
   }
 
   Future<void> _showDetalleDialog(CuentaCorrienteCompleta cuenta) async {

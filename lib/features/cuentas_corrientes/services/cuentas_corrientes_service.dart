@@ -42,6 +42,7 @@ class CuentasCorrientesService {
           grupo: row['grupo'] as String?,
           saldo: (row['saldo'] as num).toDouble(),
           rdaPendiente: (row['rda_pendiente'] as num).toDouble(),
+          mesesImpagos: (row['meses_impagos'] as num?)?.toInt() ?? 0,
           telefono: row['telefono'] as String?,
           email: row['email'] as String?,
         );

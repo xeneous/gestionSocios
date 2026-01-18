@@ -5,6 +5,7 @@ class CuentaCorrienteResumen {
   final String? grupo;
   final double saldo;
   final double rdaPendiente;
+  final int mesesImpagos; // Cantidad de registros con cancelado < importe
   final String? telefono;
   final String? email;
 
@@ -15,6 +16,7 @@ class CuentaCorrienteResumen {
     this.grupo,
     required this.saldo,
     required this.rdaPendiente,
+    this.mesesImpagos = 0,
     this.telefono,
     this.email,
   });

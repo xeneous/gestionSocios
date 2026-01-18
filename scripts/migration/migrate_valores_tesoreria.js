@@ -237,6 +237,21 @@ async function migrateValoresTesoreria() {
     console.log(`   - Conceptos Tesorería: ${insertados} insertados, ${omitidos} omitidos`);
     console.log(`   - Valores Tesorería: ${insertadosValores} insertados, ${omitidosValores} omitidos`);
 
+    // Resetear la secuencia de valores_tesoreria para que el próximo ID sea MAX(id) + 1
+    console.log('\n🔄 Reseteando secuencia de valores_tesoreria...');
+    const { error: seqError } = await supabase.rpc('reset_sequence', {
+      p_table_name: 'valores_tesoreria',
+      p_column_name: 'id'
+    });
+
+    if (seqError) {
+      // Si la función RPC no existe, intentar con SQL directo
+      console.log('⚠️ Función RPC no disponible, ejecutar manualmente:');
+      console.log("   SELECT setval('valores_tesoreria_id_seq', COALESCE((SELECT MAX(id) FROM valores_tesoreria), 0) + 1, false);");
+    } else {
+      console.log('✅ Secuencia reseteada correctamente');
+    }
+
   } catch (error) {
     console.error('❌ Error:', error);
     throw error;

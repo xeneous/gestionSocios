@@ -2,7 +2,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/cuenta_corriente_model.dart';
 import '../models/detalle_cuenta_corriente_model.dart';
 import '../models/cuenta_corriente_completa_model.dart';
-import '../models/cuenta_corriente_resumen.dart';
 import '../services/cuentas_corrientes_service.dart';
 import '../../auth/presentation/providers/auth_provider.dart';
 
@@ -59,11 +58,12 @@ final cuentasCorrientesSearchProvider = FutureProvider.family<
     final supabase = ref.watch(supabaseProvider);
 
     // Query con joins para traer info relacionada
+    // NOTA: Sin !inner porque PostgREST no resuelve bien los INNER JOINs
     var query = supabase.from('cuentas_corrientes').select('''
           *,
-          socios!inner(apellido, nombre),
-          entidades!inner(descripcion),
-          tipos_comprobante_socios!inner(descripcion, signo)
+          socios(apellido, nombre),
+          entidades(descripcion),
+          tipos_comprobante_socios(descripcion, signo)
         ''');
 
     // Aplicar filtros
@@ -499,7 +499,8 @@ final saldoSocioProvider =
 // ============================================================================
 
 /// Provider del servicio de resumen de cuentas corrientes
-final cuentasCorrientesResumenServiceProvider = Provider<CuentasCorrientesService>((ref) {
+final cuentasCorrientesResumenServiceProvider =
+    Provider<CuentasCorrientesService>((ref) {
   final supabase = ref.watch(supabaseProvider);
   return CuentasCorrientesService(supabase);
 });
@@ -519,7 +520,8 @@ class ResumenPaginaNotifier extends Notifier<int> {
 }
 
 /// Provider de estado para la página actual del resumen
-final resumenCuentasCorrientesPaginaProvider = NotifierProvider<ResumenPaginaNotifier, int>(() {
+final resumenCuentasCorrientesPaginaProvider =
+    NotifierProvider<ResumenPaginaNotifier, int>(() {
   return ResumenPaginaNotifier();
 });
 
