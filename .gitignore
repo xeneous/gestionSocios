@@ -76,3 +76,4 @@ firebase-debug.*.log
 # Claude Code
 tmpclaude-*
 nul
+.claude/settings.local.json
