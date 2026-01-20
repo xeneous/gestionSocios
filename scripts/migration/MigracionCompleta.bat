@@ -23,25 +23,30 @@ if not exist "migrate_socios_only.js" (
 )
 
 REM ============================================================================
-REM PASO 1: SCRIPTS SQL - Ejecutar manualmente en Supabase SQL Editor
+REM PASO 1: PREPARACION - Limpiar tablas y preparar base de datos
 REM ============================================================================
 echo.
 echo ============================================================================
-echo PASO 1: SCRIPTS SQL (EJECUTAR MANUALMENTE EN SUPABASE)
+echo PASO 1: PREPARACION ^(AUTOMATICO^)
 echo ============================================================================
 echo.
-echo Por favor, ejecuta los siguientes scripts en Supabase SQL Editor:
+echo Limpiando tablas y preparando base de datos...
 echo.
-echo   1. database/migrations/limpiar_para_remigracion.sql
-echo      ^(Limpia todas las tablas transaccionales^)
+
+node ejecutar_sql_preparacion.js
+if errorlevel 1 (
+    echo.
+    echo ERROR: Fallo la preparacion de la base de datos
+    pause
+    exit /b 1
+)
+
+REM ============================================================================
+REM PASO 1b: RLS - Solo si es necesario
+REM ============================================================================
 echo.
-echo   2. database/migrations/limpiar_espacios_tipos_comprobante.sql
-echo      ^(Elimina espacios de tipos de comprobante^)
-echo.
-echo   3. database/migrations/deshabilitar_rls.sql
-echo      ^(Deshabilita Row Level Security^)
-echo.
-echo IMPORTANTE: Ejecuta estos scripts EN ORDEN antes de continuar.
+echo NOTA: Si es la primera vez o tienes problemas de permisos,
+echo ejecuta en Supabase SQL Editor: database/migrations/deshabilitar_rls.sql
 echo.
 pause
 
@@ -50,7 +55,7 @@ REM PASO 2: MIGRACION DE DATOS - Scripts Node.js
 REM ============================================================================
 echo.
 echo ============================================================================
-echo PASO 2: MIGRACION DE DATOS (AUTOMATICO)
+echo PASO 2: MIGRACION DE DATOS ^(AUTOMATICO^)
 echo ============================================================================
 echo.
 echo Iniciando migracion automatica de datos...
@@ -141,21 +146,27 @@ if errorlevel 1 (
 )
 
 REM ============================================================================
-REM PASO 3: SCRIPTS SQL POST-MIGRACION
+REM PASO 3: POST-MIGRACION - Resetear secuencias
 REM ============================================================================
 echo.
 echo ============================================================================
-echo PASO 3: SCRIPTS SQL POST-MIGRACION (EJECUTAR MANUALMENTE)
+echo PASO 3: POST-MIGRACION ^(AUTOMATICO^)
 echo ============================================================================
 echo.
-echo Por favor, ejecuta el siguiente script en Supabase SQL Editor:
-echo.
-echo   -- Resetear secuencias de tablas migradas
-echo   SELECT setval('valores_tesoreria_id_seq', COALESCE((SELECT MAX(id) FROM valores_tesoreria), 0) + 1, false);
-echo   SELECT setval('cuentas_corrientes_idtransaccion_seq', COALESCE((SELECT MAX(idtransaccion) FROM cuentas_corrientes), 0) + 1, false);
-echo   SELECT setval('detalle_cuentas_corrientes_id_seq', COALESCE((SELECT MAX(id) FROM detalle_cuentas_corrientes), 0) + 1, false);
-echo.
-pause
+echo Reseteando secuencias...
+
+node reset_sequences.js
+if errorlevel 1 (
+    echo.
+    echo ADVERTENCIA: No se pudieron resetear las secuencias automaticamente
+    echo.
+    echo Ejecuta manualmente en Supabase SQL Editor:
+    echo.
+    echo   SELECT setval('valores_tesoreria_id_seq', COALESCE((SELECT MAX(id) FROM valores_tesoreria), 0) + 1, false);
+    echo   SELECT setval('cuentas_corrientes_idtransaccion_seq', COALESCE((SELECT MAX(idtransaccion) FROM cuentas_corrientes), 0) + 1, false);
+    echo   SELECT setval('detalle_cuentas_corrientes_id_seq', COALESCE((SELECT MAX(id) FROM detalle_cuentas_corrientes), 0) + 1, false);
+    echo.
+)
 
 REM ============================================================================
 REM FINALIZACION

@@ -94,12 +94,18 @@ class ResumenCuentasCorrientesPage extends ConsumerWidget {
     }
 
     final currencyFormat = NumberFormat.currency(symbol: '\$', decimalDigits: 2);
+    final soloActivos = ref.watch(resumenSoloActivosProvider);
+    final mesesFiltro = ref.watch(resumenMesesFiltroProvider);
+    final mesesExacto = ref.watch(resumenMesesExactoProvider);
+    final tarjetaFiltro = ref.watch(resumenTarjetaFiltroProvider);
+    final soloResidentes = ref.watch(resumenResidentesProvider);
+    final tarjetasAsync = ref.watch(tarjetasProvider);
 
     return Column(
       children: [
-        // Info de paginación simplificada
+        // Fila 1: Info y filtro Activos/Todos
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           color: Colors.blue.shade50,
           child: Row(
             children: [
@@ -113,6 +119,35 @@ class ResumenCuentasCorrientesPage extends ConsumerWidget {
                   color: Colors.blue.shade700,
                 ),
               ),
+              const SizedBox(width: 24),
+              // Filtro Activos/Todos
+              SegmentedButton<bool>(
+                segments: const [
+                  ButtonSegment<bool>(
+                    value: true,
+                    label: Text('Activos'),
+                  ),
+                  ButtonSegment<bool>(
+                    value: false,
+                    label: Text('Todos'),
+                  ),
+                ],
+                selected: {soloActivos},
+                onSelectionChanged: (selection) {
+                  ref.read(resumenSoloActivosProvider.notifier).setActivos(selection.first);
+                  ref.read(resumenCuentasCorrientesPaginaProvider.notifier).reset();
+                },
+              ),
+              const SizedBox(width: 16),
+              // Filtro Residentes
+              FilterChip(
+                label: const Text('Residentes'),
+                selected: soloResidentes,
+                onSelected: (value) {
+                  ref.read(resumenResidentesProvider.notifier).setResidentes(value);
+                  ref.read(resumenCuentasCorrientesPaginaProvider.notifier).reset();
+                },
+              ),
               const Spacer(),
               Text(
                 'Mostrando ${paginaActual * 50 + 1}-${(paginaActual * 50 + socios.length).clamp(0, totalCount)} de $totalCount',
@@ -122,6 +157,92 @@ class ResumenCuentasCorrientesPage extends ConsumerWidget {
                   fontWeight: FontWeight.w500,
                 ),
               ),
+            ],
+          ),
+        ),
+        // Fila 2: Filtros adicionales
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          color: Colors.grey.shade100,
+          child: Row(
+            children: [
+              // Filtro de meses
+              const Text('Meses: ', style: TextStyle(fontWeight: FontWeight.w500)),
+              SizedBox(
+                width: 60,
+                child: DropdownButton<int?>(
+                  value: mesesFiltro,
+                  isExpanded: true,
+                  underline: const SizedBox(),
+                  hint: const Text('-'),
+                  items: [
+                    const DropdownMenuItem<int?>(value: null, child: Text('-')),
+                    ...List.generate(12, (i) => i + 1).map((m) =>
+                      DropdownMenuItem<int?>(value: m, child: Text('$m')),
+                    ),
+                  ],
+                  onChanged: (value) {
+                    ref.read(resumenMesesFiltroProvider.notifier).setMeses(value);
+                    ref.read(resumenCuentasCorrientesPaginaProvider.notifier).reset();
+                  },
+                ),
+              ),
+              if (mesesFiltro != null) ...[
+                const SizedBox(width: 8),
+                SegmentedButton<bool>(
+                  segments: const [
+                    ButtonSegment<bool>(value: false, label: Text('o más')),
+                    ButtonSegment<bool>(value: true, label: Text('exacto')),
+                  ],
+                  selected: {mesesExacto},
+                  onSelectionChanged: (selection) {
+                    ref.read(resumenMesesExactoProvider.notifier).setExacto(selection.first);
+                    ref.read(resumenCuentasCorrientesPaginaProvider.notifier).reset();
+                  },
+                ),
+              ],
+              const SizedBox(width: 24),
+              // Filtro de tarjeta
+              const Text('Tarjeta: ', style: TextStyle(fontWeight: FontWeight.w500)),
+              tarjetasAsync.when(
+                data: (tarjetas) => SizedBox(
+                  width: 150,
+                  child: DropdownButton<int?>(
+                    value: tarjetaFiltro,
+                    isExpanded: true,
+                    underline: const SizedBox(),
+                    hint: const Text('Todas'),
+                    items: [
+                      const DropdownMenuItem<int?>(value: null, child: Text('Todas')),
+                      ...tarjetas.map((t) =>
+                        DropdownMenuItem<int?>(
+                          value: t['id'] as int,
+                          child: Text(t['descripcion'] as String? ?? 'Sin nombre'),
+                        ),
+                      ),
+                    ],
+                    onChanged: (value) {
+                      ref.read(resumenTarjetaFiltroProvider.notifier).setTarjeta(value);
+                      ref.read(resumenCuentasCorrientesPaginaProvider.notifier).reset();
+                    },
+                  ),
+                ),
+                loading: () => const SizedBox(width: 150, child: Text('Cargando...')),
+                error: (_, __) => const SizedBox(width: 150, child: Text('Error')),
+              ),
+              const Spacer(),
+              // Botón limpiar filtros
+              if (mesesFiltro != null || tarjetaFiltro != null || soloResidentes)
+                TextButton.icon(
+                  icon: const Icon(Icons.clear_all, size: 18),
+                  label: const Text('Limpiar filtros'),
+                  onPressed: () {
+                    ref.read(resumenMesesFiltroProvider.notifier).clear();
+                    ref.read(resumenTarjetaFiltroProvider.notifier).clear();
+                    ref.read(resumenResidentesProvider.notifier).setResidentes(false);
+                    ref.read(resumenCuentasCorrientesPaginaProvider.notifier).reset();
+                  },
+                ),
             ],
           ),
         ),
@@ -449,9 +570,20 @@ class ResumenCuentasCorrientesPage extends ConsumerWidget {
     );
 
     try {
-      // Obtener TODOS los registros sin paginación
+      // Obtener TODOS los registros sin paginación (respetando los filtros actuales)
       final service = ref.read(cuentasCorrientesResumenServiceProvider);
-      final socios = await service.obtenerResumenCompletoParaExportar();
+      final soloActivos = ref.read(resumenSoloActivosProvider);
+      final mesesMinimo = ref.read(resumenMesesFiltroProvider);
+      final mesesExacto = ref.read(resumenMesesExactoProvider);
+      final tarjetaId = ref.read(resumenTarjetaFiltroProvider);
+      final soloResidentes = ref.read(resumenResidentesProvider);
+      final socios = await service.obtenerResumenCompletoParaExportar(
+        soloActivos: soloActivos,
+        mesesMinimo: mesesMinimo,
+        mesesExacto: mesesExacto,
+        tarjetaId: tarjetaId,
+        soloResidentes: soloResidentes,
+      );
 
       print('DEBUG: Socios obtenidos para exportar: ${socios.length}');
 

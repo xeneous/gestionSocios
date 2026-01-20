@@ -12,9 +12,19 @@ class CuentasCorrientesService {
   ///
   /// [limit] - Cantidad de registros a obtener (null = todos)
   /// [offset] - Número de registros a saltar
+  /// [soloActivos] - Si true, filtra solo grupos con activo=true en grupos_agrupados
+  /// [mesesMinimo] - Filtrar por cantidad mínima de meses impagos (null = sin filtro)
+  /// [mesesExacto] - Si true, busca exactamente mesesMinimo; si false, busca >= mesesMinimo
+  /// [tarjetaId] - Filtrar por tarjeta de débito automático (null = todas)
+  /// [soloResidentes] - Si true, filtra solo socios residentes
   Future<Map<String, dynamic>> obtenerResumenCuentasCorrientes({
     int? limit,
     int offset = 0,
+    bool soloActivos = true,
+    int? mesesMinimo,
+    bool mesesExacto = false,
+    int? tarjetaId,
+    bool soloResidentes = false,
   }) async {
     try {
       // Llamar a función RPC optimizada con paginación
@@ -23,6 +33,11 @@ class CuentasCorrientesService {
         params: {
           'p_limit': limit,
           'p_offset': offset,
+          'p_solo_activos': soloActivos,
+          'p_meses_minimo': mesesMinimo,
+          'p_meses_exacto': mesesExacto,
+          'p_tarjeta_id': tarjetaId,
+          'p_solo_residentes': soloResidentes,
         },
       );
 
@@ -45,6 +60,8 @@ class CuentasCorrientesService {
           mesesImpagos: (row['meses_impagos'] as num?)?.toInt() ?? 0,
           telefono: row['telefono'] as String?,
           email: row['email'] as String?,
+          tarjetaId: row['tarjeta_id'] as int?,
+          residente: row['residente'] as bool? ?? false,
         );
       }).toList();
 
@@ -64,8 +81,22 @@ class CuentasCorrientesService {
   }
 
   /// Obtiene TODO el resumen sin paginación (para exportar a Excel)
-  Future<List<CuentaCorrienteResumen>> obtenerResumenCompletoParaExportar() async {
-    final result = await obtenerResumenCuentasCorrientes(limit: null, offset: 0);
+  Future<List<CuentaCorrienteResumen>> obtenerResumenCompletoParaExportar({
+    bool soloActivos = true,
+    int? mesesMinimo,
+    bool mesesExacto = false,
+    int? tarjetaId,
+    bool soloResidentes = false,
+  }) async {
+    final result = await obtenerResumenCuentasCorrientes(
+      limit: null,
+      offset: 0,
+      soloActivos: soloActivos,
+      mesesMinimo: mesesMinimo,
+      mesesExacto: mesesExacto,
+      tarjetaId: tarjetaId,
+      soloResidentes: soloResidentes,
+    );
     return result['items'] as List<CuentaCorrienteResumen>;
   }
 

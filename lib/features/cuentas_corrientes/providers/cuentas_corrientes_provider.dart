@@ -525,6 +525,86 @@ final resumenCuentasCorrientesPaginaProvider =
   return ResumenPaginaNotifier();
 });
 
+/// Provider de estado para el filtro de solo activos
+class ResumenSoloActivosNotifier extends Notifier<bool> {
+  @override
+  bool build() => true; // Por defecto solo activos
+
+  void toggle() => state = !state;
+  void setActivos(bool value) => state = value;
+}
+
+final resumenSoloActivosProvider =
+    NotifierProvider<ResumenSoloActivosNotifier, bool>(() {
+  return ResumenSoloActivosNotifier();
+});
+
+/// Provider de estado para filtro de meses impagos
+class ResumenMesesFiltroNotifier extends Notifier<int?> {
+  @override
+  int? build() => null; // Sin filtro por defecto
+
+  void setMeses(int? value) => state = value;
+  void clear() => state = null;
+}
+
+final resumenMesesFiltroProvider =
+    NotifierProvider<ResumenMesesFiltroNotifier, int?>(() {
+  return ResumenMesesFiltroNotifier();
+});
+
+/// Provider de estado para filtro de meses exactos (true) o >= (false)
+class ResumenMesesExactoNotifier extends Notifier<bool> {
+  @override
+  bool build() => false; // Por defecto >= (o más)
+
+  void toggle() => state = !state;
+  void setExacto(bool value) => state = value;
+}
+
+final resumenMesesExactoProvider =
+    NotifierProvider<ResumenMesesExactoNotifier, bool>(() {
+  return ResumenMesesExactoNotifier();
+});
+
+/// Provider de estado para filtro de tarjeta
+class ResumenTarjetaFiltroNotifier extends Notifier<int?> {
+  @override
+  int? build() => null; // Todas las tarjetas por defecto
+
+  void setTarjeta(int? value) => state = value;
+  void clear() => state = null;
+}
+
+final resumenTarjetaFiltroProvider =
+    NotifierProvider<ResumenTarjetaFiltroNotifier, int?>(() {
+  return ResumenTarjetaFiltroNotifier();
+});
+
+/// Provider de estado para filtro de residentes
+class ResumenResidentesNotifier extends Notifier<bool> {
+  @override
+  bool build() => false; // Todos por defecto (no solo residentes)
+
+  void toggle() => state = !state;
+  void setResidentes(bool value) => state = value;
+}
+
+final resumenResidentesProvider =
+    NotifierProvider<ResumenResidentesNotifier, bool>(() {
+  return ResumenResidentesNotifier();
+});
+
+/// Provider para obtener las tarjetas disponibles
+final tarjetasProvider = FutureProvider<List<Map<String, dynamic>>>((ref) async {
+  final supabase = ref.watch(supabaseProvider);
+  final response = await supabase
+      .from('tarjetas')
+      .select('id, descripcion')
+      .order('descripcion');
+  return (response as List).cast<Map<String, dynamic>>();
+});
+
 /// Tamaño de página para resumen
 const int resumenPageSize = 50;
 
@@ -533,9 +613,19 @@ final resumenCuentasCorrientesProvider =
     FutureProvider<Map<String, dynamic>>((ref) async {
   final service = ref.watch(cuentasCorrientesResumenServiceProvider);
   final pagina = ref.watch(resumenCuentasCorrientesPaginaProvider);
+  final soloActivos = ref.watch(resumenSoloActivosProvider);
+  final mesesMinimo = ref.watch(resumenMesesFiltroProvider);
+  final mesesExacto = ref.watch(resumenMesesExactoProvider);
+  final tarjetaId = ref.watch(resumenTarjetaFiltroProvider);
+  final soloResidentes = ref.watch(resumenResidentesProvider);
 
   return service.obtenerResumenCuentasCorrientes(
     limit: resumenPageSize,
     offset: pagina * resumenPageSize,
+    soloActivos: soloActivos,
+    mesesMinimo: mesesMinimo,
+    mesesExacto: mesesExacto,
+    tarjetaId: tarjetaId,
+    soloResidentes: soloResidentes,
   );
 });

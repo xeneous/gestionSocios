@@ -8,6 +8,8 @@ class CuentaCorrienteResumen {
   final int mesesImpagos; // Cantidad de registros con cancelado < importe
   final String? telefono;
   final String? email;
+  final int? tarjetaId;
+  final bool residente;
 
   CuentaCorrienteResumen({
     required this.socioId,
@@ -19,6 +21,8 @@ class CuentaCorrienteResumen {
     this.mesesImpagos = 0,
     this.telefono,
     this.email,
+    this.tarjetaId,
+    this.residente = false,
   });
 
   bool get tieneEmail => email != null && email!.isNotEmpty;

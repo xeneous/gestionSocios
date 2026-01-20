@@ -99,6 +99,14 @@ async function migrateSociosOnly() {
 
         console.log(`✅ ${result.recordset.length} socios leídos de SQL Server\n`);
 
+        // Debug: mostrar primeros socios con Residente=1
+        const residentes = result.recordset.filter(s => s.Residente === 1 || s.Residente === true || s.Residente === '1');
+        console.log(`📊 Socios con Residente=1 en SQL Server: ${residentes.length}`);
+        if (residentes.length > 0) {
+            console.log(`   Ejemplo: socio ${residentes[0].socio}, Residente=${residentes[0].Residente} (tipo: ${typeof residentes[0].Residente})`);
+        }
+        console.log('');
+
         // 5. Migrar socios en lotes
         console.log('💾 Migrando socios a Supabase...\n');
         const batchSize = 100;
@@ -119,7 +127,7 @@ async function migrateSociosOnly() {
                 fecha_nacimiento: s.fechanac,
                 grupo: s.Grupo?.trim(),
                 grupo_desde: s.gDesde,
-                residente: s.Residente === 1 || s.Residente === true,
+                residente: s.Residente === 1 || s.Residente === true || s.Residente === '1' || (s.Residente && s.Residente !== 0 && s.Residente !== '0'),
                 fecha_inicio_residencia: s.fresidencia,
                 matricula_nacional: s.nroMatricula?.toString().trim(),
                 matricula_provincial: s.Matricula?.toString().trim(),
