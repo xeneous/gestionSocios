@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../providers/cuentas_provider.dart';
 import '../../models/cuenta_model.dart';
-import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../../../core/presentation/widgets/app_drawer.dart';
 
 class CuentasListPage extends ConsumerStatefulWidget {
@@ -76,11 +75,9 @@ class _CuentasListPageState extends ConsumerState<CuentasListPage> {
         title: const Text('Plan de Cuentas'),
         actions: [
           IconButton(
-            icon: const Icon(Icons.logout),
-            onPressed: () {
-              ref.read(authNotifierProvider.notifier).signOut();
-            },
-            tooltip: 'Cerrar Sesión',
+            icon: const Icon(Icons.home),
+            onPressed: () => context.go('/'),
+            tooltip: 'Inicio',
           ),
         ],
       ),

@@ -31,12 +31,49 @@ async function resetSequences() {
     try {
         // Verificar conexión
         console.log('🔌 Verificando conexión a Supabase...');
-        const { error } = await supabase.from('socios').select('id').limit(1);
-        if (error) throw error;
+        const { error: connError } = await supabase.from('socios').select('id').limit(1);
+        if (connError) throw connError;
         console.log('✅ Conectado a Supabase\n');
 
-        // Obtener máximos IDs
-        console.log('📊 Obteniendo máximos IDs...\n');
+        // Intentar llamar a la función RPC
+        console.log('🔧 Ejecutando reset_all_sequences()...');
+        const { error: rpcError } = await supabase.rpc('reset_all_sequences');
+
+        if (rpcError) {
+            if (rpcError.message.includes('function') && rpcError.message.includes('does not exist')) {
+                console.log('\n⚠️  La función reset_all_sequences() no existe.');
+                console.log('\nEjecuta este SQL en Supabase SQL Editor para crearla:\n');
+                console.log(`CREATE OR REPLACE FUNCTION reset_all_sequences()
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+    max_val BIGINT;
+BEGIN
+    SELECT COALESCE(MAX(id), 0) INTO max_val FROM valores_tesoreria;
+    PERFORM setval('valores_tesoreria_id_seq', max_val + 1, false);
+
+    SELECT COALESCE(MAX(idtransaccion), 0) INTO max_val FROM cuentas_corrientes;
+    PERFORM setval('cuentas_corrientes_idtransaccion_seq', max_val + 1, false);
+
+    SELECT COALESCE(MAX(id), 0) INTO max_val FROM socios;
+    PERFORM setval('socios_id_seq', max_val + 1, false);
+
+    SELECT COALESCE(MAX(id), 0) INTO max_val FROM tarjetas;
+    PERFORM setval('tarjetas_id_seq', max_val + 1, false);
+END;
+$$;`);
+                console.log('\nLuego vuelve a ejecutar este script.');
+                process.exit(1);
+            }
+            throw rpcError;
+        }
+
+        console.log('✅ Secuencias reseteadas correctamente\n');
+
+        // Mostrar valores actuales
+        console.log('📊 Verificando máximos IDs:\n');
 
         const maxValoresTesoreria = await getMaxId('valores_tesoreria', 'id');
         console.log(`   valores_tesoreria.id: ${maxValoresTesoreria}`);
@@ -44,36 +81,15 @@ async function resetSequences() {
         const maxCuentasCorrientes = await getMaxId('cuentas_corrientes', 'idtransaccion');
         console.log(`   cuentas_corrientes.idtransaccion: ${maxCuentasCorrientes}`);
 
-        const maxDetalleCuentasCorrientes = await getMaxId('detalle_cuentas_corrientes', 'id');
-        console.log(`   detalle_cuentas_corrientes.id: ${maxDetalleCuentasCorrientes}`);
-
         const maxSocios = await getMaxId('socios', 'id');
         console.log(`   socios.id: ${maxSocios}`);
 
         const maxTarjetas = await getMaxId('tarjetas', 'id');
         console.log(`   tarjetas.id: ${maxTarjetas}`);
 
-        // Generar SQL para resetear secuencias
         console.log('\n========================================');
-        console.log('📋 SQL para resetear secuencias:');
-        console.log('========================================\n');
-
-        const sqlStatements = [
-            `SELECT setval('valores_tesoreria_id_seq', ${maxValoresTesoreria + 1}, false);`,
-            `SELECT setval('cuentas_corrientes_idtransaccion_seq', ${maxCuentasCorrientes + 1}, false);`,
-            `SELECT setval('detalle_cuentas_corrientes_id_seq', ${maxDetalleCuentasCorrientes + 1}, false);`,
-            `SELECT setval('socios_id_seq', ${maxSocios + 1}, false);`,
-            `SELECT setval('tarjetas_id_seq', ${maxTarjetas + 1}, false);`,
-        ];
-
-        sqlStatements.forEach(sql => console.log(sql));
-
-        console.log('\n========================================');
-        console.log('✅ VERIFICACIÓN COMPLETADA');
+        console.log('✅ RESET DE SECUENCIAS COMPLETADO');
         console.log('========================================');
-        console.log('\nNOTA: Las secuencias deben resetearse manualmente en Supabase');
-        console.log('      SQL Editor porque la API no tiene permisos para setval().');
-        console.log('\nCopia y ejecuta los comandos SQL mostrados arriba.');
 
         process.exit(0);
 

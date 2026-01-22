@@ -13,6 +13,7 @@ import '../../providers/paises_provider.dart';
 import '../../providers/sexos_provider.dart';
 import '../widgets/concepto_search_dialog.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
+import '../../../auth/presentation/providers/user_role_provider.dart';
 import '../../providers/conceptos_socio_provider.dart';
 import '../../providers/observaciones_socio_provider.dart';
 import '../../providers/conceptos_provider.dart';
@@ -51,6 +52,8 @@ class _SocioFormPageState extends ConsumerState<SocioFormPage>
   final _matriculaProvincialController = TextEditingController();
   bool _residente = false;
   DateTime? _fechaInicioResidencia;
+  bool _descuentoPrimerAnio = false;
+  DateTime? _fechaFinDescuento;
   DateTime? _fechaIngreso = DateTime.now(); // Fecha actual por defecto
 
   // Domicilio y Contacto
@@ -113,6 +116,8 @@ class _SocioFormPageState extends ConsumerState<SocioFormPage>
           _matriculaProvincialController.text = socio.matriculaProvincial ?? '';
           _residente = socio.residente;
           _fechaInicioResidencia = socio.fechaInicioResidencia;
+          _descuentoPrimerAnio = socio.descuentoPrimerAnio;
+          _fechaFinDescuento = socio.fechaFinDescuento;
           _fechaIngreso = socio.fechaIngreso;
 
           // Domicilio y Contacto
@@ -189,6 +194,8 @@ class _SocioFormPageState extends ConsumerState<SocioFormPage>
         grupoDesde: _grupoDesde,
         residente: _residente,
         fechaInicioResidencia: _fechaInicioResidencia,
+        descuentoPrimerAnio: _descuentoPrimerAnio,
+        fechaFinDescuento: _fechaFinDescuento,
         matriculaNacional: _matriculaNacionalController.text.isEmpty
             ? null
             : _matriculaNacionalController.text,
@@ -256,6 +263,7 @@ class _SocioFormPageState extends ConsumerState<SocioFormPage>
               socioId: nuevoSocioId!,
               esResidente: _residente,
               nombreSocio: '${_apellidoController.text}, ${_nombreController.text}',
+              fechaFinDescuento: _descuentoPrimerAnio ? _fechaFinDescuento : null,
             ),
           );
 
@@ -323,10 +331,9 @@ class _SocioFormPageState extends ConsumerState<SocioFormPage>
         title: Text(widget.socioId != null ? 'Editar Socio' : 'Nuevo Socio'),
         actions: [
           IconButton(
-            icon: const Icon(Icons.logout),
-            onPressed: () {
-              ref.read(authNotifierProvider.notifier).signOut();
-            },
+            icon: const Icon(Icons.home),
+            onPressed: () => context.go('/'),
+            tooltip: 'Inicio',
           ),
         ],
       ),
@@ -918,7 +925,13 @@ class _SocioFormPageState extends ConsumerState<SocioFormPage>
                 lastDate: DateTime.now(),
               );
               if (date != null) {
-                setState(() => _fechaInicioResidencia = date);
+                setState(() {
+                  _fechaInicioResidencia = date;
+                  // Si tiene descuento activo, actualizar fecha fin a un año
+                  if (_descuentoPrimerAnio) {
+                    _fechaFinDescuento = DateTime(date.year + 1, date.month, date.day);
+                  }
+                });
               }
             },
             child: InputDecorator(
@@ -934,6 +947,61 @@ class _SocioFormPageState extends ConsumerState<SocioFormPage>
               ),
             ),
           ),
+          const SizedBox(height: 16),
+          CheckboxListTile(
+            title: const Text('Primer año al 50%'),
+            subtitle: const Text('Descuento del 50% en cuota social durante el primer año'),
+            value: _descuentoPrimerAnio,
+            onChanged: (value) {
+              setState(() {
+                _descuentoPrimerAnio = value ?? false;
+                if (_descuentoPrimerAnio && _fechaInicioResidencia != null) {
+                  // Sugerir fecha fin a un año desde inicio residencia
+                  _fechaFinDescuento = DateTime(
+                    _fechaInicioResidencia!.year + 1,
+                    _fechaInicioResidencia!.month,
+                    _fechaInicioResidencia!.day,
+                  );
+                } else if (!_descuentoPrimerAnio) {
+                  _fechaFinDescuento = null;
+                }
+              });
+            },
+            controlAffinity: ListTileControlAffinity.leading,
+            contentPadding: EdgeInsets.zero,
+          ),
+          if (_descuentoPrimerAnio) ...[
+            const SizedBox(height: 16),
+            InkWell(
+              onTap: () async {
+                final date = await showDatePicker(
+                  context: context,
+                  initialDate: _fechaFinDescuento ??
+                      (_fechaInicioResidencia != null
+                          ? DateTime(_fechaInicioResidencia!.year + 1, _fechaInicioResidencia!.month, _fechaInicioResidencia!.day)
+                          : DateTime.now().add(const Duration(days: 365))),
+                  firstDate: DateTime.now(),
+                  lastDate: DateTime.now().add(const Duration(days: 730)),
+                );
+                if (date != null) {
+                  setState(() => _fechaFinDescuento = date);
+                }
+              },
+              child: InputDecorator(
+                decoration: const InputDecoration(
+                  labelText: 'Fecha Fin Descuento',
+                  border: OutlineInputBorder(),
+                  prefixIcon: Icon(Icons.event_busy),
+                  helperText: 'Fecha hasta la cual aplica el 50%',
+                ),
+                child: Text(
+                  _fechaFinDescuento != null
+                      ? DateFormat('dd/MM/yyyy').format(_fechaFinDescuento!)
+                      : 'Seleccionar fecha',
+                ),
+              ),
+            ),
+          ],
         ],
         const SizedBox(height: 16),
         InkWell(
@@ -1384,21 +1452,23 @@ class _SocioFormPageState extends ConsumerState<SocioFormPage>
                               'Importe: \$${concepto.importe!.toStringAsFixed(2)}'),
                       ],
                     ),
-                    trailing: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        IconButton(
-                          icon: const Icon(Icons.cancel, color: Colors.orange),
-                          tooltip: 'Dar de baja',
-                          onPressed: () => _darDeBajaConcepto(concepto),
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.delete, color: Colors.red),
-                          tooltip: 'Eliminar',
-                          onPressed: () => _eliminarConcepto(concepto),
-                        ),
-                      ],
-                    ),
+                    trailing: ref.read(userRoleProvider).esAdministrador
+                        ? Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              IconButton(
+                                icon: const Icon(Icons.cancel, color: Colors.orange),
+                                tooltip: 'Dar de baja',
+                                onPressed: () => _darDeBajaConcepto(concepto),
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.delete, color: Colors.red),
+                                tooltip: 'Eliminar',
+                                onPressed: () => _eliminarConcepto(concepto),
+                              ),
+                            ],
+                          )
+                        : null,
                   ),
                 )),
         ],
@@ -1476,11 +1546,13 @@ class _SocioFormPageState extends ConsumerState<SocioFormPage>
                       '${DateFormat('dd/MM/yyyy HH:mm').format(obs.fecha)}${obs.usuario != null ? ' - ${obs.usuario}' : ''}',
                       style: const TextStyle(fontSize: 12),
                     ),
-                    trailing: IconButton(
-                      icon: const Icon(Icons.delete, color: Colors.red),
-                      tooltip: 'Eliminar',
-                      onPressed: () => _eliminarObservacion(obs),
-                    ),
+                    trailing: ref.read(userRoleProvider).esAdministrador
+                        ? IconButton(
+                            icon: const Icon(Icons.delete, color: Colors.red),
+                            tooltip: 'Eliminar',
+                            onPressed: () => _eliminarObservacion(obs),
+                          )
+                        : null,
                   ),
                 )),
         ],

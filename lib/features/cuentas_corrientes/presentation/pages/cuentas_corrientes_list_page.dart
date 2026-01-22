@@ -6,7 +6,7 @@ import '../../providers/cuentas_corrientes_provider.dart';
 import '../../providers/entidades_provider.dart';
 import '../../providers/tipos_comprobante_provider.dart';
 import '../../models/cuenta_corriente_completa_model.dart';
-import '../../../auth/presentation/providers/auth_provider.dart';
+import '../../../auth/presentation/providers/user_role_provider.dart';
 import '../../../../core/presentation/widgets/app_drawer.dart';
 
 class CuentasCorrientesListPage extends ConsumerStatefulWidget {
@@ -67,11 +67,9 @@ class _CuentasCorrientesListPageState
         title: const Text('Cuentas Corrientes'),
         actions: [
           IconButton(
-            icon: const Icon(Icons.logout),
-            onPressed: () {
-              ref.read(authNotifierProvider.notifier).signOut();
-            },
-            tooltip: 'Cerrar Sesión',
+            icon: const Icon(Icons.home),
+            onPressed: () => context.go('/'),
+            tooltip: 'Inicio',
           ),
         ],
       ),
@@ -461,13 +459,14 @@ class _CuentasCorrientesListPageState
                 Row(
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
-                    if (isPendiente)
-                      OutlinedButton.icon(
-                        onPressed: () => _showRegistrarPagoDialog(cuenta),
-                        icon: const Icon(Icons.payment),
-                        label: const Text('Registrar Pago'),
-                      ),
-                    const SizedBox(width: 8),
+                    // TODO: Descomentar cuando se implemente registrar pago para todos
+                    // if (isPendiente)
+                    //   OutlinedButton.icon(
+                    //     onPressed: () => _showRegistrarPagoDialog(cuenta),
+                    //     icon: const Icon(Icons.payment),
+                    //     label: const Text('Registrar Pago'),
+                    //   ),
+                    // const SizedBox(width: 8),
                     IconButton(
                       icon: const Icon(Icons.edit, color: Colors.blue),
                       onPressed: () {
@@ -477,11 +476,12 @@ class _CuentasCorrientesListPageState
                       },
                       tooltip: 'Editar',
                     ),
-                    IconButton(
-                      icon: const Icon(Icons.delete, color: Colors.red),
-                      onPressed: () => _confirmDelete(cuenta),
-                      tooltip: 'Eliminar',
-                    ),
+                    if (ref.read(userRoleProvider).esAdministrador)
+                      IconButton(
+                        icon: const Icon(Icons.delete, color: Colors.red),
+                        onPressed: () => _confirmDelete(cuenta),
+                        tooltip: 'Eliminar',
+                      ),
                   ],
                 ),
               ],

@@ -7,7 +7,6 @@ import '../../providers/asientos_provider.dart';
 import '../../models/asiento_model.dart';
 import '../../../cuentas/providers/cuentas_provider.dart';
 import '../../../cuentas/models/cuenta_model.dart';
-import '../../../auth/presentation/providers/auth_provider.dart';
 import '../widgets/cuentas_search_dialog.dart';
 
 class AsientoFormPage extends ConsumerStatefulWidget {
@@ -326,10 +325,9 @@ class _AsientoFormPageState extends ConsumerState<AsientoFormPage> {
         title: Text(widget.asiento != null ? 'Editar Asiento Contable' : 'Nuevo Asiento Contable'),
         actions: [
           IconButton(
-            icon: const Icon(Icons.logout),
-            onPressed: () {
-              ref.read(authNotifierProvider.notifier).signOut();
-            },
+            icon: const Icon(Icons.home),
+            onPressed: () => context.go('/'),
+            tooltip: 'Inicio',
           ),
         ],
       ),

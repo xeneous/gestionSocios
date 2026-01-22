@@ -79,10 +79,13 @@ class _CobranzasSelectSocioPageState
     return Scaffold(
       appBar: AppBar(
         title: const Text('Cobranzas - Seleccionar Socio'),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () => context.go('/'),
-        ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.home),
+            onPressed: () => context.go('/'),
+            tooltip: 'Inicio',
+          ),
+        ],
       ),
       drawer: AppDrawer(currentRoute: '/cobranzas'),
       body: Column(

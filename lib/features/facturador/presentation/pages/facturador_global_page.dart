@@ -393,7 +393,29 @@ class _FacturadorGlobalPageState extends ConsumerState<FacturadorGlobalPage> {
                             title: Row(
                               children: [
                                 Expanded(
-                                    flex: 3, child: Text(item.socioNombre)),
+                                    flex: 3,
+                                    child: Row(
+                                      children: [
+                                        Expanded(child: Text(item.socioNombre)),
+                                        if (item.tieneDescuento50)
+                                          Container(
+                                            margin: const EdgeInsets.only(left: 4),
+                                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                            decoration: BoxDecoration(
+                                              color: Colors.orange[100],
+                                              borderRadius: BorderRadius.circular(4),
+                                            ),
+                                            child: const Text(
+                                              '50%',
+                                              style: TextStyle(
+                                                fontSize: 10,
+                                                fontWeight: FontWeight.bold,
+                                                color: Colors.orange,
+                                              ),
+                                            ),
+                                          ),
+                                      ],
+                                    )),
                                 Expanded(child: Text(item.socioGrupo)),
                                 Expanded(
                                     flex: 2,

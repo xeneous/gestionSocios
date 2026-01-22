@@ -80,26 +80,26 @@ if ! node migrate_socios_only.js; then
 fi
 
 # ----------------------------------------------------------------------------
-# 2.2 - Migrar Conceptos y Observaciones
+# 2.2 - Migrar Cuentas Contables (ANTES de conceptos por FK)
 # ----------------------------------------------------------------------------
 echo ""
-echo -e "${GREEN}[2/6] Migrando conceptos y observaciones...${NC}"
-echo "============================================================================"
-if ! node migrate_conceptos_observaciones.js; then
-    echo ""
-    echo -e "${RED}ERROR: Fallo la migracion de conceptos${NC}"
-    exit 1
-fi
-
-# ----------------------------------------------------------------------------
-# 2.3 - Migrar Cuentas Contables
-# ----------------------------------------------------------------------------
-echo ""
-echo -e "${GREEN}[3/6] Migrando cuentas contables...${NC}"
+echo -e "${GREEN}[2/6] Migrando cuentas contables...${NC}"
 echo "============================================================================"
 if ! node migrate_cuentas.js; then
     echo ""
     echo -e "${RED}ERROR: Fallo la migracion de cuentas${NC}"
+    exit 1
+fi
+
+# ----------------------------------------------------------------------------
+# 2.3 - Migrar Conceptos y Observaciones
+# ----------------------------------------------------------------------------
+echo ""
+echo -e "${GREEN}[3/6] Migrando conceptos y observaciones...${NC}"
+echo "============================================================================"
+if ! node migrate_conceptos_observaciones.js; then
+    echo ""
+    echo -e "${RED}ERROR: Fallo la migracion de conceptos${NC}"
     exit 1
 fi
 
@@ -144,21 +144,17 @@ fi
 # ============================================================================
 echo ""
 echo "============================================================================"
-echo -e "${YELLOW}PASO 3: POST-MIGRACION (AUTOMATICO)${NC}"
+echo -e "${YELLOW}PASO 3: POST-MIGRACION - RESETEAR SECUENCIAS${NC}"
 echo "============================================================================"
 echo ""
-echo "Reseteando secuencias..."
 
 if ! node reset_sequences.js; then
     echo ""
-    echo -e "${YELLOW}ADVERTENCIA: No se pudieron resetear las secuencias automaticamente${NC}"
+    echo -e "${RED}ERROR: No se pudieron resetear las secuencias${NC}"
     echo ""
-    echo "Ejecuta manualmente en Supabase SQL Editor:"
-    echo ""
-    echo "  SELECT setval('valores_tesoreria_id_seq', COALESCE((SELECT MAX(id) FROM valores_tesoreria), 0) + 1, false);"
-    echo "  SELECT setval('cuentas_corrientes_idtransaccion_seq', COALESCE((SELECT MAX(idtransaccion) FROM cuentas_corrientes), 0) + 1, false);"
-    echo "  SELECT setval('detalle_cuentas_corrientes_id_seq', COALESCE((SELECT MAX(id) FROM detalle_cuentas_corrientes), 0) + 1, false);"
-    echo ""
+    echo "Si la función no existe, ejecuta el SQL que se mostró arriba en Supabase"
+    echo "y luego vuelve a ejecutar: node reset_sequences.js"
+    exit 1
 fi
 
 # ============================================================================

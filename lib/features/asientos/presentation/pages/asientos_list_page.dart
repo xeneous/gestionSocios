@@ -4,7 +4,6 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import '../../models/asiento_model.dart';
 import '../../providers/asientos_provider.dart';
-import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../../../core/presentation/widgets/app_drawer.dart';
 
 class AsientosListPage extends ConsumerStatefulWidget {
@@ -41,11 +40,9 @@ class _AsientosListPageState extends ConsumerState<AsientosListPage> {
         title: const Text('Asientos Contables'),
         actions: [
           IconButton(
-            icon: const Icon(Icons.logout),
-            onPressed: () {
-              ref.read(authNotifierProvider.notifier).signOut();
-            },
-            tooltip: 'Cerrar Sesión',
+            icon: const Icon(Icons.home),
+            onPressed: () => context.go('/'),
+            tooltip: 'Inicio',
           ),
         ],
       ),

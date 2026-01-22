@@ -4,7 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../providers/cuentas_provider.dart';
 import '../../models/cuenta_model.dart';
-import '../../../auth/presentation/providers/auth_provider.dart';
 
 class CuentaFormPage extends ConsumerStatefulWidget {
   final int? cuentaId;
@@ -135,11 +134,9 @@ class _CuentaFormPageState extends ConsumerState<CuentaFormPage> {
         title: Text(widget.cuentaId == null ? 'Nueva Cuenta' : 'Editar Cuenta'),
         actions: [
           IconButton(
-            icon: const Icon(Icons.logout),
-            onPressed: () {
-              ref.read(authNotifierProvider.notifier).signOut();
-            },
-            tooltip: 'Cerrar Sesión',
+            icon: const Icon(Icons.home),
+            onPressed: () => context.go('/'),
+            tooltip: 'Inicio',
           ),
         ],
       ),

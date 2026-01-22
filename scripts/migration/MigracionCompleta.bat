@@ -76,29 +76,29 @@ if errorlevel 1 (
 )
 
 REM ----------------------------------------------------------------------------
-REM 2.2 - Migrar Conceptos y Observaciones
+REM 2.2 - Migrar Cuentas Contables (ANTES de conceptos por FK)
 REM ----------------------------------------------------------------------------
 echo.
-echo [2/6] Migrando conceptos y observaciones...
-echo ============================================================================
-node migrate_conceptos_observaciones.js
-if errorlevel 1 (
-    echo.
-    echo ERROR: Fallo la migracion de conceptos
-    pause
-    exit /b 1
-)
-
-REM ----------------------------------------------------------------------------
-REM 2.3 - Migrar Cuentas Contables
-REM ----------------------------------------------------------------------------
-echo.
-echo [3/6] Migrando cuentas contables...
+echo [2/6] Migrando cuentas contables...
 echo ============================================================================
 node migrate_cuentas.js
 if errorlevel 1 (
     echo.
     echo ERROR: Fallo la migracion de cuentas
+    pause
+    exit /b 1
+)
+
+REM ----------------------------------------------------------------------------
+REM 2.3 - Migrar Conceptos y Observaciones
+REM ----------------------------------------------------------------------------
+echo.
+echo [3/6] Migrando conceptos y observaciones...
+echo ============================================================================
+node migrate_conceptos_observaciones.js
+if errorlevel 1 (
+    echo.
+    echo ERROR: Fallo la migracion de conceptos
     pause
     exit /b 1
 )
@@ -150,22 +150,19 @@ REM PASO 3: POST-MIGRACION - Resetear secuencias
 REM ============================================================================
 echo.
 echo ============================================================================
-echo PASO 3: POST-MIGRACION ^(AUTOMATICO^)
+echo PASO 3: POST-MIGRACION - RESETEAR SECUENCIAS
 echo ============================================================================
 echo.
-echo Reseteando secuencias...
 
 node reset_sequences.js
 if errorlevel 1 (
     echo.
-    echo ADVERTENCIA: No se pudieron resetear las secuencias automaticamente
+    echo ERROR: No se pudieron resetear las secuencias
     echo.
-    echo Ejecuta manualmente en Supabase SQL Editor:
-    echo.
-    echo   SELECT setval('valores_tesoreria_id_seq', COALESCE((SELECT MAX(id) FROM valores_tesoreria), 0) + 1, false);
-    echo   SELECT setval('cuentas_corrientes_idtransaccion_seq', COALESCE((SELECT MAX(idtransaccion) FROM cuentas_corrientes), 0) + 1, false);
-    echo   SELECT setval('detalle_cuentas_corrientes_id_seq', COALESCE((SELECT MAX(id) FROM detalle_cuentas_corrientes), 0) + 1, false);
-    echo.
+    echo Si la funcion no existe, ejecuta el SQL que se mostro arriba en Supabase
+    echo y luego vuelve a ejecutar: node reset_sequences.js
+    pause
+    exit /b 1
 )
 
 REM ============================================================================

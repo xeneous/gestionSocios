@@ -68,19 +68,6 @@ class AppDrawer extends StatelessWidget {
             },
           ),
 
-          // Asientos Contables
-          ListTile(
-            leading: const Icon(Icons.receipt_long),
-            title: const Text('Asientos Contables'),
-            selected: currentRoute.startsWith('/asientos'),
-            onTap: () {
-              Navigator.pop(context);
-              if (!currentRoute.startsWith('/asientos')) {
-                context.go('/asientos');
-              }
-            },
-          ),
-
           // Cobranzas
           ListTile(
             leading: const Icon(Icons.payments),
@@ -90,6 +77,47 @@ class AppDrawer extends StatelessWidget {
               Navigator.pop(context);
               if (!currentRoute.startsWith('/cobranzas')) {
                 context.go('/cobranzas');
+              }
+            },
+          ),
+
+          // Facturación de Conceptos
+          ListTile(
+            leading: const Icon(Icons.receipt),
+            title: const Text('Facturar Conceptos'),
+            selected: currentRoute.startsWith('/facturacion-conceptos'),
+            onTap: () {
+              Navigator.pop(context);
+              if (!currentRoute.startsWith('/facturacion-conceptos')) {
+                context.go('/facturacion-conceptos');
+              }
+            },
+          ),
+
+          // Resumen Cuentas Corrientes
+          ListTile(
+            leading: const Icon(Icons.account_balance_wallet),
+            title: const Text('Resumen Cuentas Corrientes'),
+            selected: currentRoute.startsWith('/cuentas-corrientes'),
+            onTap: () {
+              Navigator.pop(context);
+              if (!currentRoute.startsWith('/cuentas-corrientes')) {
+                context.go('/cuentas-corrientes');
+              }
+            },
+          ),
+
+          const Divider(),
+
+          // Asientos de Diario
+          ListTile(
+            leading: const Icon(Icons.receipt_long),
+            title: const Text('Asientos de Diario'),
+            selected: currentRoute.startsWith('/asientos'),
+            onTap: () {
+              Navigator.pop(context);
+              if (!currentRoute.startsWith('/asientos')) {
+                context.go('/asientos');
               }
             },
           ),

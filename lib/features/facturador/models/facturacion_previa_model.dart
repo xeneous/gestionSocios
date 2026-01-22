@@ -50,6 +50,7 @@ class ItemFacturacionPrevia {
   final String socioNombre;
   final String socioGrupo;
   final bool residente;
+  final DateTime? fechaFinDescuento;  // Fecha hasta la cual aplica descuento 50%
   final List<PeriodoFacturacion> mesesFaltantes;
   final double importeTotal;
 
@@ -58,11 +59,24 @@ class ItemFacturacionPrevia {
     required this.socioNombre,
     required this.socioGrupo,
     required this.residente,
+    this.fechaFinDescuento,
     required this.mesesFaltantes,
     required this.importeTotal,
   });
 
   int get cantidadMeses => mesesFaltantes.length;
+
+  /// Indica si tiene descuento activo (para mostrar en UI)
+  bool get tieneDescuento50 => fechaFinDescuento != null &&
+      fechaFinDescuento!.isAfter(DateTime.now());
+
+  /// Verifica si un período específico tiene descuento
+  bool periodoTieneDescuento(PeriodoFacturacion periodo) {
+    if (fechaFinDescuento == null || !residente) return false;
+    // El período tiene descuento si su fecha está antes de la fecha fin
+    final fechaPeriodo = DateTime(periodo.anio, periodo.mes, 1);
+    return fechaPeriodo.isBefore(fechaFinDescuento!);
+  }
 }
 
 /// Resumen de la facturación previa

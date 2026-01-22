@@ -36,10 +36,12 @@ class CuotaSocialService {
   }
 
   /// Genera items de cuota social para los próximos N meses
+  /// Si es residente y tiene fechaFinDescuento, aplica 50% a los meses dentro del período
   Future<List<CuotaSocialItem>> generarItemsCuota({
     required bool esResidente,
     int cantidadMeses = 3,
     DateTime? fechaInicio,
+    DateTime? fechaFinDescuento,
   }) async {
     final inicio = fechaInicio ?? DateTime.now();
     final items = <CuotaSocialItem>[];
@@ -49,15 +51,25 @@ class CuotaSocialService {
       final anioMes = ValorCuotaSocial.dateToAnioMes(fecha);
 
       try {
-        final valor = await getValorCuota(
+        double valor = await getValorCuota(
           anioMes: anioMes,
           esResidente: esResidente,
         );
+
+        // Aplicar descuento 50% si es residente y el período está dentro del rango
+        bool tieneDescuento = false;
+        if (esResidente && fechaFinDescuento != null) {
+          if (fecha.isBefore(fechaFinDescuento)) {
+            valor = valor / 2;
+            tieneDescuento = true;
+          }
+        }
 
         items.add(CuotaSocialItem(
           anioMes: anioMes,
           valor: valor,
           incluir: true,
+          esPromocion: tieneDescuento,
         ));
       } catch (e) {
         // Si no hay valor configurado para ese período, usar el último disponible
@@ -124,11 +136,11 @@ class CuotaSocialService {
         final idtransaccion = response['idtransaccion'] as int;
         print('DEBUG: Cuota creada con idtransaccion = $idtransaccion');
 
-        // Crear detalle de la transacción
+        // Crear detalle de la transacción (CRP si es promoción, CS si es normal)
         final detalle = {
           'idtransaccion': idtransaccion,
           'item': 1,
-          'concepto': 'CS',
+          'concepto': item.concepto,
           'cantidad': 1,
           'importe': item.valor,
         };

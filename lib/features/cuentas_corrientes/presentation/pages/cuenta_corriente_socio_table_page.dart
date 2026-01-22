@@ -2,9 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import 'package:excel/excel.dart';
+import 'package:universal_html/html.dart' as html;
 import '../../providers/cuentas_corrientes_provider.dart';
 import '../../models/cuenta_corriente_completa_model.dart';
 import '../../../socios/providers/socios_provider.dart';
+import '../../../auth/presentation/providers/user_role_provider.dart';
 
 /// Página de cuenta corriente con formato de tabla (similar al sistema de escritorio)
 class CuentaCorrienteSocioTablePage extends ConsumerStatefulWidget {
@@ -52,12 +55,18 @@ class _CuentaCorrienteSocioTablePageState
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.add),
-            onPressed: () {
-              context.go('/cuentas-corrientes/nueva?socioId=${widget.socioId}');
-            },
-            tooltip: 'Nueva Transacción',
+            icon: const Icon(Icons.file_download),
+            onPressed: () => _exportarExcel(movimientosAsync, socioAsync),
+            tooltip: 'Exportar a Excel',
           ),
+          // TODO: Descomentar cuando se implemente nueva transacción
+          // IconButton(
+          //   icon: const Icon(Icons.add),
+          //   onPressed: () {
+          //     context.go('/cuentas-corrientes/nueva?socioId=${widget.socioId}');
+          //   },
+          //   tooltip: 'Nueva Transacción',
+          // ),
         ],
       ),
       body: Column(
@@ -248,6 +257,7 @@ class _CuentaCorrienteSocioTablePageState
   List<DataRow> _buildRows(List<CuentaCorrienteCompleta> movimientos) {
     double saldoAcumulado = 0;
     final rows = <DataRow>[];
+    final userRole = ref.read(userRoleProvider);
 
     // Iterar en orden cronológico (ya vienen ordenados por fecha ASC)
     for (final cuenta in movimientos) {
@@ -316,15 +326,16 @@ class _CuentaCorrienteSocioTablePageState
               Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  if (isPendiente)
-                    IconButton(
-                      icon: const Icon(Icons.payment,
-                          size: 18, color: Colors.blue),
-                      onPressed: () => _showRegistrarPagoDialog(cuenta),
-                      tooltip: 'Registrar Pago',
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(),
-                    ),
+                  // TODO: Descomentar cuando se implemente registrar pago
+                  // if (isPendiente)
+                  //   IconButton(
+                  //     icon: const Icon(Icons.payment,
+                  //         size: 18, color: Colors.blue),
+                  //     onPressed: () => _showRegistrarPagoDialog(cuenta),
+                  //     tooltip: 'Registrar Pago',
+                  //     padding: EdgeInsets.zero,
+                  //     constraints: const BoxConstraints(),
+                  //   ),
                   IconButton(
                     icon: const Icon(Icons.visibility,
                         size: 18, color: Colors.grey),
@@ -344,13 +355,14 @@ class _CuentaCorrienteSocioTablePageState
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(),
                   ),
-                  IconButton(
-                    icon: const Icon(Icons.delete, size: 18, color: Colors.red),
-                    onPressed: () => _confirmDelete(cuenta),
-                    tooltip: 'Eliminar',
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
-                  ),
+                  if (userRole.esAdministrador)
+                    IconButton(
+                      icon: const Icon(Icons.delete, size: 18, color: Colors.red),
+                      onPressed: () => _confirmDelete(cuenta),
+                      tooltip: 'Eliminar',
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                    ),
                 ],
               ),
             ),
@@ -575,6 +587,167 @@ class _CuentaCorrienteSocioTablePageState
             ),
           );
         }
+      }
+    }
+  }
+
+  Future<void> _exportarExcel(
+    AsyncValue<List<CuentaCorrienteCompleta>> movimientosAsync,
+    AsyncValue socioAsync,
+  ) async {
+    // Verificar que tenemos datos
+    if (!movimientosAsync.hasValue || movimientosAsync.value!.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No hay datos para exportar')),
+      );
+      return;
+    }
+
+    try {
+      final movimientos = movimientosAsync.value!;
+      final socio = socioAsync.hasValue ? socioAsync.value : null;
+      final nombreSocio = socio != null
+          ? '${socio.apellido}, ${socio.nombre}'
+          : 'Socio ${widget.socioId}';
+
+      // Crear el archivo Excel
+      final excel = Excel.createExcel();
+      final sheet = excel['Cuenta Corriente'];
+
+      // Eliminar la hoja por defecto
+      excel.delete('Sheet1');
+
+      // Estilos para encabezados
+      final headerStyle = CellStyle(
+        bold: true,
+        backgroundColorHex: ExcelColor.fromHexString('#4472C4'),
+        fontColorHex: ExcelColor.white,
+        horizontalAlign: HorizontalAlign.Center,
+      );
+
+      final currencyStyle = CellStyle(
+        horizontalAlign: HorizontalAlign.Right,
+      );
+
+      // Título
+      sheet.cell(CellIndex.indexByString('A1')).value = TextCellValue(
+        'Cuenta Corriente - $nombreSocio',
+      );
+      sheet.cell(CellIndex.indexByString('A1')).cellStyle = CellStyle(
+        bold: true,
+        fontSize: 14,
+      );
+      sheet.merge(CellIndex.indexByString('A1'), CellIndex.indexByString('G1'));
+
+      // Subtítulo con filtro
+      final filtroTexto = _soloPendientes ? 'Solo Pendientes' : 'Todos los Movimientos';
+      sheet.cell(CellIndex.indexByString('A2')).value = TextCellValue(
+        'Filtro: $filtroTexto - Exportado: ${DateFormat('dd/MM/yyyy HH:mm').format(DateTime.now())}',
+      );
+      sheet.merge(CellIndex.indexByString('A2'), CellIndex.indexByString('G2'));
+
+      // Fila de encabezados (fila 4)
+      final headers = ['Fecha', 'Concepto', 'Serie', 'Documento', 'Debe', 'Haber', 'Saldo'];
+      for (var i = 0; i < headers.length; i++) {
+        final cell = sheet.cell(CellIndex.indexByColumnRow(columnIndex: i, rowIndex: 3));
+        cell.value = TextCellValue(headers[i]);
+        cell.cellStyle = headerStyle;
+      }
+
+      // Calcular saldo acumulado y agregar datos
+      double saldoAcumulado = 0;
+      int rowIndex = 4;
+
+      for (final cuenta in movimientos) {
+        final debe = cuenta.header.importe ?? 0;
+        final haber = cuenta.header.cancelado ?? 0;
+        saldoAcumulado += debe - haber;
+
+        sheet.cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: rowIndex)).value =
+            TextCellValue(DateFormat('dd/MM/yyyy').format(cuenta.header.fecha));
+
+        sheet.cell(CellIndex.indexByColumnRow(columnIndex: 1, rowIndex: rowIndex)).value =
+            TextCellValue(cuenta.header.tipoComprobanteDescripcion ?? cuenta.header.tipoComprobante);
+
+        sheet.cell(CellIndex.indexByColumnRow(columnIndex: 2, rowIndex: rowIndex)).value =
+            TextCellValue(cuenta.header.puntoVenta ?? '');
+
+        sheet.cell(CellIndex.indexByColumnRow(columnIndex: 3, rowIndex: rowIndex)).value =
+            TextCellValue(cuenta.header.documentoNumero ?? '');
+
+        // Debe
+        final cellDebe = sheet.cell(CellIndex.indexByColumnRow(columnIndex: 4, rowIndex: rowIndex));
+        cellDebe.value = DoubleCellValue(debe);
+        cellDebe.cellStyle = currencyStyle;
+
+        // Haber
+        final cellHaber = sheet.cell(CellIndex.indexByColumnRow(columnIndex: 5, rowIndex: rowIndex));
+        cellHaber.value = DoubleCellValue(haber);
+        cellHaber.cellStyle = currencyStyle;
+
+        // Saldo
+        final cellSaldo = sheet.cell(CellIndex.indexByColumnRow(columnIndex: 6, rowIndex: rowIndex));
+        cellSaldo.value = DoubleCellValue(saldoAcumulado);
+        cellSaldo.cellStyle = currencyStyle;
+
+        rowIndex++;
+      }
+
+      // Fila de totales
+      rowIndex++;
+      sheet.cell(CellIndex.indexByColumnRow(columnIndex: 3, rowIndex: rowIndex)).value =
+          TextCellValue('TOTALES:');
+      sheet.cell(CellIndex.indexByColumnRow(columnIndex: 3, rowIndex: rowIndex)).cellStyle =
+          CellStyle(bold: true);
+
+      final totalDebe = movimientos.fold<double>(0, (sum, c) => sum + (c.header.importe ?? 0));
+      final totalHaber = movimientos.fold<double>(0, (sum, c) => sum + (c.header.cancelado ?? 0));
+
+      final cellTotalDebe = sheet.cell(CellIndex.indexByColumnRow(columnIndex: 4, rowIndex: rowIndex));
+      cellTotalDebe.value = DoubleCellValue(totalDebe);
+      cellTotalDebe.cellStyle = CellStyle(bold: true, horizontalAlign: HorizontalAlign.Right);
+
+      final cellTotalHaber = sheet.cell(CellIndex.indexByColumnRow(columnIndex: 5, rowIndex: rowIndex));
+      cellTotalHaber.value = DoubleCellValue(totalHaber);
+      cellTotalHaber.cellStyle = CellStyle(bold: true, horizontalAlign: HorizontalAlign.Right);
+
+      final cellTotalSaldo = sheet.cell(CellIndex.indexByColumnRow(columnIndex: 6, rowIndex: rowIndex));
+      cellTotalSaldo.value = DoubleCellValue(saldoAcumulado);
+      cellTotalSaldo.cellStyle = CellStyle(bold: true, horizontalAlign: HorizontalAlign.Right);
+
+      // Ajustar anchos de columna
+      sheet.setColumnWidth(0, 12);  // Fecha
+      sheet.setColumnWidth(1, 25);  // Concepto
+      sheet.setColumnWidth(2, 10);  // Serie
+      sheet.setColumnWidth(3, 12);  // Documento
+      sheet.setColumnWidth(4, 12);  // Debe
+      sheet.setColumnWidth(5, 12);  // Haber
+      sheet.setColumnWidth(6, 12);  // Saldo
+
+      // Generar el archivo y descargar
+      final bytes = excel.save();
+      if (bytes != null) {
+        final blob = html.Blob([bytes], 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        final url = html.Url.createObjectUrlFromBlob(blob);
+        html.AnchorElement(href: url)
+          ..setAttribute('download', 'CuentaCorriente_${widget.socioId}_${DateFormat('yyyyMMdd').format(DateTime.now())}.xlsx')
+          ..click();
+        html.Url.revokeObjectUrl(url);
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Excel exportado correctamente')),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error al exportar: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
       }
     }
   }

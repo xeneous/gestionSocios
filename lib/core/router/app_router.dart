@@ -27,6 +27,7 @@ import '../../features/cuota_social/presentation/pages/valores_cuota_page.dart';
 import '../../features/debitos_automaticos/presentation/pages/debitos_automaticos_page.dart';
 import '../../features/seguimiento_deudas/presentation/pages/seguimiento_deudas_page.dart';
 import '../../features/cuentas_corrientes/presentation/pages/resumen_cuentas_corrientes_page.dart';
+import '../../features/facturacion_conceptos/presentation/pages/nueva_factura_page.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   final authState = ref.watch(authStateProvider);
@@ -258,6 +259,20 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/resumen-cuentas-corrientes',
         name: 'resumen-cuentas-corrientes',
         builder: (context, state) => const ResumenCuentasCorrientesPage(),
+      ),
+      // Facturación de Conceptos
+      GoRoute(
+        path: '/facturacion-conceptos',
+        name: 'facturacion-conceptos',
+        builder: (context, state) => const NuevaFacturaPage(),
+      ),
+      GoRoute(
+        path: '/facturacion-conceptos/:socioId',
+        name: 'facturacion-conceptos-socio',
+        builder: (context, state) {
+          final socioId = int.parse(state.pathParameters['socioId']!);
+          return NuevaFacturaPage(socioId: socioId);
+        },
       ),
     ],
   );

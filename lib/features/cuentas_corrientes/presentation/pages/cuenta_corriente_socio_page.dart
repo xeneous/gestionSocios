@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import '../../providers/cuentas_corrientes_provider.dart';
 import '../../models/cuenta_corriente_completa_model.dart';
 import '../../../socios/providers/socios_provider.dart';
+import '../../../auth/presentation/providers/user_role_provider.dart';
 
 /// Página para mostrar los movimientos de cuenta corriente de un socio específico
 class CuentaCorrienteSocioPage extends ConsumerStatefulWidget {
@@ -321,6 +322,7 @@ class _CuentaCorrienteSocioPageState
   Widget _buildMovimientoCard(CuentaCorrienteCompleta cuenta) {
     final isPendiente = !cuenta.header.estaCancelado;
     final isVencido = cuenta.header.estaVencido;
+    final userRole = ref.read(userRoleProvider);
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
@@ -472,11 +474,12 @@ class _CuentaCorrienteSocioPageState
                       },
                       tooltip: 'Editar',
                     ),
-                    IconButton(
-                      icon: const Icon(Icons.delete, color: Colors.red),
-                      onPressed: () => _confirmDelete(cuenta),
-                      tooltip: 'Eliminar',
-                    ),
+                    if (userRole.esAdministrador)
+                      IconButton(
+                        icon: const Icon(Icons.delete, color: Colors.red),
+                        onPressed: () => _confirmDelete(cuenta),
+                        tooltip: 'Eliminar',
+                      ),
                   ],
                 ),
               ],

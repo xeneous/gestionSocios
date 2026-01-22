@@ -53,15 +53,15 @@ async function limpiarTablasDirecto() {
     let rlsProblems = false;
 
     // Orden correcto: de dependientes a padres
+    // IMPORTANTE: respetar foreign keys
     const tablas = [
         { nombre: 'asientos_items', columna: 'id' },
         { nombre: 'asientos_header', columna: 'id' },
         { nombre: 'operaciones_detalle_valores_tesoreria', columna: 'id' },
         { nombre: 'valores_tesoreria', columna: 'id' },
         { nombre: 'operaciones_detalle_cuentas_corrientes', columna: 'id' },
-        { nombre: 'detalle_cuentas_corrientes', columna: 'idtransaccion' },  // PK compuesta (idtransaccion, item)
+        { nombre: 'detalle_cuentas_corrientes', columna: 'idtransaccion' },
         { nombre: 'cuentas_corrientes', columna: 'idtransaccion' },
-        { nombre: 'cuentas', columna: 'id' },  // cuentas usa 'id' como PK
         { nombre: 'conceptos_socios', columna: 'id' },
         { nombre: 'observaciones_socios', columna: 'id' },
     ];
@@ -74,6 +74,20 @@ async function limpiarTablasDirecto() {
     // Socios - mantener id=0
     const resultSocios = await limpiarTabla('socios', 'id', 0);
     if (resultSocios.rls) rlsProblems = true;
+
+    // Limpiar conceptos y cuentas (en orden por FK)
+    console.log('   Preparando para limpiar conceptos y cuentas...');
+    try {
+        // 1. Borrar conceptos (que tiene FK a cuentas)
+        const resultConceptos = await limpiarTabla('conceptos', 'concepto');
+        if (resultConceptos.rls) rlsProblems = true;
+
+        // 2. Ahora sí podemos borrar cuentas
+        const resultCuentas = await limpiarTabla('cuentas', 'cuenta');
+        if (resultCuentas.rls) rlsProblems = true;
+    } catch (e) {
+        console.log(`   ⚠️  Error limpiando conceptos/cuentas: ${e.message}`);
+    }
 
     return !rlsProblems;
 }

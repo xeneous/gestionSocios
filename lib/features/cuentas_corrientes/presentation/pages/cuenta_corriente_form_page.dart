@@ -10,7 +10,6 @@ import '../../providers/entidades_provider.dart';
 import '../../providers/tipos_comprobante_provider.dart';
 import '../../../socios/models/socio_model.dart';
 import '../../../socios/providers/socios_provider.dart';
-import '../../../auth/presentation/providers/auth_provider.dart';
 import '../widgets/detalle_item_row.dart';
 
 class CuentaCorrienteFormPage extends ConsumerStatefulWidget {
@@ -250,10 +249,9 @@ class _CuentaCorrienteFormPageState
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.logout),
-            onPressed: () {
-              ref.read(authNotifierProvider.notifier).signOut();
-            },
+            icon: const Icon(Icons.home),
+            onPressed: () => context.go('/'),
+            tooltip: 'Inicio',
           ),
         ],
       ),

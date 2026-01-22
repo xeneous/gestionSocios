@@ -19,7 +19,7 @@ class FacturadorService {
     while (hasMore) {
       final sociosResponse = await _supabase
           .from('socios')
-          .select('id, apellido, nombre, grupo, residente')
+          .select('id, apellido, nombre, grupo, residente, descuento_primer_anio, fecha_fin_descuento')
           .inFilter('grupo', ['A', 'T'])
           .order('apellido')
           .range(offset, offset + pageSize - 1);
@@ -83,6 +83,11 @@ class FacturadorService {
     for (final socio in socios) {
       final socioId = socio['id'] as int;
       final residente = socio['residente'] as bool? ?? false;
+      final descuentoPrimerAnio = socio['descuento_primer_anio'] as bool? ?? false;
+      final fechaFinDescuentoStr = socio['fecha_fin_descuento'] as String?;
+      final fechaFinDescuento = (descuentoPrimerAnio && residente && fechaFinDescuentoStr != null)
+          ? DateTime.tryParse(fechaFinDescuentoStr)
+          : null;
       final nombreCompleto =
           '${socio['apellido']} ${socio['nombre']}'.trim();
       final grupo = socio['grupo'] as String;
@@ -100,7 +105,15 @@ class FacturadorService {
       for (final periodo in mesesFaltantes) {
         final valor = valoresMap[periodo.anioMes];
         if (valor != null) {
-          importeSocio += residente ? valor['residente']! : valor['noResidente']!;
+          double importePeriodo = residente ? valor['residente']! : valor['noResidente']!;
+          // Aplicar descuento 50% solo si es residente y el período está dentro del rango
+          if (residente && fechaFinDescuento != null) {
+            final fechaPeriodo = DateTime(periodo.anio, periodo.mes, 1);
+            if (fechaPeriodo.isBefore(fechaFinDescuento)) {
+              importePeriodo = importePeriodo / 2;
+            }
+          }
+          importeSocio += importePeriodo;
         }
       }
 
@@ -109,6 +122,7 @@ class FacturadorService {
         socioNombre: nombreCompleto,
         socioGrupo: grupo,
         residente: residente,
+        fechaFinDescuento: fechaFinDescuento,
         mesesFaltantes: mesesFaltantes,
         importeTotal: importeSocio,
       ));
@@ -143,9 +157,18 @@ class FacturadorService {
 
     for (final item in resumen.items) {
       for (final periodo in item.mesesFaltantes) {
-        final importe = item.residente
+        double importe = item.residente
             ? valoresMap[periodo.anioMes]!['residente']!
             : valoresMap[periodo.anioMes]!['noResidente']!;
+
+        // Aplicar descuento 50% solo si el período específico lo tiene
+        final tieneDescuento = item.periodoTieneDescuento(periodo);
+        if (tieneDescuento) {
+          importe = importe / 2;
+        }
+
+        // CRP = Cuota Residente Promoción (50%), CS = Cuota Social normal
+        final concepto = tieneDescuento ? 'CRP' : 'CS';
 
         final fecha = DateTime(periodo.anio, periodo.mes, 1);
         final ultimoDia = DateTime(periodo.anio, periodo.mes + 1, 0);
@@ -166,7 +189,7 @@ class FacturadorService {
         detallesPorHeader.add([
           {
             'item': 1,
-            'concepto': 'CS',
+            'concepto': concepto,
             'cantidad': 1,
             'importe': importe,
           }

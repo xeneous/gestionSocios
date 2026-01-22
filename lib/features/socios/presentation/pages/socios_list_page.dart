@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../providers/socios_provider.dart';
-import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../../auth/presentation/providers/user_role_provider.dart';
 import '../../providers/grupos_agrupados_provider.dart';
 import '../../../../core/presentation/widgets/app_drawer.dart';
@@ -77,11 +76,9 @@ class _SociosListPageState extends ConsumerState<SociosListPage> {
         title: const Text('Socios'),
         actions: [
           IconButton(
-            icon: const Icon(Icons.logout),
-            onPressed: () {
-              ref.read(authNotifierProvider.notifier).signOut();
-            },
-            tooltip: 'Cerrar Sesión',
+            icon: const Icon(Icons.home),
+            onPressed: () => context.go('/'),
+            tooltip: 'Inicio',
           ),
         ],
       ),

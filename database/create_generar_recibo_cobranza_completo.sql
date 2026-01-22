@@ -230,7 +230,7 @@ BEGIN
       SELECT
         dcc.concepto,
         dcc.importe,
-        c.cuenta_contable_id
+        c.cuenta_contable
       FROM public.detalle_cuentas_corrientes dcc
       JOIN public.conceptos c ON dcc.concepto = c.concepto
       WHERE dcc.idtransaccion = (v_transaccion->>'id_transaccion')::BIGINT
@@ -239,7 +239,7 @@ BEGIN
         v_importe_total_transaccion NUMERIC;
         v_monto_proporcional NUMERIC;
       BEGIN
-        IF v_detalle_transaccion.cuenta_contable_id IS NULL THEN
+        IF v_detalle_transaccion.cuenta_contable IS NULL THEN
           RAISE EXCEPTION 'Concepto % no tiene cuenta contable configurada',
             v_detalle_transaccion.concepto;
         END IF;
@@ -272,7 +272,7 @@ BEGIN
           v_anio_mes,
           1,
           v_item_asiento,
-          v_detalle_transaccion.cuenta_contable_id,
+          v_detalle_transaccion.cuenta_contable,
           0,
           v_monto_proporcional,
           'Recibo Nro. ' || v_numero_recibo || ' - Trans. ' || (v_transaccion->>'id_transaccion')

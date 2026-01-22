@@ -171,12 +171,19 @@ async function migrateObservacionesSocios(pool) {
         console.log(`   📊 Encontradas ${result.recordset.length} observaciones en SQL Server`);
 
         if (result.recordset.length > 0) {
-            // Transformar datos según mapeo
-            const observacionesToInsert = result.recordset.map(obs => ({
-                socio_id: obs.Socio,
-                fecha: obs.fecha,
-                observacion: obs.observacion?.trim() || ''
-            }));
+            // Transformar datos según mapeo - filtrar las que tienen fecha NULL
+            const observacionesToInsert = result.recordset
+                .filter(obs => obs.fecha != null) // Solo las que tienen fecha
+                .map(obs => ({
+                    socio_id: obs.Socio,
+                    fecha: obs.fecha,
+                    observacion: obs.observacion?.trim() || ''
+                }));
+
+            const skipped = result.recordset.length - observacionesToInsert.length;
+            if (skipped > 0) {
+                console.log(`   ⚠️  Saltando ${skipped} observaciones sin fecha`);
+            }
 
             // Insertar en lotes
             const batchSize = 100;
