@@ -28,6 +28,16 @@ import '../../features/debitos_automaticos/presentation/pages/debitos_automatico
 import '../../features/seguimiento_deudas/presentation/pages/seguimiento_deudas_page.dart';
 import '../../features/cuentas_corrientes/presentation/pages/resumen_cuentas_corrientes_page.dart';
 import '../../features/facturacion_conceptos/presentation/pages/nueva_factura_page.dart';
+import '../../features/clientes/presentation/pages/clientes_list_page.dart';
+import '../../features/clientes/presentation/pages/cliente_form_page.dart';
+import '../../features/proveedores/presentation/pages/proveedores_list_page.dart';
+import '../../features/proveedores/presentation/pages/proveedor_form_page.dart';
+import '../../features/comprobantes_prov/presentation/pages/comprobantes_prov_list_page.dart';
+import '../../features/comprobantes_prov/presentation/pages/comprobante_prov_form_page.dart';
+import '../../features/comprobantes_cli/presentation/pages/comprobantes_cli_list_page.dart';
+import '../../features/comprobantes_cli/presentation/pages/comprobante_cli_form_page.dart';
+import '../../features/comprobantes_cli/presentation/pages/cuenta_corriente_cliente_page.dart';
+import '../../features/comprobantes_prov/presentation/pages/cuenta_corriente_proveedor_page.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   final authState = ref.watch(authStateProvider);
@@ -272,6 +282,142 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) {
           final socioId = int.parse(state.pathParameters['socioId']!);
           return NuevaFacturaPage(socioId: socioId);
+        },
+      ),
+      // Clientes (Sponsors)
+      GoRoute(
+        path: '/clientes',
+        name: 'clientes',
+        builder: (context, state) => const ClientesListPage(),
+      ),
+      GoRoute(
+        path: '/clientes/nuevo',
+        name: 'clientes-nuevo',
+        builder: (context, state) => const ClienteFormPage(),
+      ),
+      GoRoute(
+        path: '/clientes/:id',
+        name: 'clientes-edit',
+        builder: (context, state) {
+          final id = int.parse(state.pathParameters['id']!);
+          return ClienteFormPage(clienteId: id);
+        },
+      ),
+      // Cuenta Corriente de Cliente
+      GoRoute(
+        path: '/clientes/:clienteId/cuenta-corriente',
+        name: 'cuenta-corriente-cliente',
+        builder: (context, state) {
+          final clienteId = int.parse(state.pathParameters['clienteId']!);
+          return CuentaCorrienteClientePage(clienteId: clienteId);
+        },
+      ),
+      // Proveedores
+      GoRoute(
+        path: '/proveedores',
+        name: 'proveedores',
+        builder: (context, state) => const ProveedoresListPage(),
+      ),
+      GoRoute(
+        path: '/proveedores/nuevo',
+        name: 'proveedores-nuevo',
+        builder: (context, state) => const ProveedorFormPage(),
+      ),
+      GoRoute(
+        path: '/proveedores/:id',
+        name: 'proveedores-edit',
+        builder: (context, state) {
+          final id = int.parse(state.pathParameters['id']!);
+          return ProveedorFormPage(proveedorId: id);
+        },
+      ),
+      // Cuenta Corriente de Proveedor
+      GoRoute(
+        path: '/proveedores/:proveedorId/cuenta-corriente',
+        name: 'cuenta-corriente-proveedor',
+        builder: (context, state) {
+          final proveedorId = int.parse(state.pathParameters['proveedorId']!);
+          return CuentaCorrienteProveedorPage(proveedorId: proveedorId);
+        },
+      ),
+      // Comprobantes de Proveedores
+      GoRoute(
+        path: '/comprobantes-proveedores',
+        name: 'comprobantes-proveedores',
+        builder: (context, state) => const ComprobantesProvListPage(),
+      ),
+      GoRoute(
+        path: '/comprobantes-proveedores/nuevo',
+        name: 'comprobantes-proveedores-nuevo',
+        builder: (context, state) {
+          final proveedorId = state.uri.queryParameters['proveedor'];
+          return ComprobanteProvFormPage(
+            proveedorId: proveedorId != null ? int.tryParse(proveedorId) : null,
+          );
+        },
+      ),
+      GoRoute(
+        path: '/comprobantes-proveedores/:id/editar',
+        name: 'comprobantes-proveedores-editar',
+        builder: (context, state) {
+          final id = int.parse(state.pathParameters['id']!);
+          return ComprobanteProvFormPage(idTransaccion: id);
+        },
+      ),
+      GoRoute(
+        path: '/comprobantes-proveedores/:id',
+        name: 'comprobantes-proveedores-ver',
+        builder: (context, state) {
+          final id = int.parse(state.pathParameters['id']!);
+          return ComprobanteProvFormPage(idTransaccion: id);
+        },
+      ),
+      GoRoute(
+        path: '/proveedores/:proveedorId/comprobantes',
+        name: 'comprobantes-por-proveedor',
+        builder: (context, state) {
+          final proveedorId = int.parse(state.pathParameters['proveedorId']!);
+          return ComprobantesProvListPage(proveedorId: proveedorId);
+        },
+      ),
+      // Comprobantes de Clientes
+      GoRoute(
+        path: '/comprobantes-clientes',
+        name: 'comprobantes-clientes',
+        builder: (context, state) => const ComprobantesCliListPage(),
+      ),
+      GoRoute(
+        path: '/comprobantes-clientes/nuevo',
+        name: 'comprobantes-clientes-nuevo',
+        builder: (context, state) {
+          final clienteId = state.uri.queryParameters['cliente'];
+          return ComprobanteCliFormPage(
+            clienteId: clienteId != null ? int.tryParse(clienteId) : null,
+          );
+        },
+      ),
+      GoRoute(
+        path: '/comprobantes-clientes/:id/editar',
+        name: 'comprobantes-clientes-editar',
+        builder: (context, state) {
+          final id = int.parse(state.pathParameters['id']!);
+          return ComprobanteCliFormPage(idTransaccion: id);
+        },
+      ),
+      GoRoute(
+        path: '/comprobantes-clientes/:id',
+        name: 'comprobantes-clientes-ver',
+        builder: (context, state) {
+          final id = int.parse(state.pathParameters['id']!);
+          return ComprobanteCliFormPage(idTransaccion: id);
+        },
+      ),
+      GoRoute(
+        path: '/clientes/:clienteId/comprobantes',
+        name: 'comprobantes-por-cliente',
+        builder: (context, state) {
+          final clienteId = int.parse(state.pathParameters['clienteId']!);
+          return ComprobantesCliListPage(clienteId: clienteId);
         },
       ),
     ],

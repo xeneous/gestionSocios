@@ -17,12 +17,8 @@ class _SociosListPageState extends ConsumerState<SociosListPage> {
   final _socioIdController = TextEditingController();
   final _apellidoController = TextEditingController();
   final _nombreController = TextEditingController();
-  String? _selectedGrupo;
-  bool _soloActivos = true; // true = solo activos, false = todos
-  SociosSearchParams? _currentSearch;
-  List<dynamic> _allSocios = [];
   bool _isLoadingMore = false;
-  bool _hasMore = true;
+  bool _initialized = false;
 
   @override
   void dispose() {
@@ -32,44 +28,56 @@ class _SociosListPageState extends ConsumerState<SociosListPage> {
     super.dispose();
   }
 
-  void _performSearch() {
-    setState(() {
-      _currentSearch = SociosSearchParams(
-        socioId: _socioIdController.text.trim().isEmpty
-            ? null
-            : int.tryParse(_socioIdController.text.trim()),
-        apellido: _apellidoController.text.trim().isEmpty
-            ? null
-            : _apellidoController.text.trim(),
-        nombre: _nombreController.text.trim().isEmpty
-            ? null
-            : _nombreController.text.trim(),
-        grupo: _selectedGrupo,
-        soloActivos: _soloActivos, // true = solo grupos activos, false = todos
-      );
-      // Reset pagination
-      _allSocios = [];
-      _hasMore = true;
-    });
+  void _syncControllersFromState(SociosSearchState searchState) {
+    if (!_initialized) {
+      _socioIdController.text = searchState.socioId;
+      _apellidoController.text = searchState.apellido;
+      _nombreController.text = searchState.nombre;
+      _initialized = true;
+    }
+  }
+
+  Future<void> _performSearch() async {
+    final notifier = ref.read(sociosSearchStateProvider.notifier);
+
+    // Actualizar estado desde controllers
+    notifier.updateSocioId(_socioIdController.text.trim());
+    notifier.updateApellido(_apellidoController.text.trim());
+    notifier.updateNombre(_nombreController.text.trim());
+
+    // Limpiar resultados previos
+    notifier.clearResults();
+
+    // Obtener el estado actual
+    final searchState = ref.read(sociosSearchStateProvider);
+
+    // Hacer la búsqueda
+    try {
+      final socios = await ref.read(sociosSearchProvider(searchState.toSearchParams()).future);
+      notifier.setResultados(socios, hasMore: socios.length >= 12);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error en búsqueda: $e')),
+        );
+      }
+    }
   }
 
   void _clearSearch() {
-    setState(() {
-      _socioIdController.clear();
-      _apellidoController.clear();
-      _nombreController.clear();
-      _selectedGrupo = null;
-      _soloActivos = true;
-      _currentSearch = null;
-      // Reset pagination
-      _allSocios = [];
-      _hasMore = true;
-    });
+    _socioIdController.clear();
+    _apellidoController.clear();
+    _nombreController.clear();
+    ref.read(sociosSearchStateProvider.notifier).clearSearch();
   }
 
   @override
   Widget build(BuildContext context) {
-    final gruposAsync = ref.watch(gruposAgrupadosProvider(_soloActivos));
+    final searchState = ref.watch(sociosSearchStateProvider);
+    final gruposAsync = ref.watch(gruposAgrupadosProvider(searchState.soloActivos));
+
+    // Sincronizar controllers con el estado persistido (solo una vez)
+    _syncControllersFromState(searchState);
 
     return Scaffold(
       appBar: AppBar(
@@ -131,6 +139,7 @@ class _SociosListPageState extends ConsumerState<SociosListPage> {
                               border: OutlineInputBorder(),
                               prefixIcon: Icon(Icons.person),
                             ),
+                            textCapitalization: TextCapitalization.words,
                             onSubmitted: (_) => _performSearch(),
                           ),
                         ),
@@ -144,6 +153,7 @@ class _SociosListPageState extends ConsumerState<SociosListPage> {
                               border: OutlineInputBorder(),
                               prefixIcon: Icon(Icons.person),
                             ),
+                            textCapitalization: TextCapitalization.words,
                             onSubmitted: (_) => _performSearch(),
                           ),
                         ),
@@ -152,7 +162,7 @@ class _SociosListPageState extends ConsumerState<SociosListPage> {
                           flex: 2,
                           child: gruposAsync.when(
                             data: (grupos) => DropdownButtonFormField<String>(
-                              initialValue: _selectedGrupo,
+                              initialValue: searchState.grupo,
                               decoration: const InputDecoration(
                                 labelText: 'Grupo',
                                 border: OutlineInputBorder(),
@@ -170,7 +180,7 @@ class _SociosListPageState extends ConsumerState<SociosListPage> {
                                     )),
                               ],
                               onChanged: (value) {
-                                setState(() => _selectedGrupo = value);
+                                ref.read(sociosSearchStateProvider.notifier).updateGrupo(value);
                               },
                             ),
                             loading: () => const SizedBox(
@@ -188,15 +198,14 @@ class _SociosListPageState extends ConsumerState<SociosListPage> {
                       children: [
                         Expanded(
                           child: CheckboxListTile(
-                            value: _soloActivos,
-                            title: Text(_soloActivos
+                            value: searchState.soloActivos,
+                            title: Text(searchState.soloActivos
                                 ? 'Solo activos'
                                 : 'Todos los socios'),
                             subtitle: const Text('Click para cambiar filtro'),
                             onChanged: (value) {
-                              setState(() {
-                                _soloActivos = !_soloActivos;
-                              });
+                              ref.read(sociosSearchStateProvider.notifier)
+                                  .updateSoloActivos(value ?? true);
                             },
                             dense: true,
                             contentPadding: EdgeInsets.zero,
@@ -222,7 +231,7 @@ class _SociosListPageState extends ConsumerState<SociosListPage> {
           ),
           // Results
           Expanded(
-            child: _currentSearch == null
+            child: !searchState.hasSearched
                 ? const Center(
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
@@ -236,248 +245,218 @@ class _SociosListPageState extends ConsumerState<SociosListPage> {
                       ],
                     ),
                   )
-                : _buildSearchResults(),
+                : _buildSearchResults(searchState),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildSearchResults() {
-    final sociosAsync = ref.watch(sociosSearchProvider(_currentSearch!));
+  Widget _buildSearchResults(SociosSearchState searchState) {
+    final socios = searchState.resultados;
 
-    return sociosAsync.when(
-      data: (initialSocios) {
-        // Acumular socios en la primera carga
-        if (_allSocios.isEmpty && initialSocios.isNotEmpty) {
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (mounted) {
-              setState(() {
-                _allSocios = initialSocios;
-                _hasMore = initialSocios.length >= 12;
-              });
-            }
-          });
-        }
-
-        final sociosToShow = _allSocios.isEmpty ? initialSocios : _allSocios;
-
-        if (sociosToShow.isEmpty) {
-          return const Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.person_off, size: 64, color: Colors.grey),
-                SizedBox(height: 16),
-                Text('No se encontraron socios'),
-                SizedBox(height: 8),
-                Text(
-                  'Intenta con otros criterios de búsqueda',
-                  style: TextStyle(color: Colors.grey),
-                ),
-              ],
-            ),
-          );
-        }
-
-        return Column(
-          children: [
-            Expanded(
-              child: ListView.builder(
-                padding: const EdgeInsets.all(16),
-                itemCount: sociosToShow.length + 1,
-                itemBuilder: (context, index) {
-                  // First item: results counter
-                  if (index == 0) {
-                    return Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          '${sociosToShow.length} socio(s) encontrado(s)',
-                          style: TextStyle(
-                            color: Colors.grey[600],
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                      ],
-                    );
-                  }
-
-                  final socio = sociosToShow[index - 1];
-
-                  return Card(
-                    margin: const EdgeInsets.only(bottom: 12),
-                    child: ListTile(
-                      leading: CircleAvatar(
-                        // Grupo activo: A, H, T, V | Inactivo: B, F, M, R
-                        backgroundColor:
-                            ['A', 'H', 'T', 'V'].contains(socio.grupo)
-                                ? Colors.blue
-                                : Colors.grey,
-                        child: Text(
-                          socio.apellido.isNotEmpty
-                              ? socio.apellido[0].toUpperCase()
-                              : '?',
-                          style: const TextStyle(
-                              color: Colors.white, fontWeight: FontWeight.bold),
-                        ),
-                      ),
-                      title: Text(
-                        socio.nombreCompleto,
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          color: ['A', 'H', 'T', 'V'].contains(socio.grupo)
-                              ? null
-                              : Colors.grey,
-                        ),
-                      ),
-                      subtitle: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          if (socio.numeroDocumento != null)
-                            Text(
-                                '${socio.tipoDocumento ?? 'DNI'}: ${socio.numeroDocumento}'),
-                          if (socio.email != null && socio.email!.isNotEmpty)
-                            Text(socio.email!),
-                          if (socio.telefono != null &&
-                              socio.telefono!.isNotEmpty)
-                            Text('Tel: ${socio.telefono}'),
-                          if (socio.grupo != null)
-                            Consumer(
-                              builder: (context, ref, child) {
-                                final gruposAsync =
-                                    ref.watch(gruposAgrupadosProvider(false));
-                                return gruposAsync.when(
-                                  data: (grupos) {
-                                    final grupo = grupos
-                                        .where((g) => g.codigo == socio.grupo)
-                                        .firstOrNull;
-                                    return Text(
-                                      'Grupo: ${grupo?.descripcion ?? socio.grupo}',
-                                      style: TextStyle(color: Colors.blue[700]),
-                                    );
-                                  },
-                                  loading: () => Text('Grupo: ${socio.grupo}',
-                                      style:
-                                          TextStyle(color: Colors.blue[700])),
-                                  error: (_, __) => Text(
-                                      'Grupo: ${socio.grupo}',
-                                      style:
-                                          TextStyle(color: Colors.blue[700])),
-                                );
-                              },
-                            ),
-                        ],
-                      ),
-                      trailing: Consumer(
-                        builder: (context, ref, child) {
-                          final userRole = ref.watch(userRoleProvider);
-                          return Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              if (!['A', 'H', 'T', 'V'].contains(socio.grupo))
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 8, vertical: 4),
-                                  decoration: BoxDecoration(
-                                    color: Colors.grey[300],
-                                    borderRadius: BorderRadius.circular(4),
-                                  ),
-                                  child: const Text(
-                                    'INACTIVO',
-                                    style: TextStyle(
-                                        fontSize: 10, fontWeight: FontWeight.bold),
-                                  ),
-                                ),
-                              const SizedBox(width: 8),
-                              IconButton(
-                                icon: const Icon(Icons.account_balance_wallet,
-                                    color: Colors.green),
-                                onPressed: () {
-                                  context
-                                      .go('/socios/${socio.id}/cuenta-corriente');
-                                },
-                                tooltip: 'Cuenta Corriente',
-                              ),
-                              IconButton(
-                                icon: const Icon(Icons.edit, color: Colors.blue),
-                                onPressed: () {
-                                  context.go('/socios/${socio.id}');
-                                },
-                                tooltip: 'Editar',
-                              ),
-                              // Solo administradores pueden eliminar socios
-                              if (userRole.esAdministrador)
-                                IconButton(
-                                  icon: const Icon(Icons.delete, color: Colors.red),
-                                  onPressed: () => _confirmDelete(context, socio),
-                                  tooltip: 'Eliminar',
-                                ),
-                            ],
-                          );
-                        },
-                      ),
-                      isThreeLine: true,
-                    ),
-                  );
-                },
-              ),
-            ),
-            // Botón cargar más
-            if (_hasMore)
-              Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: _isLoadingMore
-                    ? const CircularProgressIndicator()
-                    : FilledButton.icon(
-                        onPressed: _loadMoreSocios,
-                        icon: const Icon(Icons.expand_more),
-                        label:
-                            Text('Cargar más (${_allSocios.length} cargados)'),
-                      ),
-              ),
-            if (!_hasMore && _allSocios.length >= 12)
-              Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Text(
-                  'Todos los resultados cargados',
-                  style: TextStyle(color: Colors.grey[600]),
-                ),
-              ),
-          ],
-        );
-      },
-      loading: () => const Center(child: CircularProgressIndicator()),
-      error: (error, stack) => Center(
+    if (socios.isEmpty) {
+      return const Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.error, size: 64, color: Colors.red),
-            const SizedBox(height: 16),
-            Text('Error: $error'),
+            Icon(Icons.person_off, size: 64, color: Colors.grey),
+            SizedBox(height: 16),
+            Text('No se encontraron socios'),
+            SizedBox(height: 8),
+            Text(
+              'Intenta con otros criterios de búsqueda',
+              style: TextStyle(color: Colors.grey),
+            ),
           ],
         ),
-      ),
+      );
+    }
+
+    return Column(
+      children: [
+        Expanded(
+          child: ListView.builder(
+            padding: const EdgeInsets.all(16),
+            itemCount: socios.length + 1,
+            itemBuilder: (context, index) {
+              // First item: results counter
+              if (index == 0) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '${socios.length} socio(s) encontrado(s)',
+                      style: TextStyle(
+                        color: Colors.grey[600],
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                  ],
+                );
+              }
+
+              final socio = socios[index - 1];
+
+              return Card(
+                margin: const EdgeInsets.only(bottom: 12),
+                child: ListTile(
+                  leading: CircleAvatar(
+                    // Grupo activo: A, H, T, V | Inactivo: B, F, M, R
+                    backgroundColor:
+                        ['A', 'H', 'T', 'V'].contains(socio.grupo)
+                            ? Colors.blue
+                            : Colors.grey,
+                    child: Text(
+                      socio.apellido.isNotEmpty
+                          ? socio.apellido[0].toUpperCase()
+                          : '?',
+                      style: const TextStyle(
+                          color: Colors.white, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                  title: Text(
+                    socio.nombreCompleto,
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: ['A', 'H', 'T', 'V'].contains(socio.grupo)
+                          ? null
+                          : Colors.grey,
+                    ),
+                  ),
+                  subtitle: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (socio.numeroDocumento != null)
+                        Text(
+                            '${socio.tipoDocumento ?? 'DNI'}: ${socio.numeroDocumento}'),
+                      if (socio.email != null && socio.email!.isNotEmpty)
+                        Text(socio.email!),
+                      if (socio.telefono != null &&
+                          socio.telefono!.isNotEmpty)
+                        Text('Tel: ${socio.telefono}'),
+                      if (socio.grupo != null)
+                        Consumer(
+                          builder: (context, ref, child) {
+                            final gruposAsync =
+                                ref.watch(gruposAgrupadosProvider(false));
+                            return gruposAsync.when(
+                              data: (grupos) {
+                                final grupo = grupos
+                                    .where((g) => g.codigo == socio.grupo)
+                                    .firstOrNull;
+                                return Text(
+                                  'Grupo: ${grupo?.descripcion ?? socio.grupo}',
+                                  style: TextStyle(color: Colors.blue[700]),
+                                );
+                              },
+                              loading: () => Text('Grupo: ${socio.grupo}',
+                                  style:
+                                      TextStyle(color: Colors.blue[700])),
+                              error: (_, __) => Text(
+                                  'Grupo: ${socio.grupo}',
+                                  style:
+                                      TextStyle(color: Colors.blue[700])),
+                            );
+                          },
+                        ),
+                    ],
+                  ),
+                  trailing: Consumer(
+                    builder: (context, ref, child) {
+                      final userRole = ref.watch(userRoleProvider);
+                      return Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (!['A', 'H', 'T', 'V'].contains(socio.grupo))
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: Colors.grey[300],
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: const Text(
+                                'INACTIVO',
+                                style: TextStyle(
+                                    fontSize: 10, fontWeight: FontWeight.bold),
+                              ),
+                            ),
+                          const SizedBox(width: 8),
+                          IconButton(
+                            icon: const Icon(Icons.account_balance_wallet,
+                                color: Colors.green),
+                            onPressed: () {
+                              context
+                                  .go('/socios/${socio.id}/cuenta-corriente');
+                            },
+                            tooltip: 'Cuenta Corriente',
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.edit, color: Colors.blue),
+                            onPressed: () {
+                              context.go('/socios/${socio.id}');
+                            },
+                            tooltip: 'Editar',
+                          ),
+                          // Solo administradores pueden eliminar socios
+                          if (userRole.esAdministrador)
+                            IconButton(
+                              icon: const Icon(Icons.delete, color: Colors.red),
+                              onPressed: () => _confirmDelete(context, socio),
+                              tooltip: 'Eliminar',
+                            ),
+                        ],
+                      );
+                    },
+                  ),
+                  isThreeLine: true,
+                ),
+              );
+            },
+          ),
+        ),
+        // Botón cargar más
+        if (searchState.hasMore)
+          Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: _isLoadingMore
+                ? const CircularProgressIndicator()
+                : FilledButton.icon(
+                    onPressed: _loadMoreSocios,
+                    icon: const Icon(Icons.expand_more),
+                    label:
+                        Text('Cargar más (${socios.length} cargados)'),
+                  ),
+          ),
+        if (!searchState.hasMore && socios.length >= 12)
+          Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Text(
+              'Todos los resultados cargados',
+              style: TextStyle(color: Colors.grey[600]),
+            ),
+          ),
+      ],
     );
   }
 
   Future<void> _loadMoreSocios() async {
-    if (_isLoadingMore || !_hasMore) return;
+    final searchState = ref.read(sociosSearchStateProvider);
+    if (_isLoadingMore || !searchState.hasMore) return;
 
     setState(() => _isLoadingMore = true);
 
     try {
       final moreSocios = await ref
           .read(sociosNotifierProvider.notifier)
-          .loadMoreSocios(_currentSearch!, _allSocios.length);
+          .loadMoreSocios(searchState.toSearchParams(), searchState.resultados.length);
 
       if (mounted) {
-        setState(() {
-          _allSocios.addAll(moreSocios);
-          _hasMore = moreSocios.length >= 12;
-          _isLoadingMore = false;
-        });
+        ref.read(sociosSearchStateProvider.notifier)
+            .addResultados(moreSocios, hasMore: moreSocios.length >= 12);
+        setState(() => _isLoadingMore = false);
       }
     } catch (e) {
       if (mounted) {

@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../../features/auth/presentation/providers/user_role_provider.dart';
+import '../../../features/socios/providers/socios_provider.dart';
 
 /// Drawer de navegación compartido por todas las páginas principales
-class AppDrawer extends StatelessWidget {
+class AppDrawer extends ConsumerWidget {
   /// Ruta actual para highlight del item seleccionado
   final String currentRoute;
 
@@ -12,7 +15,9 @@ class AppDrawer extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final userRole = ref.watch(userRoleProvider);
+
     return Drawer(
       child: ListView(
         padding: EdgeInsets.zero,
@@ -39,7 +44,7 @@ class AppDrawer extends StatelessWidget {
               ],
             ),
           ),
-          
+
           // Dashboard
           ListTile(
             leading: const Icon(Icons.dashboard),
@@ -61,10 +66,10 @@ class AppDrawer extends StatelessWidget {
             title: const Text('Socios'),
             selected: currentRoute.startsWith('/socios'),
             onTap: () {
+              // Limpiar búsqueda al entrar desde el menú
+              ref.read(sociosSearchStateProvider.notifier).clearSearch();
               Navigator.pop(context);
-              if (!currentRoute.startsWith('/socios')) {
-                context.go('/socios');
-              }
+              context.go('/socios');
             },
           ),
 
@@ -98,11 +103,96 @@ class AppDrawer extends StatelessWidget {
           ListTile(
             leading: const Icon(Icons.account_balance_wallet),
             title: const Text('Resumen Cuentas Corrientes'),
-            selected: currentRoute.startsWith('/cuentas-corrientes'),
+            selected: currentRoute.startsWith('/resumen-cuentas-corrientes'),
             onTap: () {
               Navigator.pop(context);
-              if (!currentRoute.startsWith('/cuentas-corrientes')) {
-                context.go('/cuentas-corrientes');
+              if (!currentRoute.startsWith('/resumen-cuentas-corrientes')) {
+                context.go('/resumen-cuentas-corrientes');
+              }
+            },
+          ),
+
+          // Solo para supervisor y administrador
+          if (userRole.puedeFacturarMasivo) ...[
+            const Divider(),
+
+            // Facturador Global de Cuotas
+            ListTile(
+              leading: const Icon(Icons.receipt_long, color: Colors.green),
+              title: const Text('Facturador Global'),
+              selected: currentRoute.startsWith('/facturador-global'),
+              onTap: () {
+                Navigator.pop(context);
+                if (!currentRoute.startsWith('/facturador-global')) {
+                  context.go('/facturador-global');
+                }
+              },
+            ),
+
+            // Débitos Automáticos
+            ListTile(
+              leading: const Icon(Icons.credit_card, color: Colors.purple),
+              title: const Text('Débitos Automáticos'),
+              selected: currentRoute.startsWith('/debitos-automaticos'),
+              onTap: () {
+                Navigator.pop(context);
+                if (!currentRoute.startsWith('/debitos-automaticos')) {
+                  context.go('/debitos-automaticos');
+                }
+              },
+            ),
+          ],
+
+          const Divider(),
+
+          // Clientes (Sponsors)
+          ListTile(
+            leading: const Icon(Icons.business, color: Colors.green),
+            title: const Text('Clientes / Sponsors'),
+            selected: currentRoute.startsWith('/clientes'),
+            onTap: () {
+              Navigator.pop(context);
+              if (!currentRoute.startsWith('/clientes')) {
+                context.go('/clientes');
+              }
+            },
+          ),
+
+          // Proveedores
+          ListTile(
+            leading: const Icon(Icons.store, color: Colors.orange),
+            title: const Text('Proveedores'),
+            selected: currentRoute.startsWith('/proveedores'),
+            onTap: () {
+              Navigator.pop(context);
+              if (!currentRoute.startsWith('/proveedores')) {
+                context.go('/proveedores');
+              }
+            },
+          ),
+
+          // Comprobantes de Proveedores
+          ListTile(
+            leading: const Icon(Icons.receipt_long, color: Colors.orange),
+            title: const Text('Comprobantes Compras'),
+            selected: currentRoute.startsWith('/comprobantes-proveedores'),
+            onTap: () {
+              Navigator.pop(context);
+              if (!currentRoute.startsWith('/comprobantes-proveedores')) {
+                context.go('/comprobantes-proveedores');
+              }
+            },
+          ),
+
+          // Comprobantes de Clientes
+          ListTile(
+            leading: const Icon(Icons.receipt, color: Colors.green),
+            title: const Text('Comprobantes Ventas'),
+            selected: currentRoute.startsWith('/comprobantes-clientes'),
+            onTap: () {
+              Navigator.pop(context);
+              if (!currentRoute.startsWith('/comprobantes-clientes')) {
+                context.go('/comprobantes-clientes');
               }
             },
           ),
@@ -111,7 +201,7 @@ class AppDrawer extends StatelessWidget {
 
           // Asientos de Diario
           ListTile(
-            leading: const Icon(Icons.receipt_long),
+            leading: const Icon(Icons.book),
             title: const Text('Asientos de Diario'),
             selected: currentRoute.startsWith('/asientos'),
             onTap: () {

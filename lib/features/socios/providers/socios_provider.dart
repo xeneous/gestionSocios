@@ -205,3 +205,130 @@ final sociosNotifierProvider =
 final socioByIdProvider = FutureProvider.family<Socio?, int>((ref, id) async {
   return ref.read(sociosNotifierProvider.notifier).getSocioById(id);
 });
+
+// ============================================================================
+// ESTADO DE BÚSQUEDA PERSISTENTE
+// ============================================================================
+
+/// Estado de búsqueda de socios que persiste entre navegaciones
+class SociosSearchState {
+  final String socioId;
+  final String apellido;
+  final String nombre;
+  final String? grupo;
+  final bool soloActivos;
+  final bool hasSearched;
+  final List<Socio> resultados;
+  final bool hasMore;
+
+  const SociosSearchState({
+    this.socioId = '',
+    this.apellido = '',
+    this.nombre = '',
+    this.grupo,
+    this.soloActivos = true,
+    this.hasSearched = false,
+    this.resultados = const [],
+    this.hasMore = true,
+  });
+
+  SociosSearchState copyWith({
+    String? socioId,
+    String? apellido,
+    String? nombre,
+    String? grupo,
+    bool? soloActivos,
+    bool? hasSearched,
+    List<Socio>? resultados,
+    bool? hasMore,
+  }) {
+    return SociosSearchState(
+      socioId: socioId ?? this.socioId,
+      apellido: apellido ?? this.apellido,
+      nombre: nombre ?? this.nombre,
+      grupo: grupo,
+      soloActivos: soloActivos ?? this.soloActivos,
+      hasSearched: hasSearched ?? this.hasSearched,
+      resultados: resultados ?? this.resultados,
+      hasMore: hasMore ?? this.hasMore,
+    );
+  }
+
+  /// Convierte a SociosSearchParams para hacer la búsqueda
+  SociosSearchParams toSearchParams() {
+    return SociosSearchParams(
+      socioId: socioId.isNotEmpty ? int.tryParse(socioId) : null,
+      apellido: apellido.isNotEmpty ? apellido : null,
+      nombre: nombre.isNotEmpty ? nombre : null,
+      grupo: grupo,
+      soloActivos: soloActivos,
+    );
+  }
+
+  /// Verifica si hay algún filtro activo
+  bool get hasFilters =>
+      socioId.isNotEmpty ||
+      apellido.isNotEmpty ||
+      nombre.isNotEmpty ||
+      grupo != null;
+}
+
+/// Notifier para manejar el estado de búsqueda de socios
+class SociosSearchStateNotifier extends Notifier<SociosSearchState> {
+  @override
+  SociosSearchState build() {
+    return const SociosSearchState();
+  }
+
+  void updateSocioId(String value) {
+    state = state.copyWith(socioId: value);
+  }
+
+  void updateApellido(String value) {
+    state = state.copyWith(apellido: value);
+  }
+
+  void updateNombre(String value) {
+    state = state.copyWith(nombre: value);
+  }
+
+  void updateGrupo(String? value) {
+    state = state.copyWith(grupo: value);
+  }
+
+  void updateSoloActivos(bool value) {
+    state = state.copyWith(soloActivos: value);
+  }
+
+  void setResultados(List<Socio> resultados, {bool hasMore = true}) {
+    state = state.copyWith(
+      resultados: resultados,
+      hasSearched: true,
+      hasMore: hasMore,
+    );
+  }
+
+  void addResultados(List<Socio> moreResults, {bool hasMore = true}) {
+    state = state.copyWith(
+      resultados: [...state.resultados, ...moreResults],
+      hasMore: hasMore,
+    );
+  }
+
+  void clearSearch() {
+    state = const SociosSearchState();
+  }
+
+  void clearResults() {
+    state = state.copyWith(
+      resultados: [],
+      hasSearched: false,
+      hasMore: true,
+    );
+  }
+}
+
+final sociosSearchStateProvider =
+    NotifierProvider<SociosSearchStateNotifier, SociosSearchState>(() {
+  return SociosSearchStateNotifier();
+});

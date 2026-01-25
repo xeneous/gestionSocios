@@ -695,7 +695,7 @@ class ResumenCuentasCorrientesPage extends ConsumerWidget {
       }
 
       final timestamp = DateFormat('yyyyMMdd_HHmmss').format(DateTime.now());
-      final fileName = 'resumen_cuentas_corrientes_$timestamp.xlsx';
+      final fileName = 'ResumenCtaCte_$timestamp.xlsx';
 
       if (kIsWeb) {
         // Para Web: usar descarga del navegador

@@ -77,64 +77,6 @@ class DashboardPage extends ConsumerWidget {
                 ),
                 const SizedBox(height: 16),
               ],
-              if (userRole.puedeFacturarMasivo) ...[
-                ElevatedButton.icon(
-                  onPressed: () => context.go('/facturador-global'),
-                  icon: const Icon(Icons.receipt_long),
-                  label: const Text('Facturador Global de Cuotas'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.green,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 32,
-                      vertical: 16,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                ElevatedButton.icon(
-                  onPressed: () => context.go('/debitos-automaticos'),
-                  icon: const Icon(Icons.credit_card),
-                  label: const Text('Presentación Débitos Automáticos'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.purple,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 32,
-                      vertical: 16,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                ElevatedButton.icon(
-                  onPressed: () => context.go('/seguimiento-deudas'),
-                  icon: const Icon(Icons.monitor_heart),
-                  label: const Text('Seguimiento de Deudas'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.red,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 32,
-                      vertical: 16,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                ElevatedButton.icon(
-                  onPressed: () => context.go('/resumen-cuentas-corrientes'),
-                  icon: const Icon(Icons.account_balance_wallet),
-                  label: const Text('Resumen Cuentas Corrientes'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.teal,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 32,
-                      vertical: 16,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 16),
-              ],
               const Text(
                 'Módulos disponibles:',
                 style: TextStyle(fontWeight: FontWeight.bold),
