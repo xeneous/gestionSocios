@@ -197,7 +197,87 @@ class AppDrawer extends ConsumerWidget {
             },
           ),
 
+          // Cobranzas de Clientes
+          ListTile(
+            leading: const Icon(Icons.payments, color: Colors.green),
+            title: const Text('Cobranzas Clientes'),
+            selected: currentRoute.startsWith('/cobranzas-clientes'),
+            onTap: () {
+              Navigator.pop(context);
+              if (!currentRoute.startsWith('/cobranzas-clientes')) {
+                context.go('/cobranzas-clientes');
+              }
+            },
+          ),
+
+          // Orden de Pago a Proveedores
+          ListTile(
+            leading: const Icon(Icons.payment, color: Colors.orange),
+            title: const Text('Orden de Pago'),
+            selected: currentRoute.startsWith('/orden-pago'),
+            onTap: () {
+              Navigator.pop(context);
+              if (!currentRoute.startsWith('/orden-pago')) {
+                context.go('/orden-pago');
+              }
+            },
+          ),
+
           const Divider(),
+
+          // Sección de Saldos/Reportes
+          const Padding(
+            padding: EdgeInsets.only(left: 16, top: 8, bottom: 4),
+            child: Text(
+              'REPORTES',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+                color: Colors.grey,
+              ),
+            ),
+          ),
+
+          // Saldos de Clientes
+          ListTile(
+            leading: const Icon(Icons.account_balance_wallet, color: Colors.green),
+            title: const Text('Saldos Clientes'),
+            selected: currentRoute == '/saldos-clientes',
+            onTap: () {
+              Navigator.pop(context);
+              if (currentRoute != '/saldos-clientes') {
+                context.go('/saldos-clientes');
+              }
+            },
+          ),
+
+          // Saldos de Proveedores
+          ListTile(
+            leading: const Icon(Icons.account_balance_wallet, color: Colors.orange),
+            title: const Text('Saldos Proveedores'),
+            selected: currentRoute == '/saldos-proveedores',
+            onTap: () {
+              Navigator.pop(context);
+              if (currentRoute != '/saldos-proveedores') {
+                context.go('/saldos-proveedores');
+              }
+            },
+          ),
+
+          const Divider(),
+
+          // Sección Contabilidad
+          const Padding(
+            padding: EdgeInsets.only(left: 16, top: 8, bottom: 4),
+            child: Text(
+              'CONTABILIDAD',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+                color: Colors.grey,
+              ),
+            ),
+          ),
 
           // Asientos de Diario
           ListTile(
@@ -208,6 +288,32 @@ class AppDrawer extends ConsumerWidget {
               Navigator.pop(context);
               if (!currentRoute.startsWith('/asientos')) {
                 context.go('/asientos');
+              }
+            },
+          ),
+
+          // Mayor de Cuentas
+          ListTile(
+            leading: const Icon(Icons.account_balance),
+            title: const Text('Mayor de Cuentas'),
+            selected: currentRoute == '/mayor-cuentas',
+            onTap: () {
+              Navigator.pop(context);
+              if (currentRoute != '/mayor-cuentas') {
+                context.go('/mayor-cuentas');
+              }
+            },
+          ),
+
+          // Parámetros Contables
+          ListTile(
+            leading: const Icon(Icons.settings, color: Colors.blueGrey),
+            title: const Text('Parámetros Contables'),
+            selected: currentRoute == '/parametros-contables',
+            onTap: () {
+              Navigator.pop(context);
+              if (currentRoute != '/parametros-contables') {
+                context.go('/parametros-contables');
               }
             },
           ),

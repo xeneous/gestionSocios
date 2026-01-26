@@ -38,6 +38,14 @@ import '../../features/comprobantes_cli/presentation/pages/comprobantes_cli_list
 import '../../features/comprobantes_cli/presentation/pages/comprobante_cli_form_page.dart';
 import '../../features/comprobantes_cli/presentation/pages/cuenta_corriente_cliente_page.dart';
 import '../../features/comprobantes_prov/presentation/pages/cuenta_corriente_proveedor_page.dart';
+import '../../features/comprobantes_cli/presentation/pages/cobranzas_select_cliente_page.dart';
+import '../../features/comprobantes_cli/presentation/pages/cobranzas_cliente_page.dart';
+import '../../features/comprobantes_prov/presentation/pages/orden_pago_select_proveedor_page.dart';
+import '../../features/comprobantes_prov/presentation/pages/orden_pago_page.dart';
+import '../../features/parametros/presentation/pages/parametros_contables_page.dart';
+import '../../features/comprobantes_cli/presentation/pages/saldos_clientes_page.dart';
+import '../../features/comprobantes_prov/presentation/pages/saldos_proveedores_page.dart';
+import '../../features/asientos/presentation/pages/mayor_cuentas_page.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   final authState = ref.watch(authStateProvider);
@@ -419,6 +427,58 @@ final routerProvider = Provider<GoRouter>((ref) {
           final clienteId = int.parse(state.pathParameters['clienteId']!);
           return ComprobantesCliListPage(clienteId: clienteId);
         },
+      ),
+      // Cobranzas de Clientes
+      GoRoute(
+        path: '/cobranzas-clientes',
+        name: 'cobranzas-clientes-select',
+        builder: (context, state) => const CobranzasSelectClientePage(),
+      ),
+      GoRoute(
+        path: '/cobranzas-clientes/:clienteId',
+        name: 'cobranzas-clientes',
+        builder: (context, state) {
+          final clienteId = int.parse(state.pathParameters['clienteId']!);
+          return CobranzasClientePage(clienteId: clienteId);
+        },
+      ),
+      // Orden de Pago a Proveedores
+      GoRoute(
+        path: '/orden-pago',
+        name: 'orden-pago-select',
+        builder: (context, state) => const OrdenPagoSelectProveedorPage(),
+      ),
+      GoRoute(
+        path: '/orden-pago/:proveedorId',
+        name: 'orden-pago',
+        builder: (context, state) {
+          final proveedorId = int.parse(state.pathParameters['proveedorId']!);
+          return OrdenPagoPage(proveedorId: proveedorId);
+        },
+      ),
+      // Saldos de Clientes
+      GoRoute(
+        path: '/saldos-clientes',
+        name: 'saldos-clientes',
+        builder: (context, state) => const SaldosClientesPage(),
+      ),
+      // Saldos de Proveedores
+      GoRoute(
+        path: '/saldos-proveedores',
+        name: 'saldos-proveedores',
+        builder: (context, state) => const SaldosProveedoresPage(),
+      ),
+      // Mayor de Cuentas Contables
+      GoRoute(
+        path: '/mayor-cuentas',
+        name: 'mayor-cuentas',
+        builder: (context, state) => const MayorCuentasPage(),
+      ),
+      // Parámetros Contables
+      GoRoute(
+        path: '/parametros-contables',
+        name: 'parametros-contables',
+        builder: (context, state) => const ParametrosContablesPage(),
       ),
     ],
   );

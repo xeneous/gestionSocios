@@ -281,14 +281,14 @@ class _CuentaCorrienteProveedorPageState
       final tipo = tiposMap[comp.tipoComprobante];
       final multiplicador = tipo?.multiplicador ?? 1;
 
-      // Para proveedores (a pagar):
-      // Facturas (multiplicador 1) = aumenta deuda (debe)
-      // NC/Pagos (multiplicador -1) = disminuye deuda (haber)
+      // Para proveedores (a pagar) - lógica contable:
+      // Facturas (multiplicador 1) = CRÉDITO (Haber) - aumenta lo que debemos
+      // NC/Pagos (multiplicador -1) = DÉBITO (Debe) - disminuye lo que debemos
       final importe = _soloConSaldo ? comp.saldo : comp.totalImporte;
-      final debe = multiplicador == 1 ? importe : 0.0;
-      final haber = multiplicador == -1 ? importe : 0.0;
+      final haber = multiplicador == 1 ? importe : 0.0;
+      final debe = multiplicador == -1 ? importe : 0.0;
 
-      saldoAcumulado += debe - haber;
+      saldoAcumulado += haber - debe;  // Saldo positivo = debemos
 
       final isPendiente = comp.saldo > 0;
       final rowColor = isPendiente ? Colors.orange[50] : null;
@@ -328,13 +328,13 @@ class _CuentaCorrienteProveedorPageState
             DataCell(
               Text(
                 debe > 0 ? _currencyFormat.format(debe) : '-',
-                style: const TextStyle(color: Colors.red),
+                style: const TextStyle(color: Colors.green),  // Pago = reduce deuda
               ),
             ),
             DataCell(
               Text(
                 haber > 0 ? _currencyFormat.format(haber) : '-',
-                style: const TextStyle(color: Colors.green),
+                style: const TextStyle(color: Colors.red),  // Factura = aumenta deuda
               ),
             ),
             DataCell(

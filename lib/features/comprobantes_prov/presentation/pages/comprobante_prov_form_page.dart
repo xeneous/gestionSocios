@@ -4,6 +4,8 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import '../../models/comprobante_prov_model.dart';
 import '../../providers/comprobantes_prov_provider.dart';
+import '../../../proveedores/providers/proveedores_provider.dart';
+import '../../../proveedores/models/proveedor_model.dart';
 
 class ComprobanteProvFormPage extends ConsumerStatefulWidget {
   final int? idTransaccion;
@@ -116,7 +118,8 @@ class _ComprobanteProvFormPageState
 
     if (_tipoComprobante == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Debe seleccionar un tipo de comprobante')),
+        const SnackBar(
+            content: Text('Debe seleccionar un tipo de comprobante')),
       );
       return;
     }
@@ -265,6 +268,19 @@ class _ComprobanteProvFormPageState
     });
   }
 
+  Future<void> _buscarProveedor() async {
+    final result = await showDialog<Proveedor>(
+      context: context,
+      builder: (context) => const _ProveedorSearchDialog(),
+    );
+
+    if (result != null) {
+      setState(() {
+        _proveedorController.text = result.codigo.toString();
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final tiposAsync = ref.watch(tiposComprobanteCompraProvider);
@@ -313,14 +329,20 @@ class _ComprobanteProvFormPageState
                                 Expanded(
                                   child: TextFormField(
                                     controller: _proveedorController,
-                                    decoration: const InputDecoration(
+                                    decoration: InputDecoration(
                                       labelText: 'Código Proveedor *',
-                                      border: OutlineInputBorder(),
-                                      prefixIcon: Icon(Icons.store),
+                                      border: const OutlineInputBorder(),
+                                      prefixIcon: const Icon(Icons.store),
+                                      suffixIcon: IconButton(
+                                        icon: const Icon(Icons.search),
+                                        tooltip: 'Buscar proveedor',
+                                        onPressed: _buscarProveedor,
+                                      ),
                                     ),
                                     keyboardType: TextInputType.number,
                                     validator: (value) {
-                                      if (value == null || value.trim().isEmpty) {
+                                      if (value == null ||
+                                          value.trim().isEmpty) {
                                         return 'Ingrese el código del proveedor';
                                       }
                                       if (int.tryParse(value.trim()) == null) {
@@ -336,7 +358,7 @@ class _ComprobanteProvFormPageState
                                   child: tiposAsync.when(
                                     data: (tipos) =>
                                         DropdownButtonFormField<int?>(
-                                      value: _tipoComprobante,
+                                      initialValue: _tipoComprobante,
                                       decoration: const InputDecoration(
                                         labelText: 'Tipo Comprobante *',
                                         border: OutlineInputBorder(),
@@ -393,7 +415,8 @@ class _ComprobanteProvFormPageState
                                     textCapitalization:
                                         TextCapitalization.characters,
                                     validator: (value) {
-                                      if (value == null || value.trim().isEmpty) {
+                                      if (value == null ||
+                                          value.trim().isEmpty) {
                                         return 'Ingrese el número';
                                       }
                                       return null;
@@ -403,7 +426,7 @@ class _ComprobanteProvFormPageState
                                 const SizedBox(width: 16),
                                 Expanded(
                                   child: DropdownButtonFormField<String?>(
-                                    value: _tipoFactura,
+                                    initialValue: _tipoFactura,
                                     decoration: const InputDecoration(
                                       labelText: 'Tipo Factura',
                                       border: OutlineInputBorder(),
@@ -431,7 +454,7 @@ class _ComprobanteProvFormPageState
                                 const SizedBox(width: 16),
                                 Expanded(
                                   child: DropdownButtonFormField<String>(
-                                    value: _estado,
+                                    initialValue: _estado,
                                     decoration: const InputDecoration(
                                       labelText: 'Estado',
                                       border: OutlineInputBorder(),
@@ -500,7 +523,8 @@ class _ComprobanteProvFormPageState
                                         border: OutlineInputBorder(),
                                         prefixIcon: Icon(Icons.calendar_month),
                                       ),
-                                      child: Text(_dateFormat.format(_fechaReal)),
+                                      child:
+                                          Text(_dateFormat.format(_fechaReal)),
                                     ),
                                   ),
                                 ),
@@ -543,7 +567,8 @@ class _ComprobanteProvFormPageState
                                       decoration: InputDecoration(
                                         labelText: '2do Vencimiento',
                                         border: const OutlineInputBorder(),
-                                        prefixIcon: const Icon(Icons.event_busy),
+                                        prefixIcon:
+                                            const Icon(Icons.event_busy),
                                         suffixIcon: _fecha2Venc != null
                                             ? IconButton(
                                                 icon: const Icon(Icons.clear),
@@ -696,7 +721,8 @@ class _ComprobanteProvFormPageState
                       mainAxisAlignment: MainAxisAlignment.end,
                       children: [
                         OutlinedButton(
-                          onPressed: () => context.go('/comprobantes-proveedores'),
+                          onPressed: () =>
+                              context.go('/comprobantes-proveedores'),
                           child: const Text('Cancelar'),
                         ),
                         const SizedBox(width: 16),
@@ -835,8 +861,8 @@ class _ItemDialogState extends State<_ItemDialog> {
                           border: OutlineInputBorder(),
                           prefixText: '\$ ',
                         ),
-                        keyboardType:
-                            const TextInputType.numberWithOptions(decimal: true),
+                        keyboardType: const TextInputType.numberWithOptions(
+                            decimal: true),
                         validator: (value) {
                           if (value == null || value.trim().isEmpty) {
                             return 'Requerido';
@@ -857,8 +883,8 @@ class _ItemDialogState extends State<_ItemDialog> {
                           border: OutlineInputBorder(),
                           suffixText: '%',
                         ),
-                        keyboardType:
-                            const TextInputType.numberWithOptions(decimal: true),
+                        keyboardType: const TextInputType.numberWithOptions(
+                            decimal: true),
                       ),
                     ),
                   ],
@@ -905,7 +931,8 @@ class _ItemDialogState extends State<_ItemDialog> {
                 concepto: _conceptoController.text.trim().toUpperCase(),
                 cuenta: int.parse(_cuentaController.text.trim()),
                 importe: double.parse(_importeController.text.trim()),
-                baseContable: double.tryParse(_baseContableController.text.trim()) ?? 0,
+                baseContable:
+                    double.tryParse(_baseContableController.text.trim()) ?? 0,
                 alicuota: double.tryParse(_alicuotaController.text.trim()) ?? 0,
                 detalle: _detalleController.text.trim().isEmpty
                     ? null
@@ -916,6 +943,140 @@ class _ItemDialogState extends State<_ItemDialog> {
             }
           },
           child: const Text('Guardar'),
+        ),
+      ],
+    );
+  }
+}
+
+// Diálogo para buscar proveedores
+class _ProveedorSearchDialog extends ConsumerStatefulWidget {
+  const _ProveedorSearchDialog();
+
+  @override
+  ConsumerState<_ProveedorSearchDialog> createState() =>
+      _ProveedorSearchDialogState();
+}
+
+class _ProveedorSearchDialogState extends ConsumerState<_ProveedorSearchDialog> {
+  final _searchController = TextEditingController();
+  List<Proveedor> _resultados = [];
+  bool _isLoading = false;
+  bool _hasSearched = false;
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _buscar() async {
+    final query = _searchController.text.trim();
+    if (query.isEmpty) return;
+
+    setState(() {
+      _isLoading = true;
+      _hasSearched = true;
+    });
+
+    try {
+      final params = ProveedoresSearchParams(
+        razonSocial: query,
+        soloActivos: true,
+      );
+      final proveedores = await ref.read(proveedoresSearchProvider(params).future);
+
+      if (mounted) {
+        setState(() {
+          _resultados = proveedores;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Row(
+        children: [
+          Icon(Icons.store, color: Colors.orange),
+          SizedBox(width: 8),
+          Text('Buscar Proveedor'),
+        ],
+      ),
+      content: SizedBox(
+        width: 500,
+        height: 400,
+        child: Column(
+          children: [
+            TextField(
+              controller: _searchController,
+              decoration: InputDecoration(
+                labelText: 'Razón Social',
+                border: const OutlineInputBorder(),
+                prefixIcon: const Icon(Icons.search),
+                suffixIcon: IconButton(
+                  icon: const Icon(Icons.search),
+                  onPressed: _buscar,
+                ),
+              ),
+              onSubmitted: (_) => _buscar(),
+              autofocus: true,
+            ),
+            const SizedBox(height: 16),
+            Expanded(
+              child: !_hasSearched
+                  ? const Center(
+                      child: Text(
+                        'Ingrese un texto para buscar',
+                        style: TextStyle(color: Colors.grey),
+                      ),
+                    )
+                  : _isLoading
+                      ? const Center(child: CircularProgressIndicator())
+                      : _resultados.isEmpty
+                          ? const Center(
+                              child: Text(
+                                'No se encontraron proveedores',
+                                style: TextStyle(color: Colors.grey),
+                              ),
+                            )
+                          : ListView.builder(
+                              itemCount: _resultados.length,
+                              itemBuilder: (context, index) {
+                                final proveedor = _resultados[index];
+                                return ListTile(
+                                  leading: CircleAvatar(
+                                    backgroundColor: Colors.orange,
+                                    child: Text(
+                                      proveedor.codigo.toString(),
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                  ),
+                                  title: Text(proveedor.nombreCompleto),
+                                  subtitle: proveedor.cuit?.isNotEmpty == true
+                                      ? Text('CUIT: ${proveedor.cuit}')
+                                      : null,
+                                  onTap: () => Navigator.pop(context, proveedor),
+                                );
+                              },
+                            ),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancelar'),
         ),
       ],
     );
