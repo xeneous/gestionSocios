@@ -1,107 +1,109 @@
-import 'dart:io';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:intl/intl.dart';
-import 'package:path_provider/path_provider.dart';
 import '../../../core/utils/numero_a_letras.dart';
 
-/// Servicio para generar PDFs de recibos de cobranza
-class ReciboPdfService {
+/// Servicio para generar PDFs de órdenes de pago a proveedores
+class OrdenPagoPdfService {
   final SupabaseClient _supabase;
 
-  ReciboPdfService(this._supabase);
+  OrdenPagoPdfService(this._supabase);
 
-  /// Genera un PDF del recibo de cobranza
-  ///
-  /// Obtiene todos los datos directamente de la base de datos usando el número de recibo.
-  /// Usa las tablas de trazabilidad para información precisa y estructurada.
+  /// Genera un PDF de la orden de pago
   ///
   /// Parámetros:
-  /// - numeroRecibo: Número del recibo a generar
+  /// - idTransaccion: ID de la orden de pago en comp_prov_header
   ///
   /// Retorna el documento PDF generado
-  Future<pw.Document> generarReciboPdf({
-    required int numeroRecibo,
+  Future<pw.Document> generarOrdenPagoPdf({
+    required int idTransaccion,
   }) async {
-    // 1. Obtener operación de cobranza desde tabla de trazabilidad
-    final operacion = await _supabase
-        .from('operaciones_contables')
-        .select('*')
-        .eq('tipo_operacion', 'COBRANZA_SOCIO')
-        .eq('numero_comprobante', numeroRecibo)
+    // 1. Obtener datos de la orden de pago
+    final opData = await _supabase
+        .from('comp_prov_header')
+        .select('*, proveedores(*)')
+        .eq('id_transaccion', idTransaccion)
         .single();
 
-    final socioId = operacion['entidad_id'] as int;
-    final fechaRecibo = DateTime.parse(operacion['fecha']);
-    final totalCobrado = (operacion['total'] as num).toDouble();
+    final numeroOP = opData['comprobante'] as int;
+    final fechaOP = DateTime.parse(opData['fecha'] as String);
+    final totalPagado = (opData['total_importe'] as num).toDouble();
+    final proveedorId = opData['proveedor'] as int;
 
-    // 2. Obtener datos del socio
-    final socioData = await _supabase
-        .from('socios')
-        .select('id, apellido, nombre, domicilio, telefono')
-        .eq('id', socioId)
-        .single();
+    // 2. Obtener datos del proveedor
+    final proveedorData = opData['proveedores'] as Map<String, dynamic>?;
+    final nombreProveedor = proveedorData?['razon_social'] as String? ?? 'Proveedor $proveedorId';
+    final cuitProveedor = proveedorData?['cuit'] as String? ?? '';
+    final domicilioProveedor = proveedorData?['domicilio'] as String? ?? '';
 
-    final nombreCompleto =
-        '${socioData['apellido']}, ${socioData['nombre']}'.trim();
-    final domicilio = socioData['domicilio'] as String? ?? '';
-    final telefono = socioData['telefono'] as String? ?? '';
-
-    // 3. Obtener formas de pago con JOIN desde tabla de trazabilidad
-    final formasPagoData =
-        await _supabase.from('operaciones_detalle_valores_tesoreria').select('''
-          *,
-          valores_tesoreria!inner(
-            importe,
-            conceptos_tesoreria!inner(descripcion)
-          )
-        ''').eq('operacion_id', operacion['id']);
-
-    final formasPagoList = <Map<String, dynamic>>[];
-    for (final item in formasPagoData) {
-      final valorTesoreria = item['valores_tesoreria'];
-      formasPagoList.add({
-        'descripcion':
-            valorTesoreria['conceptos_tesoreria']['descripcion'] as String,
-        'monto': (valorTesoreria['importe'] as num).toDouble(),
-      });
-    }
-
-    // 4. Obtener transacciones pagadas con JOIN desde tabla de trazabilidad
-    final transaccionesData = await _supabase
-        .from('operaciones_detalle_cuentas_corrientes')
-        .select('''
-          monto,
-          cuentas_corrientes!inner(
-            tipo_comprobante,
-            documento_numero,
-            importe,
-            fecha,
-            vencimiento
-          )
-        ''').eq('operacion_id', operacion['id']);
+    // 3. Obtener imputaciones (qué facturas se pagaron)
+    final imputacionesData = await _supabase
+        .from('notas_imputacion')
+        .select('*, comp_prov_header!id_transaccion(*)')
+        .eq('id_operacion', idTransaccion)
+        .eq('tipo_operacion', 1);
 
     final transaccionesList = <Map<String, dynamic>>[];
-    for (final item in transaccionesData) {
-      final cc = item['cuentas_corrientes'];
+    for (final imp in imputacionesData as List) {
+      // Obtener datos del comprobante pagado
+      final idTransaccionPagada = imp['id_transaccion'] as int;
+      final compPagado = await _supabase
+          .from('comp_prov_header')
+          .select('*, tip_comp_mod_header(*)')
+          .eq('id_transaccion', idTransaccionPagada)
+          .single();
+
+      final tipoData = compPagado['tip_comp_mod_header'] as Map<String, dynamic>?;
       transaccionesList.add({
-        'tipo_comprobante': cc['tipo_comprobante'] as String,
-        'documento_numero': cc['documento_numero'] as String?,
-        'importe_total': (cc['importe'] as num).toDouble(),
-        'fecha': cc['fecha'] as String?,
-        'vencimiento': cc['vencimiento'] as String?,
-        'monto_pagado': (item['monto'] as num).toDouble(),
+        'tipo_comprobante': tipoData?['comprobante'] ?? 'FC',
+        'nro_comprobante': compPagado['nro_comprobante'] as String? ?? '',
+        'fecha': compPagado['fecha'] as String?,
+        'fecha1_venc': compPagado['fecha1_venc'] as String?,
+        'importe_total': (compPagado['total_importe'] as num).toDouble(),
+        'monto_pagado': (imp['importe'] as num).toDouble(),
       });
     }
 
-    // 6. Generar PDF
+    // 4. Obtener items de la OP (formas de pago)
+    final itemsData = await _supabase
+        .from('comp_prov_items')
+        .select('*, conceptos_tesoreria:cuenta(*)')
+        .eq('id_transaccion', idTransaccion);
+
+    final formasPagoList = <Map<String, dynamic>>[];
+    for (final item in itemsData as List) {
+      formasPagoList.add({
+        'descripcion': item['detalle'] as String? ?? 'Forma de pago',
+        'monto': (item['importe'] as num).toDouble(),
+      });
+    }
+
+    // Si no hay items, obtener de valores_tesoreria
+    if (formasPagoList.isEmpty) {
+      final valoresData = await _supabase
+          .from('valores_tesoreria')
+          .select('*, conceptos_tesoreria(*)')
+          .eq('numero_interno', numeroOP)
+          .eq('tipo_entidad', 'PRO')
+          .eq('id_entidad', proveedorId);
+
+      for (final valor in valoresData as List) {
+        final concepto = valor['conceptos_tesoreria'] as Map<String, dynamic>?;
+        formasPagoList.add({
+          'descripcion': concepto?['descripcion'] as String? ?? 'Forma de pago',
+          'monto': ((valor['importe'] as num).toDouble()).abs(),
+        });
+      }
+    }
+
+    // 5. Generar PDF
     final pdf = pw.Document();
     final dateFormat = DateFormat('dd/MM/yyyy');
 
     // Convertir total a letras
-    final totalEnLetras = NumeroALetras.convertir(totalCobrado);
+    final totalEnLetras = NumeroALetras.convertir(totalPagado);
 
     pdf.addPage(
       pw.Page(
@@ -127,7 +129,7 @@ class ReciboPdfService {
                       ),
                       pw.SizedBox(height: 4),
                       pw.Text(
-                        'RECIBO DE COBRANZA',
+                        'ORDEN DE PAGO',
                         style: pw.TextStyle(
                           fontSize: 14,
                           fontWeight: pw.FontWeight.bold,
@@ -144,7 +146,7 @@ class ReciboPdfService {
                       crossAxisAlignment: pw.CrossAxisAlignment.end,
                       children: [
                         pw.Text(
-                          'Nº $numeroRecibo',
+                          'OP Nº $numeroOP',
                           style: pw.TextStyle(
                             fontSize: 18,
                             fontWeight: pw.FontWeight.bold,
@@ -152,7 +154,7 @@ class ReciboPdfService {
                         ),
                         pw.SizedBox(height: 4),
                         pw.Text(
-                          'Fecha: ${dateFormat.format(fechaRecibo)}',
+                          'Fecha: ${dateFormat.format(fechaOP)}',
                           style: const pw.TextStyle(fontSize: 10),
                         ),
                       ],
@@ -163,7 +165,7 @@ class ReciboPdfService {
 
               pw.SizedBox(height: 24),
 
-              // Datos del socio
+              // Datos del proveedor
               pw.Container(
                 padding: const pw.EdgeInsets.all(12),
                 decoration: pw.BoxDecoration(
@@ -173,7 +175,7 @@ class ReciboPdfService {
                   crossAxisAlignment: pw.CrossAxisAlignment.start,
                   children: [
                     pw.Text(
-                      'RECIBIMOS DE',
+                      'PÁGUESE A',
                       style: pw.TextStyle(
                         fontSize: 10,
                         fontWeight: pw.FontWeight.bold,
@@ -181,24 +183,24 @@ class ReciboPdfService {
                     ),
                     pw.SizedBox(height: 8),
                     pw.Text(
-                      'Socio Nº: $socioId',
+                      'Proveedor Nº: $proveedorId',
                       style: const pw.TextStyle(fontSize: 12),
                     ),
                     pw.Text(
-                      'Nombre: $nombreCompleto',
+                      'Razón Social: $nombreProveedor',
                       style: pw.TextStyle(
                         fontSize: 12,
                         fontWeight: pw.FontWeight.bold,
                       ),
                     ),
-                    if (domicilio.isNotEmpty)
+                    if (cuitProveedor.isNotEmpty)
                       pw.Text(
-                        'Domicilio: $domicilio',
+                        'CUIT: $cuitProveedor',
                         style: const pw.TextStyle(fontSize: 10),
                       ),
-                    if (telefono.isNotEmpty)
+                    if (domicilioProveedor.isNotEmpty)
                       pw.Text(
-                        'Teléfono: $telefono',
+                        'Domicilio: $domicilioProveedor',
                         style: const pw.TextStyle(fontSize: 10),
                       ),
                   ],
@@ -238,9 +240,9 @@ class ReciboPdfService {
 
               pw.SizedBox(height: 16),
 
-              // Tabla de transacciones pagadas
+              // Tabla de comprobantes pagados
               pw.Text(
-                'EN CONCEPTO DE:',
+                'EN CANCELACIÓN DE:',
                 style: pw.TextStyle(
                   fontSize: 10,
                   fontWeight: pw.FontWeight.bold,
@@ -250,8 +252,8 @@ class ReciboPdfService {
               pw.Table(
                 border: pw.TableBorder.all(),
                 columnWidths: {
-                  0: const pw.FlexColumnWidth(2),
-                  1: const pw.FlexColumnWidth(1.5),
+                  0: const pw.FlexColumnWidth(1.5),
+                  1: const pw.FlexColumnWidth(2),
                   2: const pw.FlexColumnWidth(1.5),
                   3: const pw.FlexColumnWidth(1.5),
                   4: const pw.FlexColumnWidth(1.5),
@@ -262,9 +264,9 @@ class ReciboPdfService {
                     decoration:
                         const pw.BoxDecoration(color: PdfColors.grey300),
                     children: [
-                      _buildTableCell('Comprobante', isHeader: true),
+                      _buildTableCell('Tipo', isHeader: true),
+                      _buildTableCell('Nro. Comprobante', isHeader: true),
                       _buildTableCell('Fecha', isHeader: true),
-                      _buildTableCell('Vencimiento', isHeader: true),
                       _buildTableCell('Importe',
                           isHeader: true, align: pw.TextAlign.right),
                       _buildTableCell('Pagado',
@@ -273,13 +275,8 @@ class ReciboPdfService {
                   ),
                   // Rows
                   ...transaccionesList.map((t) {
-                    final comprobante =
-                        '${t['tipo_comprobante']} ${t['documento_numero'] ?? ''}';
                     final fecha = t['fecha'] != null
                         ? dateFormat.format(DateTime.parse(t['fecha']))
-                        : '-';
-                    final vencimiento = t['vencimiento'] != null
-                        ? dateFormat.format(DateTime.parse(t['vencimiento']))
                         : '-';
                     final importe =
                         '\$${(t['importe_total'] as double).toStringAsFixed(2)}';
@@ -288,9 +285,9 @@ class ReciboPdfService {
 
                     return pw.TableRow(
                       children: [
-                        _buildTableCell(comprobante),
+                        _buildTableCell(t['tipo_comprobante']),
+                        _buildTableCell(t['nro_comprobante']),
                         _buildTableCell(fecha),
-                        _buildTableCell(vencimiento),
                         _buildTableCell(importe, align: pw.TextAlign.right),
                         _buildTableCell(pagado, align: pw.TextAlign.right),
                       ],
@@ -303,7 +300,7 @@ class ReciboPdfService {
 
               // Formas de pago
               pw.Text(
-                'FORMAS DE PAGO:',
+                'FORMA DE PAGO:',
                 style: pw.TextStyle(
                   fontSize: 10,
                   fontWeight: pw.FontWeight.bold,
@@ -347,7 +344,7 @@ class ReciboPdfService {
                       _buildTableCell('TOTAL',
                           isHeader: true, align: pw.TextAlign.right),
                       _buildTableCell(
-                        '\$${totalCobrado.toStringAsFixed(2)}',
+                        '\$${totalPagado.toStringAsFixed(2)}',
                         isHeader: true,
                         align: pw.TextAlign.right,
                       ),
@@ -358,18 +355,31 @@ class ReciboPdfService {
 
               pw.Spacer(),
 
-              // Footer con firma
+              // Footer con firmas
               pw.Row(
-                mainAxisAlignment: pw.MainAxisAlignment.end,
+                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                 children: [
                   pw.Container(
-                    width: 200,
+                    width: 150,
                     child: pw.Column(
                       children: [
                         pw.Divider(),
                         pw.SizedBox(height: 4),
                         pw.Text(
-                          'Firma y Sello',
+                          'Firma Autorizada',
+                          style: const pw.TextStyle(fontSize: 10),
+                        ),
+                      ],
+                    ),
+                  ),
+                  pw.Container(
+                    width: 150,
+                    child: pw.Column(
+                      children: [
+                        pw.Divider(),
+                        pw.SizedBox(height: 4),
+                        pw.Text(
+                          'Recibí Conforme',
                           style: const pw.TextStyle(fontSize: 10),
                         ),
                       ],
@@ -405,50 +415,25 @@ class ReciboPdfService {
     );
   }
 
-  /// Guarda el PDF en el dispositivo y retorna la ruta del archivo
-  /// Nombre del archivo: rc_[numero]_[nombre].pdf
-  Future<String> guardarPdf({
-    required pw.Document pdf,
-    required int numeroRecibo,
-    required String nombreSocio,
-  }) async {
-    // Limpiar nombre del socio para usar en nombre de archivo
-    final nombreLimpio = nombreSocio
-        .replaceAll(RegExp(r'[^\w\s-]'), '')
-        .replaceAll(' ', '_')
-        .toLowerCase();
-
-    final fileName = 'rc_${numeroRecibo}_$nombreLimpio.pdf';
-
-    // Obtener directorio de documentos
-    final directory = await getApplicationDocumentsDirectory();
-    final file = File('${directory.path}/$fileName');
-
-    // Guardar PDF
-    await file.writeAsBytes(await pdf.save());
-
-    return file.path;
-  }
-
   /// Abre el diálogo de impresión
-  Future<void> imprimirRecibo(pw.Document pdf) async {
+  Future<void> imprimirOrdenPago(pw.Document pdf) async {
     await Printing.layoutPdf(
       onLayout: (format) async => pdf.save(),
     );
   }
 
-  /// Comparte el PDF (permite enviarlo por email, guardar, etc.)
-  Future<void> compartirRecibo({
+  /// Comparte el PDF
+  Future<void> compartirOrdenPago({
     required pw.Document pdf,
-    required int numeroRecibo,
-    required String nombreSocio,
+    required int numeroOP,
+    required String nombreProveedor,
   }) async {
-    final nombreLimpio = nombreSocio
+    final nombreLimpio = nombreProveedor
         .replaceAll(RegExp(r'[^\w\s-]'), '')
         .replaceAll(' ', '_')
         .toLowerCase();
 
-    final fileName = 'rc_${numeroRecibo}_$nombreLimpio.pdf';
+    final fileName = 'op_${numeroOP}_$nombreLimpio.pdf';
 
     await Printing.sharePdf(
       bytes: await pdf.save(),

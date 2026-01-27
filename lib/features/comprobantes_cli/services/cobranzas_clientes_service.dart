@@ -119,7 +119,7 @@ class CobranzasClientesService {
 
     final reciboId = insertResult['id_transaccion'] as int;
 
-    // Actualizar el campo cancelado de cada transacción pagada
+    // Actualizar el campo cancelado de cada transacción pagada y registrar trazabilidad
     for (final entry in transaccionesAPagar.entries) {
       final idTransaccion = entry.key;
       final montoPagado = entry.value;
@@ -134,11 +134,20 @@ class CobranzasClientesService {
       final canceladoActual = (transaccion['cancelado'] as num?)?.toDouble() ?? 0;
       final nuevoCancelado = canceladoActual + montoPagado;
 
-      // Actualizar
+      // Actualizar campo cancelado
       await _supabase
           .from('ven_cli_header')
           .update({'cancelado': nuevoCancelado})
           .eq('id_transaccion', idTransaccion);
+
+      // Registrar trazabilidad en notas_imputacion
+      await _supabase.from('notas_imputacion').insert({
+        'id_operacion': reciboId,
+        'id_transaccion': idTransaccion,
+        'importe': montoPagado,
+        'tipo_operacion': 2,  // 2 = Recibo (clientes)
+        'observacion': 'REC $nuevoNumeroRecibo',
+      });
     }
 
     // Crear items del recibo (uno por cada forma de pago)

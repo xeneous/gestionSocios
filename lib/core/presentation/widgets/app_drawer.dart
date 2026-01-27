@@ -73,6 +73,19 @@ class AppDrawer extends ConsumerWidget {
             },
           ),
 
+          // Listado de Residentes
+          ListTile(
+            leading: const Icon(Icons.medical_services, color: Colors.teal),
+            title: const Text('Listado Residentes'),
+            selected: currentRoute == '/listado-residentes',
+            onTap: () {
+              Navigator.pop(context);
+              if (currentRoute != '/listado-residentes') {
+                context.go('/listado-residentes');
+              }
+            },
+          ),
+
           // Cobranzas
           ListTile(
             leading: const Icon(Icons.payments),

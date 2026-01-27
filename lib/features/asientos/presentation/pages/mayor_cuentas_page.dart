@@ -1,7 +1,9 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import 'package:universal_html/html.dart' as html;
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../../../core/presentation/widgets/app_drawer.dart';
 import '../../../cuentas/providers/cuentas_provider.dart';
@@ -99,7 +101,6 @@ final mayorCuentaProvider = FutureProvider.family<MayorCuentaResult, MayorCuenta
       .select('''
         debe,
         haber,
-        detalle,
         asientos_header!inner(fecha, asiento, detalle)
       ''')
       .eq('cuenta_id', params.cuenta)
@@ -113,7 +114,7 @@ final mayorCuentaProvider = FutureProvider.family<MayorCuentaResult, MayorCuenta
     movimientos.add(MovimientoCuenta(
       fecha: DateTime.parse(header['fecha'] as String),
       asiento: header['asiento'] as int,
-      detalle: mov['detalle'] as String? ?? header['detalle'] as String? ?? '',
+      detalle: header['detalle'] as String? ?? '',
       debe: (mov['debe'] as num?)?.toDouble() ?? 0,
       haber: (mov['haber'] as num?)?.toDouble() ?? 0,
     ));
@@ -214,6 +215,49 @@ class _MayorCuentasPageState extends ConsumerState<MayorCuentasPage> {
           fechaHasta: _fechaHasta,
           acumulado: _acumulado,
         );
+
+  void _descargarCSV(MayorCuentaResult mayor) {
+    final buffer = StringBuffer();
+
+    // Encabezado
+    buffer.writeln('Cuenta:,$_cuentaSeleccionada,${_cuentaDescripcion ?? ""}');
+    buffer.writeln('Período:,${_dateFormat.format(_fechaDesde)},al,${_dateFormat.format(_fechaHasta)}');
+    buffer.writeln('');
+    buffer.writeln('Fecha,Asiento,Detalle,Debe,Haber,Saldo');
+
+    double saldoAcumulado = mayor.saldoInicial;
+
+    // Saldo inicial si es acumulado
+    if (_acumulado && mayor.saldoInicial != 0) {
+      buffer.writeln('${_dateFormat.format(_fechaDesde)},-,SALDO INICIAL,,,${mayor.saldoInicial.toStringAsFixed(2)}');
+    }
+
+    // Movimientos
+    for (final mov in mayor.movimientos) {
+      saldoAcumulado += mov.debe - mov.haber;
+      final detalleEscapado = mov.detalle.replaceAll('"', '""');
+      buffer.writeln('${_dateFormat.format(mov.fecha)},${mov.asiento},"$detalleEscapado",${mov.debe.toStringAsFixed(2)},${mov.haber.toStringAsFixed(2)},${saldoAcumulado.toStringAsFixed(2)}');
+    }
+
+    // Totales
+    buffer.writeln('');
+    buffer.writeln('TOTALES,,,${mayor.totalDebe.toStringAsFixed(2)},${mayor.totalHaber.toStringAsFixed(2)},${mayor.saldoFinal.toStringAsFixed(2)}');
+
+    // Crear blob y descargar
+    final bytes = utf8.encode(buffer.toString());
+    final blob = html.Blob([bytes], 'text/csv;charset=utf-8');
+    final url = html.Url.createObjectUrlFromBlob(blob);
+
+    final anchor = html.AnchorElement(href: url)
+      ..setAttribute('download', 'mayor_${_cuentaSeleccionada}_${DateFormat('yyyyMMdd').format(DateTime.now())}.csv')
+      ..click();
+
+    html.Url.revokeObjectUrl(url);
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Archivo descargado')),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -387,6 +431,12 @@ class _MayorCuentasPageState extends ConsumerState<MayorCuentasPage> {
                         ),
                       ),
                     ],
+                  ),
+                  const SizedBox(width: 16),
+                  FilledButton.icon(
+                    onPressed: mayor.movimientos.isEmpty ? null : () => _descargarCSV(mayor),
+                    icon: const Icon(Icons.download),
+                    label: const Text('Descargar CSV'),
                   ),
                 ],
               ),

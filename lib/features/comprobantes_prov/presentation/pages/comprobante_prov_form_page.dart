@@ -6,6 +6,8 @@ import '../../models/comprobante_prov_model.dart';
 import '../../providers/comprobantes_prov_provider.dart';
 import '../../../proveedores/providers/proveedores_provider.dart';
 import '../../../proveedores/models/proveedor_model.dart';
+import '../../../asientos/presentation/widgets/cuentas_search_dialog.dart';
+import '../../../cuentas/models/cuenta_model.dart';
 
 class ComprobanteProvFormPage extends ConsumerStatefulWidget {
   final int? idTransaccion;
@@ -41,7 +43,6 @@ class _ComprobanteProvFormPageState
   DateTime? _fecha2Venc;
   int? _tipoComprobante;
   String? _tipoFactura;
-  String _estado = 'P';
 
   // Items
   List<CompProvItem> _items = [];
@@ -88,7 +89,6 @@ class _ComprobanteProvFormPageState
           _fecha2Venc = comprobante.fecha2Venc;
           _tipoComprobante = comprobante.tipoComprobante;
           _tipoFactura = comprobante.tipoFactura;
-          _estado = comprobante.estado;
           _items = comprobante.items ?? [];
           _isLoadingData = false;
         });
@@ -148,12 +148,15 @@ class _ComprobanteProvFormPageState
         cancelado: _comprobante?.cancelado ?? 0,
         fecha1Venc: _fecha1Venc,
         fecha2Venc: _fecha2Venc,
-        estado: _estado,
+        estado: 'P',  // Estado siempre es P (Pendiente)
         fechaReal: _fechaReal,
         descripcionImporte: _descripcionController.text.trim().isEmpty
             ? null
             : _descripcionController.text.trim(),
       );
+
+      print('📋 FORMULARIO - Header creado con estado: ${header.estado}');
+      print('📋 FORMULARIO - Header.toJson(): ${header.toJson()}');
 
       final notifier = ref.read(comprobantesProvNotifierProvider.notifier);
 
@@ -356,32 +359,36 @@ class _ComprobanteProvFormPageState
                                 Expanded(
                                   flex: 2,
                                   child: tiposAsync.when(
-                                    data: (tipos) =>
-                                        DropdownButtonFormField<int?>(
-                                      initialValue: _tipoComprobante,
-                                      decoration: const InputDecoration(
-                                        labelText: 'Tipo Comprobante *',
-                                        border: OutlineInputBorder(),
-                                        prefixIcon: Icon(Icons.category),
-                                      ),
-                                      items: tipos
-                                          .map((tipo) => DropdownMenuItem<int?>(
-                                                value: tipo.codigo,
-                                                child: Text(tipo.descripcion),
-                                              ))
-                                          .toList(),
-                                      onChanged: (value) {
-                                        setState(() {
-                                          _tipoComprobante = value;
-                                        });
-                                      },
-                                      validator: (value) {
-                                        if (value == null) {
-                                          return 'Seleccione tipo';
-                                        }
-                                        return null;
-                                      },
-                                    ),
+                                    data: (tipos) {
+                                      // Verificar si el valor actual está en la lista
+                                      final valorValido = _tipoComprobante != null &&
+                                          tipos.any((t) => t.codigo == _tipoComprobante);
+                                      return DropdownButtonFormField<int?>(
+                                        value: valorValido ? _tipoComprobante : null,
+                                        decoration: const InputDecoration(
+                                          labelText: 'Tipo Comprobante *',
+                                          border: OutlineInputBorder(),
+                                          prefixIcon: Icon(Icons.category),
+                                        ),
+                                        items: tipos
+                                            .map((tipo) => DropdownMenuItem<int?>(
+                                                  value: tipo.codigo,
+                                                  child: Text(tipo.descripcion),
+                                                ))
+                                            .toList(),
+                                        onChanged: (value) {
+                                          setState(() {
+                                            _tipoComprobante = value;
+                                          });
+                                        },
+                                        validator: (value) {
+                                          if (value == null) {
+                                            return 'Seleccione tipo';
+                                          }
+                                          return null;
+                                        },
+                                      );
+                                    },
                                     loading: () => const TextField(
                                       enabled: false,
                                       decoration: InputDecoration(
@@ -447,30 +454,6 @@ class _ComprobanteProvFormPageState
                                     onChanged: (value) {
                                       setState(() {
                                         _tipoFactura = value;
-                                      });
-                                    },
-                                  ),
-                                ),
-                                const SizedBox(width: 16),
-                                Expanded(
-                                  child: DropdownButtonFormField<String>(
-                                    initialValue: _estado,
-                                    decoration: const InputDecoration(
-                                      labelText: 'Estado',
-                                      border: OutlineInputBorder(),
-                                      prefixIcon: Icon(Icons.flag),
-                                    ),
-                                    items: const [
-                                      DropdownMenuItem(
-                                          value: 'P', child: Text('Pendiente')),
-                                      DropdownMenuItem(
-                                          value: 'C', child: Text('Cancelado')),
-                                      DropdownMenuItem(
-                                          value: 'A', child: Text('Anulado')),
-                                    ],
-                                    onChanged: (value) {
-                                      setState(() {
-                                        _estado = value ?? 'P';
                                       });
                                     },
                                   ),
@@ -797,6 +780,19 @@ class _ItemDialogState extends State<_ItemDialog> {
     super.dispose();
   }
 
+  Future<void> _buscarCuenta() async {
+    final result = await showDialog<Cuenta>(
+      context: context,
+      builder: (context) => const CuentasSearchDialog(),
+    );
+
+    if (result != null) {
+      setState(() {
+        _cuentaController.text = result.cuenta.toString();
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
@@ -832,9 +828,14 @@ class _ItemDialogState extends State<_ItemDialog> {
                     Expanded(
                       child: TextFormField(
                         controller: _cuentaController,
-                        decoration: const InputDecoration(
+                        decoration: InputDecoration(
                           labelText: 'Cuenta *',
-                          border: OutlineInputBorder(),
+                          border: const OutlineInputBorder(),
+                          suffixIcon: IconButton(
+                            icon: const Icon(Icons.search),
+                            tooltip: 'Buscar cuenta',
+                            onPressed: _buscarCuenta,
+                          ),
                         ),
                         keyboardType: TextInputType.number,
                         validator: (value) {

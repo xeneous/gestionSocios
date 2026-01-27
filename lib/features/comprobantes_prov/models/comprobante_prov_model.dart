@@ -245,7 +245,7 @@ class CompProvHeader {
       'cancelado': cancelado,
       if (fecha1Venc != null) 'fecha1_venc': fecha1Venc!.toIso8601String(),
       if (fecha2Venc != null) 'fecha2_venc': fecha2Venc!.toIso8601String(),
-      'estado': estado,
+      'estado': 'P',  // FORZADO: Siempre P
       'fecha_real': fechaReal.toIso8601String(),
       if (centroCosto != null) 'centro_costo': centroCosto,
       if (descripcionImporte != null) 'descripcion_importe': descripcionImporte,

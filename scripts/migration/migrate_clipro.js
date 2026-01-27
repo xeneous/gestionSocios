@@ -180,7 +180,7 @@ async function migrateClientes(pool) {
                     cuenta: c.Cuenta,
                     cuenta_subdiario: c.CuentaSubdiario,
                     fecha_nac: c.FechaNac,
-                    activo: c.Activo,
+                    activo: 1,  // Forzar activo = 1 para todos
                     codigo_externo: c.codigoexterno?.trim(),
                     vencimiento: c.vencimiento,
                     hora_atencion: c.horaAtencion?.trim(),
@@ -340,7 +340,7 @@ async function migrateProveedores(pool) {
                     civa: p.civa,
                     cuenta_subdiario: p.CuentaSubdiario,
                     fecha_nac: p.FechaNac,
-                    activo: p.Activo,
+                    activo: 1,  // Forzar activo = 1 para todos
                     codigo_externo: p.codigoexterno?.trim(),
                     vencimiento: p.vencimiento,
                     hora_atencion: p.horaAtencion?.trim(),

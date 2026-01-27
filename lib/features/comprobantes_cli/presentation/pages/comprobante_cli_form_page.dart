@@ -6,6 +6,8 @@ import '../../models/comprobante_cli_model.dart';
 import '../../providers/comprobantes_cli_provider.dart';
 import '../../../clientes/providers/clientes_provider.dart';
 import '../../../clientes/models/cliente_model.dart';
+import '../../../asientos/presentation/widgets/cuentas_search_dialog.dart';
+import '../../../cuentas/models/cuenta_model.dart';
 
 class ComprobanteCliFormPage extends ConsumerStatefulWidget {
   final int? idTransaccion;
@@ -41,7 +43,6 @@ class _ComprobanteCliFormPageState
   DateTime? _fecha2Venc;
   int? _tipoComprobante;
   String? _tipoFactura;
-  String _estado = 'PE';
 
   // Items
   List<VenCliItem> _items = [];
@@ -88,7 +89,6 @@ class _ComprobanteCliFormPageState
           _fecha2Venc = comprobante.fecha2Venc;
           _tipoComprobante = comprobante.tipoComprobante;
           _tipoFactura = comprobante.tipoFactura;
-          _estado = comprobante.estado ?? 'PE';
           _items = comprobante.items ?? [];
           _isLoadingData = false;
         });
@@ -150,7 +150,7 @@ class _ComprobanteCliFormPageState
         cancelado: _comprobante?.cancelado ?? 0,
         fecha1Venc: _fecha1Venc,
         fecha2Venc: _fecha2Venc,
-        estado: _estado,
+        estado: 'P',  // Estado siempre es P (Pendiente)
         fechaReal: _fechaReal,
         descripcionImporte: _descripcionController.text.trim().isEmpty
             ? null
@@ -442,32 +442,6 @@ class _ComprobanteCliFormPageState
                                     onChanged: (value) {
                                       setState(() {
                                         _tipoFactura = value;
-                                      });
-                                    },
-                                  ),
-                                ),
-                                const SizedBox(width: 16),
-                                Expanded(
-                                  child: DropdownButtonFormField<String>(
-                                    initialValue: _estado,
-                                    decoration: const InputDecoration(
-                                      labelText: 'Estado',
-                                      border: OutlineInputBorder(),
-                                      prefixIcon: Icon(Icons.flag),
-                                    ),
-                                    items: const [
-                                      DropdownMenuItem(
-                                          value: 'PE',
-                                          child: Text('Pendiente')),
-                                      DropdownMenuItem(
-                                          value: 'CA',
-                                          child: Text('Cancelado')),
-                                      DropdownMenuItem(
-                                          value: 'AN', child: Text('Anulado')),
-                                    ],
-                                    onChanged: (value) {
-                                      setState(() {
-                                        _estado = value ?? 'PE';
                                       });
                                     },
                                   ),
@@ -793,6 +767,19 @@ class _ItemDialogState extends State<_ItemDialog> {
     super.dispose();
   }
 
+  Future<void> _buscarCuenta() async {
+    final result = await showDialog<Cuenta>(
+      context: context,
+      builder: (context) => const CuentasSearchDialog(),
+    );
+
+    if (result != null) {
+      setState(() {
+        _cuentaController.text = result.cuenta.toString();
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
@@ -828,9 +815,14 @@ class _ItemDialogState extends State<_ItemDialog> {
                     Expanded(
                       child: TextFormField(
                         controller: _cuentaController,
-                        decoration: const InputDecoration(
+                        decoration: InputDecoration(
                           labelText: 'Cuenta *',
-                          border: OutlineInputBorder(),
+                          border: const OutlineInputBorder(),
+                          suffixIcon: IconButton(
+                            icon: const Icon(Icons.search),
+                            tooltip: 'Buscar cuenta',
+                            onPressed: _buscarCuenta,
+                          ),
                         ),
                         keyboardType: TextInputType.number,
                         validator: (value) {

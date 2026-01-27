@@ -1,10 +1,15 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../asientos/services/asientos_service.dart';
+import '../../parametros/models/parametro_contable_model.dart';
 
 /// Servicio para manejar operaciones de orden de pago a proveedores
 class OrdenPagoService {
   final SupabaseClient _supabase;
+  late final AsientosService _asientosService;
 
-  OrdenPagoService(this._supabase);
+  OrdenPagoService(this._supabase) {
+    _asientosService = AsientosService(_supabase);
+  }
 
   /// Obtiene los comprobantes pendientes de pago de un proveedor
   Future<List<Map<String, dynamic>>> getComprobantesPendientes(int proveedorId) async {
@@ -79,8 +84,8 @@ class OrdenPagoService {
     }
 
     // Obtener próximo número de orden de pago
-    // TODO: Verificar el código correcto de tipo orden de pago en tip_comp_mod_header
-    const tipoOrdenPago = 7; // Tipo orden de pago - ajustar según datos
+    // Tipo 0 = OP (Orden de Pago) según tip_comp_mod_header
+    const tipoOrdenPago = 0;
 
     final maxCompResult = await _supabase
         .from('comp_prov_header')
@@ -107,6 +112,7 @@ class OrdenPagoService {
       'nro_comprobante': nuevoNumeroOP.toString().padLeft(8, '0'),
       'total_importe': totalAPagar,
       'cancelado': 0,
+      'estado': 'C',  // Cancelado (la OP se genera como pagada)
       'fecha_real': now.toIso8601String().split('T')[0],
     };
 
@@ -118,7 +124,7 @@ class OrdenPagoService {
 
     final ordenPagoId = insertResult['id_transaccion'] as int;
 
-    // Actualizar el campo cancelado de cada transacción pagada
+    // Actualizar el campo cancelado de cada transacción pagada y registrar trazabilidad
     for (final entry in transaccionesAPagar.entries) {
       final idTransaccion = entry.key;
       final montoPagado = entry.value;
@@ -133,11 +139,20 @@ class OrdenPagoService {
       final canceladoActual = (transaccion['cancelado'] as num?)?.toDouble() ?? 0;
       final nuevoCancelado = canceladoActual + montoPagado;
 
-      // Actualizar
+      // Actualizar campo cancelado
       await _supabase
           .from('comp_prov_header')
           .update({'cancelado': nuevoCancelado})
           .eq('id_transaccion', idTransaccion);
+
+      // Registrar trazabilidad en notas_imputacion
+      await _supabase.from('notas_imputacion').insert({
+        'id_operacion': ordenPagoId,
+        'id_transaccion': idTransaccion,
+        'importe': montoPagado,
+        'tipo_operacion': 1,  // 1 = Orden de Pago (proveedores)
+        'observacion': 'OP $nuevoNumeroOP',
+      });
     }
 
     // Crear items de la orden de pago (uno por cada forma de pago)
@@ -192,11 +207,110 @@ class OrdenPagoService {
       print('Advertencia: No se pudo registrar en valores_tesoreria: $e');
     }
 
+    // Generar asiento contable de egreso
+    await _generarAsientoOrdenPago(
+      proveedorId: proveedorId,
+      formasPago: formasPago,
+      totalAPagar: totalAPagar,
+      numeroOrdenPago: nuevoNumeroOP,
+      fecha: now,
+    );
+
     return {
       'numero_orden_pago': nuevoNumeroOP,
       'id_transaccion': ordenPagoId,
       'total': totalAPagar,
     };
+  }
+
+  /// Genera el asiento contable para una orden de pago
+  ///
+  /// Asiento tipo Egreso (2):
+  /// - DEBE: Cuenta Proveedores (desde parámetros)
+  /// - HABER: Cuenta(s) de forma de pago (desde conceptos_tesoreria)
+  Future<void> _generarAsientoOrdenPago({
+    required int proveedorId,
+    required Map<int, double> formasPago,
+    required double totalAPagar,
+    required int numeroOrdenPago,
+    required DateTime fecha,
+  }) async {
+    try {
+      // Obtener cuenta de proveedores desde parámetros
+      final paramResponse = await _supabase
+          .from('parametros_contables')
+          .select('valor')
+          .eq('clave', ParametroContable.cuentaProveedores)
+          .maybeSingle();
+
+      if (paramResponse == null || paramResponse['valor'] == null) {
+        print('Advertencia: No se encontró cuenta de proveedores en parámetros');
+        return;
+      }
+
+      final cuentaProveedores = int.tryParse(paramResponse['valor'].toString());
+      if (cuentaProveedores == null) {
+        print('Advertencia: Cuenta de proveedores inválida');
+        return;
+      }
+
+      // Obtener nombre del proveedor
+      final proveedorResponse = await _supabase
+          .from('proveedores')
+          .select('razon_social')
+          .eq('id', proveedorId)
+          .maybeSingle();
+
+      final nombreProveedor = proveedorResponse?['razon_social'] ?? 'Proveedor $proveedorId';
+
+      // Construir items del asiento
+      final items = <AsientoItemData>[];
+
+      // DEBE: Cuenta de Proveedores por el total
+      items.add(AsientoItemData(
+        cuentaId: cuentaProveedores,
+        debe: totalAPagar,
+        haber: 0,
+      ));
+
+      // HABER: Una entrada por cada forma de pago
+      for (final entry in formasPago.entries) {
+        final conceptoId = entry.key;
+        final monto = entry.value;
+
+        // Obtener cuenta contable del concepto de tesorería
+        final concepto = await _supabase
+            .from('conceptos_tesoreria')
+            .select('imputacion_contable')
+            .eq('id', conceptoId)
+            .maybeSingle();
+
+        final cuentaPago = int.tryParse(concepto?['imputacion_contable']?.toString() ?? '0');
+        if (cuentaPago == null || cuentaPago == 0) {
+          print('Advertencia: Concepto de tesorería $conceptoId sin cuenta contable');
+          continue;
+        }
+
+        items.add(AsientoItemData(
+          cuentaId: cuentaPago,
+          debe: 0,
+          haber: monto,
+        ));
+      }
+
+      // Crear el asiento
+      await _asientosService.crearAsiento(
+        tipoAsiento: AsientosService.tipoEgreso,
+        fecha: fecha,
+        detalle: 'OP $numeroOrdenPago',
+        items: items,
+        numeroComprobante: numeroOrdenPago,
+        nombrePersona: nombreProveedor,
+      );
+    } catch (e) {
+      // Si falla el asiento, registrar pero no abortar la operación
+      print('Advertencia: No se pudo generar asiento contable: $e');
+    }
   }
 
   /// Obtiene el saldo total de un proveedor

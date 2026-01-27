@@ -18,6 +18,7 @@ class _ProveedorFormPageState extends ConsumerState<ProveedorFormPage> {
   bool _isLoading = false;
   bool _isLoadingData = true;
   Proveedor? _proveedor;
+  bool _activo = true;
 
   // Controllers
   final _razonSocialController = TextEditingController();
@@ -77,6 +78,7 @@ class _ProveedorFormPageState extends ConsumerState<ProveedorFormPage> {
           _telefono2Controller.text = proveedor.telefono2 ?? '';
           _mailController.text = proveedor.mail ?? '';
           _notasController.text = proveedor.notas ?? '';
+          _activo = proveedor.activo == 1;
           _isLoadingData = false;
         });
       } else {
@@ -131,7 +133,7 @@ class _ProveedorFormPageState extends ConsumerState<ProveedorFormPage> {
         notas: _notasController.text.trim().isEmpty
             ? null
             : _notasController.text.trim(),
-        activo: _proveedor?.activo ?? 1,
+        activo: _activo ? 1 : 0,
       );
 
       final notifier = ref.read(proveedoresNotifierProvider.notifier);
@@ -412,6 +414,61 @@ class _ProveedorFormPageState extends ConsumerState<ProveedorFormPage> {
                         ),
                       ),
                     ),
+                    const SizedBox(height: 16),
+
+                    // Estado (solo en edición)
+                    if (isEditing)
+                      Card(
+                        child: Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  const Text(
+                                    'Estado',
+                                    style: TextStyle(
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  const Spacer(),
+                                  if (_proveedor?.codigo != null)
+                                    Chip(
+                                      avatar: const Icon(Icons.tag, size: 16),
+                                      label: Text('Código: ${_proveedor!.codigo}'),
+                                      backgroundColor: Colors.orange[50],
+                                    ),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              SwitchListTile(
+                                value: _activo,
+                                onChanged: (value) {
+                                  setState(() => _activo = value);
+                                },
+                                title: Text(
+                                  _activo ? 'Proveedor Activo' : 'Proveedor Inactivo',
+                                  style: TextStyle(
+                                    color: _activo ? Colors.green : Colors.red,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                subtitle: Text(
+                                  _activo
+                                      ? 'El proveedor aparecerá en las búsquedas y listados'
+                                      : 'El proveedor no aparecerá en las búsquedas',
+                                ),
+                                secondary: Icon(
+                                  _activo ? Icons.check_circle : Icons.cancel,
+                                  color: _activo ? Colors.green : Colors.red,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
                     const SizedBox(height: 24),
 
                     // Botones

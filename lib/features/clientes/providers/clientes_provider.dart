@@ -53,7 +53,7 @@ final clientesSearchProvider =
   }
 
   if (params.razonSocial != null && params.razonSocial!.isNotEmpty) {
-    query = query.ilike('razon_social', '%${params.razonSocial}%');
+    query = query.ilike('razon_social', '%${params.razonSocial!.toUpperCase()}%');
   }
 
   if (params.cuit != null && params.cuit!.isNotEmpty) {
@@ -61,7 +61,8 @@ final clientesSearchProvider =
   }
 
   if (params.soloActivos) {
-    query = query.eq('activo', 1).isFilter('fecha_baja', null);
+    // Aceptar activo = 1 O activo IS NULL (registros antiguos)
+    query = query.or('activo.eq.1,activo.is.null');
   }
 
   final response = await query

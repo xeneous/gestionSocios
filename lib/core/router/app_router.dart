@@ -46,6 +46,7 @@ import '../../features/parametros/presentation/pages/parametros_contables_page.d
 import '../../features/comprobantes_cli/presentation/pages/saldos_clientes_page.dart';
 import '../../features/comprobantes_prov/presentation/pages/saldos_proveedores_page.dart';
 import '../../features/asientos/presentation/pages/mayor_cuentas_page.dart';
+import '../../features/socios/presentation/pages/listado_residentes_page.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   final authState = ref.watch(authStateProvider);
@@ -479,6 +480,12 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/parametros-contables',
         name: 'parametros-contables',
         builder: (context, state) => const ParametrosContablesPage(),
+      ),
+      // Listado de Residentes
+      GoRoute(
+        path: '/listado-residentes',
+        name: 'listado-residentes',
+        builder: (context, state) => const ListadoResidentesPage(),
       ),
     ],
   );
