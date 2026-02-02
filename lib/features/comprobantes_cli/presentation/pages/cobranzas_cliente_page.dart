@@ -3,9 +3,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import '../../providers/cobranzas_clientes_provider.dart';
+import '../../services/recibo_cliente_pdf_service.dart';
 import '../../../clientes/providers/clientes_provider.dart';
 import '../../../cuentas_corrientes/providers/conceptos_tesoreria_provider.dart';
 import '../../../cuentas_corrientes/models/concepto_tesoreria_model.dart';
+import '../../../auth/presentation/providers/auth_provider.dart';
 
 /// Página principal de cobranzas de clientes con selección múltiple
 class CobranzasClientePage extends ConsumerStatefulWidget {
@@ -749,6 +751,7 @@ class _CobranzasClientePageState extends ConsumerState<CobranzasClientePage> {
 
       // Mostrar diálogo de éxito
       if (!mounted) return;
+      final idTransaccion = resultado['id_transaccion'] as int;
       await showDialog(
         context: context,
         builder: (context) => AlertDialog(
@@ -791,6 +794,14 @@ class _CobranzasClientePageState extends ConsumerState<CobranzasClientePage> {
             ],
           ),
           actions: [
+            TextButton.icon(
+              onPressed: () {
+                Navigator.pop(context);
+                _imprimirRecibo(idTransaccion);
+              },
+              icon: const Icon(Icons.print),
+              label: const Text('Imprimir'),
+            ),
             FilledButton(
               onPressed: () => Navigator.pop(context),
               child: const Text('Aceptar'),
@@ -809,6 +820,56 @@ class _CobranzasClientePageState extends ConsumerState<CobranzasClientePage> {
           content: Text('Error al generar recibo: $e'),
           backgroundColor: Colors.red,
           duration: const Duration(seconds: 5),
+        ),
+      );
+    }
+  }
+
+  Future<void> _imprimirRecibo(int idTransaccion) async {
+    // Mostrar indicador de carga
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(
+        child: Card(
+          child: Padding(
+            padding: EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CircularProgressIndicator(),
+                SizedBox(height: 16),
+                Text('Generando PDF...'),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+
+    try {
+      final supabase = ref.read(supabaseProvider);
+      final pdfService = ReciboClientePdfService(supabase);
+
+      final pdf = await pdfService.generarReciboPdf(
+        idTransaccion: idTransaccion,
+      );
+
+      // Cerrar diálogo de carga
+      if (mounted) Navigator.pop(context);
+
+      // Imprimir
+      await pdfService.imprimirRecibo(pdf);
+    } catch (e) {
+      // Cerrar diálogo de carga si está abierto
+      if (mounted) Navigator.pop(context);
+
+      // Mostrar error
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error al generar PDF: $e'),
+          backgroundColor: Colors.red,
         ),
       );
     }

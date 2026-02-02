@@ -42,6 +42,7 @@ import '../../features/comprobantes_cli/presentation/pages/cobranzas_select_clie
 import '../../features/comprobantes_cli/presentation/pages/cobranzas_cliente_page.dart';
 import '../../features/comprobantes_prov/presentation/pages/orden_pago_select_proveedor_page.dart';
 import '../../features/comprobantes_prov/presentation/pages/orden_pago_page.dart';
+import '../../features/comprobantes_prov/presentation/pages/pago_directo_page.dart';
 import '../../features/parametros/presentation/pages/parametros_contables_page.dart';
 import '../../features/comprobantes_cli/presentation/pages/saldos_clientes_page.dart';
 import '../../features/comprobantes_prov/presentation/pages/saldos_proveedores_page.dart';
@@ -456,6 +457,12 @@ final routerProvider = Provider<GoRouter>((ref) {
           final proveedorId = int.parse(state.pathParameters['proveedorId']!);
           return OrdenPagoPage(proveedorId: proveedorId);
         },
+      ),
+      // Pago Directo (Factura + Orden de Pago en una sola pantalla)
+      GoRoute(
+        path: '/pago-directo',
+        name: 'pago-directo',
+        builder: (context, state) => const PagoDirectoPage(),
       ),
       // Saldos de Clientes
       GoRoute(

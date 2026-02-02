@@ -1,10 +1,15 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/comprobante_cli_model.dart';
+import '../../asientos/services/asientos_service.dart';
+import '../../parametros/models/parametro_contable_model.dart';
 
 class ComprobantesCliService {
   final SupabaseClient _supabase;
+  late final AsientosService _asientosService;
 
-  ComprobantesCliService(this._supabase);
+  ComprobantesCliService(this._supabase) {
+    _asientosService = AsientosService(_supabase);
+  }
 
   /// Buscar comprobantes de clientes con filtros
   Future<List<VenCliHeader>> buscarComprobantes({
@@ -136,6 +141,12 @@ class ComprobantesCliService {
       await _supabase.from('ven_cli_items').insert(itemsData);
     }
 
+    // Generar asiento contable de ventas (solo para facturas)
+    await _generarAsientoVenta(
+      header: nuevoHeader,
+      items: items,
+    );
+
     return nuevoHeader;
   }
 
@@ -241,5 +252,102 @@ class ComprobantesCliService {
       'cantidadComprobantes': cantidadComprobantes,
       'comprobantesConSaldo': comprobantesConSaldo,
     };
+  }
+
+  /// Genera el asiento contable para una factura de venta
+  ///
+  /// Asiento tipo Ventas (4):
+  /// - DEBE: Cuenta Clientes (desde parámetros)
+  /// - HABER: Cuenta(s) contable de cada item (desde ven_cli_items.cuenta)
+  Future<void> _generarAsientoVenta({
+    required VenCliHeader header,
+    required List<VenCliItem> items,
+  }) async {
+    try {
+      // Verificar que el tipo de comprobante genera asiento (multiplicador = 1 = factura)
+      final tipoResponse = await _supabase
+          .from('tip_vent_mod_header')
+          .select('multiplicador')
+          .eq('codigo', header.tipoComprobante)
+          .maybeSingle();
+
+      final multiplicador = tipoResponse?['multiplicador'] as int? ?? 1;
+
+      // Solo generar asiento para facturas (multiplicador = 1)
+      // Los recibos y NC tienen su propia lógica de asiento
+      if (multiplicador != 1) {
+        return;
+      }
+
+      // Obtener cuenta de clientes desde parámetros
+      final paramResponse = await _supabase
+          .from('parametros_contables')
+          .select('valor')
+          .eq('clave', ParametroContable.cuentaClientes)
+          .maybeSingle();
+
+      if (paramResponse == null || paramResponse['valor'] == null) {
+        print('Advertencia: No se encontró cuenta de clientes en parámetros');
+        return;
+      }
+
+      final cuentaClientes = int.tryParse(paramResponse['valor'].toString());
+      if (cuentaClientes == null) {
+        print('Advertencia: Cuenta de clientes inválida');
+        return;
+      }
+
+      // Obtener nombre del cliente
+      final clienteResponse = await _supabase
+          .from('clientes')
+          .select('razon_social')
+          .eq('id', header.cliente)
+          .maybeSingle();
+
+      final nombreCliente = clienteResponse?['razon_social'] ?? 'Cliente ${header.cliente}';
+
+      // Construir items del asiento
+      final asientoItems = <AsientoItemData>[];
+
+      // DEBE: Cuenta de Clientes por el total
+      asientoItems.add(AsientoItemData(
+        cuentaId: cuentaClientes,
+        debe: header.totalImporte,
+        haber: 0,
+      ));
+
+      // HABER: Una entrada por cada item con su cuenta contable
+      for (final item in items) {
+        if (item.cuenta == 0) {
+          print('Advertencia: Item sin cuenta contable, omitiendo');
+          continue;
+        }
+
+        asientoItems.add(AsientoItemData(
+          cuentaId: item.cuenta,
+          debe: 0,
+          haber: item.importe,
+        ));
+      }
+
+      // Si solo tenemos el DEBE (sin items válidos en HABER), no generar asiento
+      if (asientoItems.length <= 1) {
+        print('Advertencia: No hay items con cuenta contable válida');
+        return;
+      }
+
+      // Crear el asiento
+      await _asientosService.crearAsiento(
+        tipoAsiento: AsientosService.tipoVentas,
+        fecha: header.fecha,
+        detalle: 'FC ${header.nroComprobante}',
+        items: asientoItems,
+        numeroComprobante: header.comprobante,
+        nombrePersona: nombreCliente,
+      );
+    } catch (e) {
+      // Si falla el asiento, registrar pero no abortar la operación
+      print('Advertencia: No se pudo generar asiento contable: $e');
+    }
   }
 }

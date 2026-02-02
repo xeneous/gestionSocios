@@ -4,10 +4,15 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import '../../models/comprobante_prov_model.dart';
 import '../../providers/comprobantes_prov_provider.dart';
+import '../../providers/orden_pago_provider.dart';
+import '../../services/orden_pago_pdf_service.dart';
 import '../../../proveedores/providers/proveedores_provider.dart';
 import '../../../proveedores/models/proveedor_model.dart';
 import '../../../asientos/presentation/widgets/cuentas_search_dialog.dart';
 import '../../../cuentas/models/cuenta_model.dart';
+import '../../../cuentas_corrientes/providers/conceptos_tesoreria_provider.dart';
+import '../../../cuentas_corrientes/models/concepto_tesoreria_model.dart';
+import '../../../auth/presentation/providers/auth_provider.dart';
 
 class ComprobanteProvFormPage extends ConsumerStatefulWidget {
   final int? idTransaccion;
@@ -47,6 +52,11 @@ class _ComprobanteProvFormPageState
   // Items
   List<CompProvItem> _items = [];
 
+  // Pago inmediato
+  bool _pagarAlGuardar = false;
+  final Map<int, double> _formasPago = {};
+  final Map<int, TextEditingController> _formasPagoControllers = {};
+
   final _dateFormat = DateFormat('dd/MM/yyyy');
   final _currencyFormat = NumberFormat.currency(locale: 'es_AR', symbol: '\$');
 
@@ -70,6 +80,9 @@ class _ComprobanteProvFormPageState
     _proveedorController.dispose();
     _nroComprobanteController.dispose();
     _descripcionController.dispose();
+    for (var controller in _formasPagoControllers.values) {
+      controller.dispose();
+    }
     super.dispose();
   }
 
@@ -132,6 +145,23 @@ class _ComprobanteProvFormPageState
       return;
     }
 
+    // Validar pago inmediato
+    if (_pagarAlGuardar) {
+      if (_formasPago.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Seleccione al menos una forma de pago')),
+        );
+        return;
+      }
+      final diferencia = (_calcularTotal() - _getTotalFormasPago()).abs();
+      if (diferencia >= 0.01) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('El total de formas de pago debe coincidir con el importe')),
+        );
+        return;
+      }
+    }
+
     setState(() => _isLoading = true);
 
     try {
@@ -162,19 +192,110 @@ class _ComprobanteProvFormPageState
 
       if (isEditing) {
         await notifier.actualizarComprobante(header, _items);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Comprobante actualizado correctamente')),
+          );
+          context.go('/comprobantes-proveedores');
+        }
       } else {
-        await notifier.crearComprobante(header, _items);
-      }
+        // Crear comprobante
+        final comprobanteCreado = await notifier.crearComprobante(header, _items);
 
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(isEditing
-                ? 'Comprobante actualizado correctamente'
-                : 'Comprobante creado correctamente'),
-          ),
-        );
-        context.go('/comprobantes-proveedores');
+        // Si tiene pago inmediato, generar la OP
+        if (_pagarAlGuardar) {
+          try {
+            // Crear mapa de transacciones a pagar (solo esta factura)
+            final transaccionesAPagar = {
+              comprobanteCreado.idTransaccion!: comprobanteCreado.totalImporte,
+            };
+
+            // Generar la orden de pago
+            final opNotifier = ref.read(ordenPagoNotifierProvider.notifier);
+            final resultadoOP = await opNotifier.generarOrdenPago(
+              proveedorId: proveedorId,
+              transaccionesAPagar: transaccionesAPagar,
+              formasPago: _formasPago,
+            );
+
+            if (mounted) {
+              final numeroOP = resultadoOP['numero_orden_pago'];
+              final idTransaccionOP = resultadoOP['id_transaccion'] as int;
+
+              // Mostrar diálogo de éxito con opción de imprimir
+              await showDialog(
+                context: context,
+                builder: (dialogContext) => AlertDialog(
+                  title: const Row(
+                    children: [
+                      Icon(Icons.check_circle, color: Colors.green, size: 32),
+                      SizedBox(width: 8),
+                      Text('Operación Exitosa'),
+                    ],
+                  ),
+                  content: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Factura Nro. ${comprobanteCreado.nroComprobante}',
+                        style: const TextStyle(fontSize: 16),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Orden de Pago Nro. $numeroOP',
+                        style: const TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.green,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      Text('Total: ${_currencyFormat.format(comprobanteCreado.totalImporte)}'),
+                      const SizedBox(height: 8),
+                      const Text('La factura ha sido registrada y pagada.'),
+                    ],
+                  ),
+                  actions: [
+                    OutlinedButton.icon(
+                      onPressed: () async {
+                        Navigator.pop(dialogContext);
+                        await _imprimirOrdenPago(idTransaccionOP);
+                      },
+                      icon: const Icon(Icons.print),
+                      label: const Text('Imprimir OP'),
+                    ),
+                    FilledButton(
+                      onPressed: () => Navigator.pop(dialogContext),
+                      child: const Text('Aceptar'),
+                    ),
+                  ],
+                ),
+              );
+              context.go('/comprobantes-proveedores');
+            }
+          } catch (e) {
+            // La factura se creó pero falló la OP
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Factura creada, pero error al generar OP: $e'),
+                  backgroundColor: Colors.orange,
+                  duration: const Duration(seconds: 5),
+                ),
+              );
+              context.go('/comprobantes-proveedores');
+            }
+          }
+        } else {
+          // Sin pago inmediato
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Comprobante creado correctamente')),
+            );
+            context.go('/comprobantes-proveedores');
+          }
+        }
       }
     } catch (e) {
       if (mounted) {
@@ -282,6 +403,232 @@ class _ComprobanteProvFormPageState
         _proveedorController.text = result.codigo.toString();
       });
     }
+  }
+
+  double _getTotalFormasPago() {
+    return _formasPago.values.fold(0.0, (sum, monto) => sum + monto);
+  }
+
+  Future<void> _imprimirOrdenPago(int idTransaccion) async {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(
+        child: Card(
+          child: Padding(
+            padding: EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CircularProgressIndicator(),
+                SizedBox(height: 16),
+                Text('Generando PDF...'),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+
+    try {
+      final supabase = ref.read(supabaseProvider);
+      final pdfService = OrdenPagoPdfService(supabase);
+      final pdf = await pdfService.generarOrdenPagoPdf(idTransaccion: idTransaccion);
+
+      if (mounted) Navigator.pop(context);
+
+      await pdfService.imprimirOrdenPago(pdf);
+    } catch (e) {
+      if (mounted) Navigator.pop(context);
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error al imprimir: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  void _addFormaPago(ConceptoTesoreria concepto) {
+    setState(() {
+      if (!_formasPago.containsKey(concepto.id)) {
+        final saldoRestante = _calcularTotal() - _getTotalFormasPago();
+        _formasPago[concepto.id] = saldoRestante > 0 ? saldoRestante : 0.0;
+      }
+    });
+  }
+
+  Widget _buildPagoInmediatoCard() {
+    final conceptosAsync = ref.watch(conceptosCarteraEgresoProvider);
+    final total = _calcularTotal();
+    final totalFormasPago = _getTotalFormasPago();
+    final diferencia = (total - totalFormasPago).abs();
+
+    return Card(
+      color: _pagarAlGuardar ? Colors.green[50] : null,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  _pagarAlGuardar ? Icons.payments : Icons.payment_outlined,
+                  color: _pagarAlGuardar ? Colors.green : Colors.grey,
+                ),
+                const SizedBox(width: 8),
+                const Text(
+                  'Pago Inmediato',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const Spacer(),
+                Switch(
+                  value: _pagarAlGuardar,
+                  onChanged: _items.isEmpty
+                      ? null
+                      : (value) {
+                          setState(() {
+                            _pagarAlGuardar = value;
+                            if (!value) {
+                              _formasPago.clear();
+                            }
+                          });
+                        },
+                ),
+              ],
+            ),
+            if (_items.isEmpty)
+              const Padding(
+                padding: EdgeInsets.only(top: 8),
+                child: Text(
+                  'Agregue items al comprobante para habilitar el pago inmediato',
+                  style: TextStyle(color: Colors.grey, fontSize: 12),
+                ),
+              ),
+            if (_pagarAlGuardar) ...[
+              const Divider(),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Text(
+                    'Total a pagar: ${_currencyFormat.format(total)}',
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  const Spacer(),
+                  Text(
+                    'Formas de pago: ${_currencyFormat.format(totalFormasPago)}',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: diferencia < 0.01 ? Colors.green : Colors.red,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              conceptosAsync.when(
+                data: (conceptos) {
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Lista de formas de pago disponibles
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: conceptos.map((concepto) {
+                          final isSelected = _formasPago.containsKey(concepto.id);
+                          return FilterChip(
+                            label: Text(concepto.descripcion ?? ''),
+                            selected: isSelected,
+                            onSelected: (selected) {
+                              if (selected) {
+                                _addFormaPago(concepto);
+                              } else {
+                                setState(() {
+                                  _formasPago.remove(concepto.id);
+                                  _formasPagoControllers.remove(concepto.id)?.dispose();
+                                });
+                              }
+                            },
+                          );
+                        }).toList(),
+                      ),
+                      if (_formasPago.isNotEmpty) ...[
+                        const SizedBox(height: 16),
+                        // Campos de monto para cada forma de pago seleccionada
+                        ...conceptos
+                            .where((c) => _formasPago.containsKey(c.id))
+                            .map((concepto) {
+                          if (!_formasPagoControllers.containsKey(concepto.id)) {
+                            _formasPagoControllers[concepto.id] = TextEditingController(
+                              text: _formasPago[concepto.id]?.toStringAsFixed(2),
+                            );
+                          }
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 8),
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  flex: 2,
+                                  child: Text(concepto.descripcion ?? ''),
+                                ),
+                                Expanded(
+                                  child: TextField(
+                                    controller: _formasPagoControllers[concepto.id],
+                                    decoration: const InputDecoration(
+                                      prefixText: '\$ ',
+                                      isDense: true,
+                                      border: OutlineInputBorder(),
+                                    ),
+                                    keyboardType: TextInputType.number,
+                                    onChanged: (value) {
+                                      final monto = double.tryParse(value);
+                                      if (monto != null && monto >= 0) {
+                                        setState(() {
+                                          _formasPago[concepto.id] = monto;
+                                        });
+                                      }
+                                    },
+                                  ),
+                                ),
+                                IconButton(
+                                  icon: const Icon(Icons.close, color: Colors.red),
+                                  onPressed: () {
+                                    setState(() {
+                                      _formasPago.remove(concepto.id);
+                                      _formasPagoControllers.remove(concepto.id)?.dispose();
+                                    });
+                                  },
+                                ),
+                              ],
+                            ),
+                          );
+                        }),
+                      ],
+                    ],
+                  );
+                },
+                loading: () => const Center(child: CircularProgressIndicator()),
+                error: (_, __) => const Text('Error cargando formas de pago'),
+              ),
+              if (_formasPago.isNotEmpty && diferencia >= 0.01)
+                Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: Text(
+                    'La suma de las formas de pago debe coincidir con el total',
+                    style: TextStyle(color: Colors.red[700], fontSize: 12),
+                  ),
+                ),
+            ],
+          ],
+        ),
+      ),
+    );
   }
 
   @override
@@ -697,6 +1044,10 @@ class _ComprobanteProvFormPageState
                         ),
                       ),
                     ),
+                    const SizedBox(height: 16),
+
+                    // Opción de pago inmediato (solo para nuevos comprobantes)
+                    if (!isEditing) _buildPagoInmediatoCard(),
                     const SizedBox(height: 24),
 
                     // Botones

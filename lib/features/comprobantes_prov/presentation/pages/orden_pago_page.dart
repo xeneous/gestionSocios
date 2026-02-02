@@ -2,10 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import '../../models/comprobante_prov_model.dart';
 import '../../providers/orden_pago_provider.dart';
+import '../../providers/comprobantes_prov_provider.dart';
+import '../../services/orden_pago_pdf_service.dart';
 import '../../../proveedores/providers/proveedores_provider.dart';
 import '../../../cuentas_corrientes/providers/conceptos_tesoreria_provider.dart';
 import '../../../cuentas_corrientes/models/concepto_tesoreria_model.dart';
+import '../../../asientos/presentation/widgets/cuentas_search_dialog.dart';
+import '../../../cuentas/models/cuenta_model.dart';
+import '../../../auth/presentation/providers/auth_provider.dart';
 
 /// Página principal de orden de pago a proveedores
 class OrdenPagoPage extends ConsumerStatefulWidget {
@@ -45,6 +51,33 @@ class _OrdenPagoPageState extends ConsumerState<OrdenPagoPage> {
       controller.dispose();
     }
     super.dispose();
+  }
+
+  Future<void> _mostrarDialogoNuevaFactura() async {
+    final result = await showDialog<CompProvHeader>(
+      context: context,
+      builder: (context) => _NuevaFacturaRapidaDialog(
+        proveedorId: widget.proveedorId,
+      ),
+    );
+
+    if (result != null && mounted) {
+      // La factura fue creada, seleccionarla automáticamente para pagar
+      setState(() {
+        _selectedPagos[result.idTransaccion!] = result.totalImporte;
+      });
+
+      // Refrescar la lista de comprobantes pendientes
+      ref.invalidate(comprobantesPendientesProveedorProvider(widget.proveedorId));
+      ref.invalidate(saldoProveedorProvider(widget.proveedorId));
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Factura ${result.nroComprobante} creada y seleccionada para pago'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    }
   }
 
   @override
@@ -101,6 +134,12 @@ class _OrdenPagoPageState extends ConsumerState<OrdenPagoPage> {
             child: _buildFormasPagoPanel(),
           ),
         ],
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: _mostrarDialogoNuevaFactura,
+        icon: const Icon(Icons.add),
+        label: const Text('Nueva Factura'),
+        backgroundColor: Colors.orange,
       ),
     );
   }
@@ -750,11 +789,12 @@ class _OrdenPagoPageState extends ConsumerState<OrdenPagoPage> {
 
       await Future.delayed(const Duration(milliseconds: 100));
 
-      // Mostrar diálogo de éxito
+      // Mostrar diálogo de éxito con opción de imprimir
+      final idTransaccionOP = resultado['id_transaccion'] as int;
       if (!mounted) return;
       await showDialog(
         context: context,
-        builder: (context) => AlertDialog(
+        builder: (dialogContext) => AlertDialog(
           title: const Row(
             children: [
               Icon(Icons.check_circle, color: Colors.green, size: 32),
@@ -794,8 +834,16 @@ class _OrdenPagoPageState extends ConsumerState<OrdenPagoPage> {
             ],
           ),
           actions: [
+            OutlinedButton.icon(
+              onPressed: () async {
+                Navigator.pop(dialogContext);
+                await _imprimirOrdenPago(idTransaccionOP);
+              },
+              icon: const Icon(Icons.print),
+              label: const Text('Imprimir'),
+            ),
             FilledButton(
-              onPressed: () => Navigator.pop(context),
+              onPressed: () => Navigator.pop(dialogContext),
               style: FilledButton.styleFrom(backgroundColor: Colors.orange),
               child: const Text('Aceptar'),
             ),
@@ -816,5 +864,392 @@ class _OrdenPagoPageState extends ConsumerState<OrdenPagoPage> {
         ),
       );
     }
+  }
+
+  Future<void> _imprimirOrdenPago(int idTransaccion) async {
+    // Mostrar indicador de carga
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(
+        child: Card(
+          child: Padding(
+            padding: EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CircularProgressIndicator(),
+                SizedBox(height: 16),
+                Text('Generando PDF...'),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+
+    try {
+      final supabase = ref.read(supabaseProvider);
+      final pdfService = OrdenPagoPdfService(supabase);
+      final pdf = await pdfService.generarOrdenPagoPdf(idTransaccion: idTransaccion);
+
+      // Cerrar diálogo de carga
+      if (mounted) Navigator.pop(context);
+
+      // Imprimir
+      await pdfService.imprimirOrdenPago(pdf);
+    } catch (e) {
+      // Cerrar diálogo de carga si está abierto
+      if (mounted) Navigator.pop(context);
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error al imprimir: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+}
+
+/// Diálogo para crear una factura rápida desde la pantalla de OP
+class _NuevaFacturaRapidaDialog extends ConsumerStatefulWidget {
+  final int proveedorId;
+
+  const _NuevaFacturaRapidaDialog({required this.proveedorId});
+
+  @override
+  ConsumerState<_NuevaFacturaRapidaDialog> createState() =>
+      _NuevaFacturaRapidaDialogState();
+}
+
+class _NuevaFacturaRapidaDialogState
+    extends ConsumerState<_NuevaFacturaRapidaDialog> {
+  final _formKey = GlobalKey<FormState>();
+  final _nroComprobanteController = TextEditingController();
+  final _importeController = TextEditingController();
+  final _cuentaController = TextEditingController();
+
+  DateTime _fecha = DateTime.now();
+  DateTime? _fecha1Venc;
+  int? _tipoComprobante;
+  String? _tipoFactura;
+  bool _isLoading = false;
+
+  final _dateFormat = DateFormat('dd/MM/yyyy');
+
+  @override
+  void dispose() {
+    _nroComprobanteController.dispose();
+    _importeController.dispose();
+    _cuentaController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _selectFecha(bool isVencimiento) async {
+    final fecha = await showDatePicker(
+      context: context,
+      initialDate: isVencimiento ? (_fecha1Venc ?? DateTime.now()) : _fecha,
+      firstDate: DateTime(2000),
+      lastDate: DateTime(2100),
+    );
+
+    if (fecha != null) {
+      setState(() {
+        if (isVencimiento) {
+          _fecha1Venc = fecha;
+        } else {
+          _fecha = fecha;
+        }
+      });
+    }
+  }
+
+  Future<void> _buscarCuenta() async {
+    final result = await showDialog<Cuenta>(
+      context: context,
+      builder: (context) => const CuentasSearchDialog(),
+    );
+
+    if (result != null) {
+      setState(() {
+        _cuentaController.text = result.cuenta.toString();
+      });
+    }
+  }
+
+  Future<void> _guardarFactura() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    if (_tipoComprobante == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Seleccione un tipo de comprobante')),
+      );
+      return;
+    }
+
+    setState(() => _isLoading = true);
+
+    try {
+      final importe = double.parse(_importeController.text.trim());
+      final cuenta = int.parse(_cuentaController.text.trim());
+      final anioMes = _fecha.year * 100 + _fecha.month;
+
+      final header = CompProvHeader(
+        comprobante: 0,
+        anioMes: anioMes,
+        fecha: _fecha,
+        proveedor: widget.proveedorId,
+        tipoComprobante: _tipoComprobante!,
+        nroComprobante: _nroComprobanteController.text.trim(),
+        tipoFactura: _tipoFactura,
+        totalImporte: importe,
+        cancelado: 0,
+        fecha1Venc: _fecha1Venc,
+        estado: 'P',
+        fechaReal: _fecha,
+      );
+
+      // Crear un item simple con todo el importe
+      final item = CompProvItem(
+        comprobante: 0,
+        anioMes: anioMes,
+        item: 1,
+        concepto: 'GTO', // Gasto
+        cuenta: cuenta,
+        importe: importe,
+        baseContable: importe,
+        alicuota: 0,
+      );
+
+      final notifier = ref.read(comprobantesProvNotifierProvider.notifier);
+      final comprobanteCreado = await notifier.crearComprobante(header, [item]);
+
+      if (mounted) {
+        Navigator.pop(context, comprobanteCreado);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final tiposAsync = ref.watch(tiposComprobanteCompraProvider);
+
+    return AlertDialog(
+      title: const Row(
+        children: [
+          Icon(Icons.receipt_long, color: Colors.orange),
+          SizedBox(width: 8),
+          Text('Nueva Factura Rápida'),
+        ],
+      ),
+      content: SizedBox(
+        width: 500,
+        child: Form(
+          key: _formKey,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Tipo de comprobante
+                tiposAsync.when(
+                  data: (tipos) {
+                    // Filtrar solo facturas (multiplicador = 1)
+                    final tiposFactura = tipos.where((t) => t.multiplicador == 1).toList();
+                    return DropdownButtonFormField<int?>(
+                      value: _tipoComprobante,
+                      decoration: const InputDecoration(
+                        labelText: 'Tipo Comprobante *',
+                        border: OutlineInputBorder(),
+                        prefixIcon: Icon(Icons.category),
+                      ),
+                      items: tiposFactura
+                          .map((tipo) => DropdownMenuItem<int?>(
+                                value: tipo.codigo,
+                                child: Text(tipo.descripcion),
+                              ))
+                          .toList(),
+                      onChanged: (value) {
+                        setState(() => _tipoComprobante = value);
+                      },
+                      validator: (value) =>
+                          value == null ? 'Seleccione tipo' : null,
+                    );
+                  },
+                  loading: () => const LinearProgressIndicator(),
+                  error: (_, __) => const Text('Error cargando tipos'),
+                ),
+                const SizedBox(height: 16),
+
+                // Número de comprobante y tipo factura
+                Row(
+                  children: [
+                    Expanded(
+                      flex: 2,
+                      child: TextFormField(
+                        controller: _nroComprobanteController,
+                        decoration: const InputDecoration(
+                          labelText: 'Nro. Comprobante *',
+                          border: OutlineInputBorder(),
+                          hintText: 'XXXX-XXXXXXXX',
+                        ),
+                        textCapitalization: TextCapitalization.characters,
+                        validator: (value) =>
+                            value?.trim().isEmpty == true ? 'Requerido' : null,
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: DropdownButtonFormField<String?>(
+                        value: _tipoFactura,
+                        decoration: const InputDecoration(
+                          labelText: 'Letra',
+                          border: OutlineInputBorder(),
+                        ),
+                        items: const [
+                          DropdownMenuItem(value: null, child: Text('--')),
+                          DropdownMenuItem(value: 'A', child: Text('A')),
+                          DropdownMenuItem(value: 'B', child: Text('B')),
+                          DropdownMenuItem(value: 'C', child: Text('C')),
+                        ],
+                        onChanged: (value) {
+                          setState(() => _tipoFactura = value);
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+
+                // Fechas
+                Row(
+                  children: [
+                    Expanded(
+                      child: InkWell(
+                        onTap: () => _selectFecha(false),
+                        child: InputDecorator(
+                          decoration: const InputDecoration(
+                            labelText: 'Fecha *',
+                            border: OutlineInputBorder(),
+                            prefixIcon: Icon(Icons.calendar_today),
+                          ),
+                          child: Text(_dateFormat.format(_fecha)),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: InkWell(
+                        onTap: () => _selectFecha(true),
+                        child: InputDecorator(
+                          decoration: InputDecoration(
+                            labelText: 'Vencimiento',
+                            border: const OutlineInputBorder(),
+                            prefixIcon: const Icon(Icons.event),
+                            suffixIcon: _fecha1Venc != null
+                                ? IconButton(
+                                    icon: const Icon(Icons.clear, size: 18),
+                                    onPressed: () {
+                                      setState(() => _fecha1Venc = null);
+                                    },
+                                  )
+                                : null,
+                          ),
+                          child: Text(_fecha1Venc != null
+                              ? _dateFormat.format(_fecha1Venc!)
+                              : ''),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+
+                // Importe y cuenta
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextFormField(
+                        controller: _importeController,
+                        decoration: const InputDecoration(
+                          labelText: 'Importe Total *',
+                          border: OutlineInputBorder(),
+                          prefixText: '\$ ',
+                        ),
+                        keyboardType: const TextInputType.numberWithOptions(
+                            decimal: true),
+                        validator: (value) {
+                          if (value?.trim().isEmpty == true) return 'Requerido';
+                          if (double.tryParse(value!.trim()) == null) {
+                            return 'Número inválido';
+                          }
+                          return null;
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: TextFormField(
+                        controller: _cuentaController,
+                        decoration: InputDecoration(
+                          labelText: 'Cuenta Contable *',
+                          border: const OutlineInputBorder(),
+                          suffixIcon: IconButton(
+                            icon: const Icon(Icons.search),
+                            onPressed: _buscarCuenta,
+                          ),
+                        ),
+                        keyboardType: TextInputType.number,
+                        validator: (value) {
+                          if (value?.trim().isEmpty == true) return 'Requerido';
+                          if (int.tryParse(value!.trim()) == null) {
+                            return 'Número inválido';
+                          }
+                          return null;
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancelar'),
+        ),
+        FilledButton.icon(
+          onPressed: _isLoading ? null : _guardarFactura,
+          icon: _isLoading
+              ? const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: Colors.white,
+                  ),
+                )
+              : const Icon(Icons.save),
+          label: const Text('Crear y Seleccionar'),
+        ),
+      ],
+    );
   }
 }

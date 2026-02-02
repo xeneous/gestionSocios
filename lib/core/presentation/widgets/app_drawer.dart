@@ -60,278 +60,308 @@ class AppDrawer extends ConsumerWidget {
 
           const Divider(),
 
-          // Socios
-          ListTile(
-            leading: const Icon(Icons.people),
-            title: const Text('Socios'),
-            selected: currentRoute.startsWith('/socios'),
-            onTap: () {
-              // Limpiar búsqueda al entrar desde el menú
-              ref.read(sociosSearchStateProvider.notifier).clearSearch();
-              Navigator.pop(context);
-              context.go('/socios');
-            },
-          ),
-
-          // Listado de Residentes
-          ListTile(
-            leading: const Icon(Icons.medical_services, color: Colors.teal),
-            title: const Text('Listado Residentes'),
-            selected: currentRoute == '/listado-residentes',
-            onTap: () {
-              Navigator.pop(context);
-              if (currentRoute != '/listado-residentes') {
-                context.go('/listado-residentes');
-              }
-            },
-          ),
-
-          // Cobranzas
-          ListTile(
-            leading: const Icon(Icons.payments),
-            title: const Text('Cobranzas'),
-            selected: currentRoute.startsWith('/cobranzas'),
-            onTap: () {
-              Navigator.pop(context);
-              if (!currentRoute.startsWith('/cobranzas')) {
-                context.go('/cobranzas');
-              }
-            },
-          ),
-
-          // Facturación de Conceptos
-          ListTile(
-            leading: const Icon(Icons.receipt),
-            title: const Text('Facturar Conceptos'),
-            selected: currentRoute.startsWith('/facturacion-conceptos'),
-            onTap: () {
-              Navigator.pop(context);
-              if (!currentRoute.startsWith('/facturacion-conceptos')) {
-                context.go('/facturacion-conceptos');
-              }
-            },
-          ),
-
-          // Resumen Cuentas Corrientes
-          ListTile(
-            leading: const Icon(Icons.account_balance_wallet),
-            title: const Text('Resumen Cuentas Corrientes'),
-            selected: currentRoute.startsWith('/resumen-cuentas-corrientes'),
-            onTap: () {
-              Navigator.pop(context);
-              if (!currentRoute.startsWith('/resumen-cuentas-corrientes')) {
-                context.go('/resumen-cuentas-corrientes');
-              }
-            },
-          ),
-
-          // Solo para supervisor y administrador
-          if (userRole.puedeFacturarMasivo) ...[
-            const Divider(),
-
-            // Facturador Global de Cuotas
-            ListTile(
-              leading: const Icon(Icons.receipt_long, color: Colors.green),
-              title: const Text('Facturador Global'),
-              selected: currentRoute.startsWith('/facturador-global'),
-              onTap: () {
-                Navigator.pop(context);
-                if (!currentRoute.startsWith('/facturador-global')) {
-                  context.go('/facturador-global');
-                }
-              },
-            ),
-
-            // Débitos Automáticos
-            ListTile(
-              leading: const Icon(Icons.credit_card, color: Colors.purple),
-              title: const Text('Débitos Automáticos'),
-              selected: currentRoute.startsWith('/debitos-automaticos'),
-              onTap: () {
-                Navigator.pop(context);
-                if (!currentRoute.startsWith('/debitos-automaticos')) {
-                  context.go('/debitos-automaticos');
-                }
-              },
-            ),
-          ],
-
-          const Divider(),
-
-          // Clientes (Sponsors)
-          ListTile(
-            leading: const Icon(Icons.business, color: Colors.green),
-            title: const Text('Clientes / Sponsors'),
-            selected: currentRoute.startsWith('/clientes'),
-            onTap: () {
-              Navigator.pop(context);
-              if (!currentRoute.startsWith('/clientes')) {
-                context.go('/clientes');
-              }
-            },
-          ),
-
-          // Proveedores
-          ListTile(
-            leading: const Icon(Icons.store, color: Colors.orange),
-            title: const Text('Proveedores'),
-            selected: currentRoute.startsWith('/proveedores'),
-            onTap: () {
-              Navigator.pop(context);
-              if (!currentRoute.startsWith('/proveedores')) {
-                context.go('/proveedores');
-              }
-            },
-          ),
-
-          // Comprobantes de Proveedores
-          ListTile(
-            leading: const Icon(Icons.receipt_long, color: Colors.orange),
-            title: const Text('Comprobantes Compras'),
-            selected: currentRoute.startsWith('/comprobantes-proveedores'),
-            onTap: () {
-              Navigator.pop(context);
-              if (!currentRoute.startsWith('/comprobantes-proveedores')) {
-                context.go('/comprobantes-proveedores');
-              }
-            },
-          ),
-
-          // Comprobantes de Clientes
-          ListTile(
-            leading: const Icon(Icons.receipt, color: Colors.green),
-            title: const Text('Comprobantes Ventas'),
-            selected: currentRoute.startsWith('/comprobantes-clientes'),
-            onTap: () {
-              Navigator.pop(context);
-              if (!currentRoute.startsWith('/comprobantes-clientes')) {
-                context.go('/comprobantes-clientes');
-              }
-            },
-          ),
-
-          // Cobranzas de Clientes
-          ListTile(
-            leading: const Icon(Icons.payments, color: Colors.green),
-            title: const Text('Cobranzas Clientes'),
-            selected: currentRoute.startsWith('/cobranzas-clientes'),
-            onTap: () {
-              Navigator.pop(context);
-              if (!currentRoute.startsWith('/cobranzas-clientes')) {
-                context.go('/cobranzas-clientes');
-              }
-            },
-          ),
-
-          // Orden de Pago a Proveedores
-          ListTile(
-            leading: const Icon(Icons.payment, color: Colors.orange),
-            title: const Text('Orden de Pago'),
-            selected: currentRoute.startsWith('/orden-pago'),
-            onTap: () {
-              Navigator.pop(context);
-              if (!currentRoute.startsWith('/orden-pago')) {
-                context.go('/orden-pago');
-              }
-            },
-          ),
-
-          const Divider(),
-
-          // Sección de Saldos/Reportes
-          const Padding(
-            padding: EdgeInsets.only(left: 16, top: 8, bottom: 4),
-            child: Text(
-              'REPORTES',
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.bold,
-                color: Colors.grey,
+          // ==================== ZONA SOCIOS ====================
+          _buildSectionTile(
+            context: context,
+            ref: ref,
+            icon: Icons.people,
+            title: 'SOCIOS',
+            color: Colors.blue,
+            initiallyExpanded: _isSociosSection(currentRoute),
+            children: [
+              _buildMenuItem(
+                context: context,
+                icon: Icons.people,
+                title: 'Socios',
+                route: '/socios',
+                currentRoute: currentRoute,
+                onTap: () {
+                  ref.read(sociosSearchStateProvider.notifier).clearSearch();
+                  Navigator.pop(context);
+                  context.go('/socios');
+                },
               ),
-            ),
-          ),
-
-          // Saldos de Clientes
-          ListTile(
-            leading: const Icon(Icons.account_balance_wallet, color: Colors.green),
-            title: const Text('Saldos Clientes'),
-            selected: currentRoute == '/saldos-clientes',
-            onTap: () {
-              Navigator.pop(context);
-              if (currentRoute != '/saldos-clientes') {
-                context.go('/saldos-clientes');
-              }
-            },
-          ),
-
-          // Saldos de Proveedores
-          ListTile(
-            leading: const Icon(Icons.account_balance_wallet, color: Colors.orange),
-            title: const Text('Saldos Proveedores'),
-            selected: currentRoute == '/saldos-proveedores',
-            onTap: () {
-              Navigator.pop(context);
-              if (currentRoute != '/saldos-proveedores') {
-                context.go('/saldos-proveedores');
-              }
-            },
-          ),
-
-          const Divider(),
-
-          // Sección Contabilidad
-          const Padding(
-            padding: EdgeInsets.only(left: 16, top: 8, bottom: 4),
-            child: Text(
-              'CONTABILIDAD',
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.bold,
-                color: Colors.grey,
+              _buildMenuItem(
+                context: context,
+                icon: Icons.medical_services,
+                title: 'Listado Residentes',
+                route: '/listado-residentes',
+                currentRoute: currentRoute,
               ),
+              _buildMenuItem(
+                context: context,
+                icon: Icons.receipt,
+                title: 'Facturar Conceptos',
+                route: '/facturacion-conceptos',
+                currentRoute: currentRoute,
+              ),
+              _buildMenuItem(
+                context: context,
+                icon: Icons.payments,
+                title: 'Cobranzas',
+                route: '/cobranzas',
+                currentRoute: currentRoute,
+              ),
+              _buildMenuItem(
+                context: context,
+                icon: Icons.account_balance_wallet,
+                title: 'Control Cuentas Corrientes',
+                route: '/resumen-cuentas-corrientes',
+                currentRoute: currentRoute,
+              ),
+            ],
+          ),
+
+          // ==================== ZONA PROCESOS ====================
+          if (userRole.puedeFacturarMasivo)
+            _buildSectionTile(
+              context: context,
+              ref: ref,
+              icon: Icons.settings_suggest,
+              title: 'PROCESOS',
+              color: Colors.purple,
+              initiallyExpanded: _isProcesosSection(currentRoute),
+              children: [
+                _buildMenuItem(
+                  context: context,
+                  icon: Icons.receipt_long,
+                  title: 'Facturador Global',
+                  route: '/facturador-global',
+                  currentRoute: currentRoute,
+                ),
+                _buildMenuItem(
+                  context: context,
+                  icon: Icons.credit_card,
+                  title: 'Débitos Automáticos',
+                  route: '/debitos-automaticos',
+                  currentRoute: currentRoute,
+                ),
+              ],
             ),
+
+          // ==================== ZONA CLIENTES ====================
+          _buildSectionTile(
+            context: context,
+            ref: ref,
+            icon: Icons.business,
+            title: 'CLIENTES',
+            color: Colors.green,
+            initiallyExpanded: _isClientesSection(currentRoute),
+            children: [
+              _buildMenuItem(
+                context: context,
+                icon: Icons.business,
+                title: 'Clientes / Sponsors',
+                route: '/clientes',
+                currentRoute: currentRoute,
+              ),
+              _buildMenuItem(
+                context: context,
+                icon: Icons.receipt,
+                title: 'Comprobantes Ventas',
+                route: '/comprobantes-clientes',
+                currentRoute: currentRoute,
+              ),
+              _buildMenuItem(
+                context: context,
+                icon: Icons.payments,
+                title: 'Cobranzas Clientes',
+                route: '/cobranzas-clientes',
+                currentRoute: currentRoute,
+              ),
+              _buildMenuItem(
+                context: context,
+                icon: Icons.account_balance_wallet,
+                title: 'Saldos Clientes',
+                route: '/saldos-clientes',
+                currentRoute: currentRoute,
+              ),
+            ],
           ),
 
-          // Asientos de Diario
-          ListTile(
-            leading: const Icon(Icons.book),
-            title: const Text('Asientos de Diario'),
-            selected: currentRoute.startsWith('/asientos'),
-            onTap: () {
-              Navigator.pop(context);
-              if (!currentRoute.startsWith('/asientos')) {
-                context.go('/asientos');
-              }
-            },
+          // ==================== ZONA PROVEEDORES ====================
+          _buildSectionTile(
+            context: context,
+            ref: ref,
+            icon: Icons.store,
+            title: 'PROVEEDORES',
+            color: Colors.orange,
+            initiallyExpanded: _isProveedoresSection(currentRoute),
+            children: [
+              _buildMenuItem(
+                context: context,
+                icon: Icons.store,
+                title: 'Proveedores',
+                route: '/proveedores',
+                currentRoute: currentRoute,
+              ),
+              _buildMenuItem(
+                context: context,
+                icon: Icons.receipt_long,
+                title: 'Comprobantes Compras',
+                route: '/comprobantes-proveedores',
+                currentRoute: currentRoute,
+              ),
+              _buildMenuItem(
+                context: context,
+                icon: Icons.payment,
+                title: 'Orden de Pago',
+                route: '/orden-pago',
+                currentRoute: currentRoute,
+              ),
+              _buildMenuItem(
+                context: context,
+                icon: Icons.flash_on,
+                title: 'Pago Directo',
+                route: '/pago-directo',
+                currentRoute: currentRoute,
+              ),
+              _buildMenuItem(
+                context: context,
+                icon: Icons.account_balance_wallet,
+                title: 'Saldos Proveedores',
+                route: '/saldos-proveedores',
+                currentRoute: currentRoute,
+              ),
+            ],
           ),
 
-          // Mayor de Cuentas
-          ListTile(
-            leading: const Icon(Icons.account_balance),
-            title: const Text('Mayor de Cuentas'),
-            selected: currentRoute == '/mayor-cuentas',
-            onTap: () {
-              Navigator.pop(context);
-              if (currentRoute != '/mayor-cuentas') {
-                context.go('/mayor-cuentas');
-              }
-            },
-          ),
-
-          // Parámetros Contables
-          ListTile(
-            leading: const Icon(Icons.settings, color: Colors.blueGrey),
-            title: const Text('Parámetros Contables'),
-            selected: currentRoute == '/parametros-contables',
-            onTap: () {
-              Navigator.pop(context);
-              if (currentRoute != '/parametros-contables') {
-                context.go('/parametros-contables');
-              }
-            },
+          // ==================== ZONA CONTABILIDAD ====================
+          _buildSectionTile(
+            context: context,
+            ref: ref,
+            icon: Icons.account_balance,
+            title: 'CONTABILIDAD',
+            color: Colors.blueGrey,
+            initiallyExpanded: _isContabilidadSection(currentRoute),
+            children: [
+              _buildMenuItem(
+                context: context,
+                icon: Icons.book,
+                title: 'Asientos de Diario',
+                route: '/asientos',
+                currentRoute: currentRoute,
+              ),
+              _buildMenuItem(
+                context: context,
+                icon: Icons.account_balance,
+                title: 'Mayor de Cuentas',
+                route: '/mayor-cuentas',
+                currentRoute: currentRoute,
+              ),
+              _buildMenuItem(
+                context: context,
+                icon: Icons.list_alt,
+                title: 'Plan de Cuentas',
+                route: '/cuentas',
+                currentRoute: currentRoute,
+              ),
+              _buildMenuItem(
+                context: context,
+                icon: Icons.settings,
+                title: 'Parámetros Contables',
+                route: '/parametros-contables',
+                currentRoute: currentRoute,
+              ),
+            ],
           ),
         ],
       ),
     );
+  }
+
+  /// Construye un tile de sección expandible
+  Widget _buildSectionTile({
+    required BuildContext context,
+    required WidgetRef ref,
+    required IconData icon,
+    required String title,
+    required Color color,
+    required bool initiallyExpanded,
+    required List<Widget> children,
+  }) {
+    return Theme(
+      data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+      child: ExpansionTile(
+        leading: Icon(icon, color: color),
+        title: Text(
+          title,
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            color: color,
+            fontSize: 14,
+          ),
+        ),
+        initiallyExpanded: initiallyExpanded,
+        childrenPadding: const EdgeInsets.only(left: 16),
+        children: children,
+      ),
+    );
+  }
+
+  /// Construye un item de menú
+  Widget _buildMenuItem({
+    required BuildContext context,
+    required IconData icon,
+    required String title,
+    required String route,
+    required String currentRoute,
+    VoidCallback? onTap,
+  }) {
+    final isSelected = currentRoute.startsWith(route) ||
+        (route == '/cobranzas' && currentRoute.startsWith('/cobranzas') && !currentRoute.startsWith('/cobranzas-clientes'));
+
+    return ListTile(
+      dense: true,
+      leading: Icon(icon, size: 20),
+      title: Text(title, style: const TextStyle(fontSize: 14)),
+      selected: isSelected,
+      onTap: onTap ?? () {
+        Navigator.pop(context);
+        if (!currentRoute.startsWith(route)) {
+          context.go(route);
+        }
+      },
+    );
+  }
+
+  /// Verifica si la ruta actual pertenece a la sección Socios
+  bool _isSociosSection(String route) {
+    return route.startsWith('/socios') ||
+        route == '/listado-residentes' ||
+        route.startsWith('/facturacion-conceptos') ||
+        (route.startsWith('/cobranzas') && !route.startsWith('/cobranzas-clientes')) ||
+        route.startsWith('/resumen-cuentas-corrientes');
+  }
+
+  /// Verifica si la ruta actual pertenece a la sección Procesos
+  bool _isProcesosSection(String route) {
+    return route.startsWith('/facturador-global') ||
+        route.startsWith('/debitos-automaticos');
+  }
+
+  /// Verifica si la ruta actual pertenece a la sección Clientes
+  bool _isClientesSection(String route) {
+    return route.startsWith('/clientes') ||
+        route.startsWith('/comprobantes-clientes') ||
+        route.startsWith('/cobranzas-clientes') ||
+        route == '/saldos-clientes';
+  }
+
+  /// Verifica si la ruta actual pertenece a la sección Proveedores
+  bool _isProveedoresSection(String route) {
+    return route.startsWith('/proveedores') ||
+        route.startsWith('/comprobantes-proveedores') ||
+        route.startsWith('/orden-pago') ||
+        route == '/pago-directo' ||
+        route == '/saldos-proveedores';
+  }
+
+  /// Verifica si la ruta actual pertenece a la sección Contabilidad
+  bool _isContabilidadSection(String route) {
+    return route.startsWith('/asientos') ||
+        route == '/mayor-cuentas' ||
+        route.startsWith('/cuentas') ||
+        route == '/parametros-contables';
   }
 }
