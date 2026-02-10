@@ -90,7 +90,7 @@ async function migrateSociosOnly() {
             SELECT
                 socio, Apellido, nombre, tipodocto, numedocto, cuil,
                 Nacionalidad, Sexo, Nacido as fechanac,
-                Grupo, gDesde, Residente, fresidencia, nroMatricula, Matricula,
+                Grupo, gDesde, Residente, fresidente, nroMatricula, Matricula,
                 FechaIngreso, Domicilio, localidad, provincia, cpostal, pais,
                 telefono, Fax, Email, EmailAlt1,
                 Tarjeta, numero, Adherido, Vencimiento, DebitarDesde
@@ -128,7 +128,7 @@ async function migrateSociosOnly() {
                 grupo: s.Grupo?.trim(),
                 grupo_desde: s.gDesde,
                 residente: s.Residente === 1 || s.Residente === true || s.Residente === '1' || (s.Residente && s.Residente !== 0 && s.Residente !== '0'),
-                fecha_inicio_residencia: s.fresidencia,
+                fecha_fin_residencia: s.fresidente,
                 matricula_nacional: s.nroMatricula?.toString().trim(),
                 matricula_provincial: s.Matricula?.toString().trim(),
                 fecha_ingreso: s.FechaIngreso,

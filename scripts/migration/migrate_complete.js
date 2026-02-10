@@ -44,21 +44,55 @@ async function cleanSupabase() {
     console.log('🧹 Limpiando datos en Supabase...\n');
 
     try {
-        // Orden: primero socios (depende de referencias), luego referencias
-        const tables = ['socios', 'tarjetas', 'grupos_agrupados', 'categorias_iva', 'paises', 'provincias', 'sexos'];
+        // 1) Tablas que usan idtransaccion (no tienen columna id)
+        const tablasTransaccion = [
+            'operaciones_detalle_cuentas_corrientes',
+            'detalle_cuentas_corrientes',
+            'cuentas_corrientes',
+        ];
 
-        for (const table of tables) {
+        for (const table of tablasTransaccion) {
             console.log(`   Limpiando tabla ${table}...`);
             const { error } = await supabase
                 .from(table)
                 .delete()
-                .neq('id', 0); // Delete where id != 0 (delete all)
+                .gte('idtransaccion', 0);
 
             if (error) {
                 console.error(`   ❌ Error limpiando ${table}:`, error.message);
             } else {
                 console.log(`   ✅ ${table} limpiada`);
             }
+        }
+
+        // 2) Tablas con columna id (orden: socios primero, luego sus referencias)
+        const tablasConId = ['socios', 'tarjetas', 'grupos_agrupados', 'paises', 'provincias', 'sexos'];
+
+        for (const table of tablasConId) {
+            console.log(`   Limpiando tabla ${table}...`);
+            const { error } = await supabase
+                .from(table)
+                .delete()
+                .neq('id', 0);
+
+            if (error) {
+                console.error(`   ❌ Error limpiando ${table}:`, error.message);
+            } else {
+                console.log(`   ✅ ${table} limpiada`);
+            }
+        }
+
+        // 3) categorias_iva no tiene columna id, usa id_civa
+        console.log(`   Limpiando tabla categorias_iva...`);
+        const { error: errorCiva } = await supabase
+            .from('categorias_iva')
+            .delete()
+            .gte('id_civa', 0);
+
+        if (errorCiva) {
+            console.error(`   ❌ Error limpiando categorias_iva:`, errorCiva.message);
+        } else {
+            console.log(`   ✅ categorias_iva limpiada`);
         }
 
         console.log('\n✅ Limpieza completada\n');

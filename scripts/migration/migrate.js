@@ -183,7 +183,7 @@ async function migrateSocios() {
                 grupo: row.Grupo?.trim(),
                 grupo_desde: row.gDesde,
                 residente: row.Residente === 'S' || row.Residente === '1',
-                fecha_inicio_residencia: row.fresidencia,
+                fecha_fin_residencia: row.fresidencia,
                 matricula_nacional: row.nroMatricula?.trim(),
                 matricula_provincial: row.Matricula?.trim(),
                 fecha_ingreso: row.FechaIngreso,
