@@ -1,15 +1,37 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import 'package:excel/excel.dart';
 import 'package:universal_html/html.dart' as html;
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../../../core/presentation/widgets/app_drawer.dart';
 import '../../models/socio_model.dart';
+import '../../models/categoria_residente_model.dart';
+import '../../providers/categorias_residente_provider.dart';
 
 /// Grupos que se consideran activos
 const gruposActivos = ['T', 'A', 'V', 'H'];
+
+/// Colores e iconos para asignar a cada categoría dinámicamente
+const _categoriaColores = [
+  Colors.blue,
+  Colors.orange,
+  Colors.green,
+  Colors.purple,
+  Colors.teal,
+  Colors.red,
+];
+
+const _categoriaIconos = [
+  Icons.looks_one,
+  Icons.looks_two,
+  Icons.looks_3,
+  Icons.looks_4,
+  Icons.looks_5,
+  Icons.looks_6,
+];
 
 /// Parámetros para el provider
 class ResidentesParams {
@@ -68,6 +90,15 @@ class _ListadoResidentesPageState extends ConsumerState<ListadoResidentesPage> {
 
   ResidentesParams get _params => ResidentesParams(soloActivos: _soloActivos);
 
+  @override
+  void initState() {
+    super.initState();
+    // Refrescar datos al entrar/volver a la página
+    Future.microtask(() {
+      ref.invalidate(residentesProvider);
+    });
+  }
+
   List<Socio> _aplicarFiltros(List<Socio> residentes) {
     var filtrados = residentes;
 
@@ -91,13 +122,16 @@ class _ListadoResidentesPageState extends ConsumerState<ListadoResidentesPage> {
     return filtrados;
   }
 
-  Map<String, int> _contarPorCategoria(List<Socio> residentes) {
-    final conteo = <String, int>{
-      'R1': 0,
-      'R2': 0,
-      'R3': 0,
-      'Sin categoría': 0,
-    };
+  /// Cuenta residentes por categoría, usando las categorías de la BD
+  Map<String, int> _contarPorCategoria(
+      List<Socio> residentes, List<CategoriaResidente> categorias) {
+    final conteo = <String, int>{};
+
+    // Inicializar con todas las categorías de la BD
+    for (final cat in categorias) {
+      conteo[cat.codigo] = 0;
+    }
+    conteo['Sin categoría'] = 0;
 
     for (final r in residentes) {
       final cat = r.categoriaResidente;
@@ -111,48 +145,138 @@ class _ListadoResidentesPageState extends ConsumerState<ListadoResidentesPage> {
     return conteo;
   }
 
-  void _descargarCSV(List<Socio> residentes) {
-    final buffer = StringBuffer();
+  Color _colorParaIndice(int index) {
+    return _categoriaColores[index % _categoriaColores.length];
+  }
 
-    buffer.writeln(
-        'Socio,Apellido,Nombre,Categoría,Lugar Residencia,Inicio Residencia,Fin Residencia,Email,Teléfono,Grupo');
+  IconData _iconoParaIndice(int index) {
+    return _categoriaIconos[index % _categoriaIconos.length];
+  }
 
-    for (final r in residentes) {
-      final inicioRes = r.fechaInicioResidencia != null
-          ? _dateFormat.format(r.fechaInicioResidencia!)
-          : '';
-      final finRes = r.fechaFinResidencia != null
-          ? _dateFormat.format(r.fechaFinResidencia!)
-          : '';
-      final telefono = r.telefono ?? r.celular ?? '';
-      final email = r.email ?? '';
-      final grupo = r.grupo ?? '';
-      final categoria = r.categoriaResidente ?? '';
-      final lugar = r.lugarResidencia ?? '';
+  void _exportarExcel(List<Socio> residentes) {
+    try {
+      final excel = Excel.createExcel();
+      excel.rename('Sheet1', 'Residentes');
+      final sheet = excel['Residentes'];
 
-      buffer.writeln(
-          '"${r.id}","${r.apellido}","${r.nombre}","$categoria","$lugar","$inicioRes","$finRes","$email","$telefono","$grupo"');
+      // Estilos
+      final headerStyle = CellStyle(
+        bold: true,
+        backgroundColorHex: ExcelColor.fromHexString('#009688'),
+        fontColorHex: ExcelColor.white,
+      );
+
+      // Encabezados
+      final headers = [
+        'Socio',
+        'Apellido',
+        'Nombre',
+        'Categoría',
+        'Lugar Residencia',
+        'Inicio Residencia',
+        'Fin Residencia',
+        'Email',
+        'Teléfono',
+        'Grupo',
+      ];
+
+      for (var i = 0; i < headers.length; i++) {
+        final cell = sheet
+            .cell(CellIndex.indexByColumnRow(columnIndex: i, rowIndex: 0));
+        cell.value = TextCellValue(headers[i]);
+        cell.cellStyle = headerStyle;
+      }
+
+      // Datos
+      for (var i = 0; i < residentes.length; i++) {
+        final r = residentes[i];
+        final row = i + 1;
+
+        sheet
+            .cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: row))
+            .value = IntCellValue(r.id ?? 0);
+        sheet
+            .cell(CellIndex.indexByColumnRow(columnIndex: 1, rowIndex: row))
+            .value = TextCellValue(r.apellido);
+        sheet
+            .cell(CellIndex.indexByColumnRow(columnIndex: 2, rowIndex: row))
+            .value = TextCellValue(r.nombre);
+        sheet
+            .cell(CellIndex.indexByColumnRow(columnIndex: 3, rowIndex: row))
+            .value = TextCellValue(r.categoriaResidente ?? '-');
+        sheet
+            .cell(CellIndex.indexByColumnRow(columnIndex: 4, rowIndex: row))
+            .value = TextCellValue(r.lugarResidencia ?? '-');
+        sheet
+            .cell(CellIndex.indexByColumnRow(columnIndex: 5, rowIndex: row))
+            .value = TextCellValue(r.fechaInicioResidencia != null
+                ? _dateFormat.format(r.fechaInicioResidencia!)
+                : '-');
+        sheet
+            .cell(CellIndex.indexByColumnRow(columnIndex: 6, rowIndex: row))
+            .value = TextCellValue(r.fechaFinResidencia != null
+                ? _dateFormat.format(r.fechaFinResidencia!)
+                : '-');
+        sheet
+            .cell(CellIndex.indexByColumnRow(columnIndex: 7, rowIndex: row))
+            .value = TextCellValue(r.email ?? '-');
+        sheet
+            .cell(CellIndex.indexByColumnRow(columnIndex: 8, rowIndex: row))
+            .value = TextCellValue(r.telefono ?? r.celular ?? '-');
+        sheet
+            .cell(CellIndex.indexByColumnRow(columnIndex: 9, rowIndex: row))
+            .value = TextCellValue(r.grupo ?? '-');
+      }
+
+      // Guardar
+      final bytes = excel.encode();
+      if (bytes == null) {
+        throw Exception('Error al generar el archivo Excel');
+      }
+
+      final timestamp = DateFormat('yyyyMMdd').format(DateTime.now());
+      final fileName = 'listado_residentes_$timestamp.xlsx';
+
+      if (kIsWeb) {
+        final blob = html.Blob([bytes]);
+        final url = html.Url.createObjectUrlFromBlob(blob);
+        html.AnchorElement(href: url)
+          ..setAttribute('download', fileName)
+          ..click();
+        html.Url.revokeObjectUrl(url);
+      }
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Exportado: $fileName'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error al exportar: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
-
-    final bytes = utf8.encode(buffer.toString());
-    final blob = html.Blob([bytes], 'text/csv;charset=utf-8');
-    final url = html.Url.createObjectUrlFromBlob(blob);
-
-    final anchor = html.AnchorElement(href: url)
-      ..setAttribute('download',
-          'listado_residentes_${DateFormat('yyyyMMdd').format(DateTime.now())}.csv')
-      ..click();
-
-    html.Url.revokeObjectUrl(url);
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Archivo descargado')),
-    );
   }
 
   @override
   Widget build(BuildContext context) {
     final residentesAsync = ref.watch(residentesProvider(_params));
+    final categoriasAsync = ref.watch(categoriasResidenteProvider);
+
+    // Obtener categorías para el dropdown (puede estar vacío mientras carga)
+    final categorias = categoriasAsync.when(
+      data: (data) => data,
+      loading: () => <CategoriaResidente>[],
+      error: (_, __) => <CategoriaResidente>[],
+    );
 
     return Scaffold(
       appBar: AppBar(
@@ -160,7 +284,10 @@ class _ListadoResidentesPageState extends ConsumerState<ListadoResidentesPage> {
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
-            onPressed: () => ref.invalidate(residentesProvider),
+            onPressed: () {
+              ref.invalidate(residentesProvider);
+              ref.invalidate(categoriasResidenteProvider);
+            },
             tooltip: 'Actualizar',
           ),
           IconButton(
@@ -195,12 +322,10 @@ class _ListadoResidentesPageState extends ConsumerState<ListadoResidentesPage> {
                         ButtonSegment(
                           value: _VistaResidentes.resumen,
                           label: Text('Resumen'),
-                          icon: Icon(Icons.pie_chart),
                         ),
                         ButtonSegment(
                           value: _VistaResidentes.detalle,
                           label: Text('Detalle'),
-                          icon: Icon(Icons.table_chart),
                         ),
                       ],
                       selected: {_vista},
@@ -209,16 +334,16 @@ class _ListadoResidentesPageState extends ConsumerState<ListadoResidentesPage> {
                       },
                     ),
                     const SizedBox(width: 16),
-                    // Botón de descarga
+                    // Botón de descarga Excel
                     residentesAsync.whenOrNull(
                           data: (residentes) {
                             final filtrados = _aplicarFiltros(residentes);
                             return FilledButton.icon(
                               onPressed: filtrados.isEmpty
                                   ? null
-                                  : () => _descargarCSV(filtrados),
+                                  : () => _exportarExcel(filtrados),
                               icon: const Icon(Icons.download),
-                              label: const Text('CSV'),
+                              label: const Text('Excel'),
                             );
                           },
                         ) ??
@@ -250,11 +375,11 @@ class _ListadoResidentesPageState extends ConsumerState<ListadoResidentesPage> {
                           border: OutlineInputBorder(),
                           prefixIcon: Icon(Icons.category),
                         ),
-                        items: const [
-                          DropdownMenuItem(value: null, child: Text('Todas')),
-                          DropdownMenuItem(value: 'R1', child: Text('R1')),
-                          DropdownMenuItem(value: 'R2', child: Text('R2')),
-                          DropdownMenuItem(value: 'R3', child: Text('R3')),
+                        items: [
+                          const DropdownMenuItem(
+                              value: null, child: Text('Todas')),
+                          ...categorias.map((cat) => DropdownMenuItem(
+                              value: cat.codigo, child: Text(cat.codigo))),
                         ],
                         onChanged: (value) {
                           setState(() => _filtroCategoria = value);
@@ -290,9 +415,9 @@ class _ListadoResidentesPageState extends ConsumerState<ListadoResidentesPage> {
             child: residentesAsync.when(
               data: (residentes) {
                 if (_vista == _VistaResidentes.resumen) {
-                  return _buildResumen(residentes);
+                  return _buildResumen(residentes, categorias);
                 } else {
-                  return _buildDetalle(residentes);
+                  return _buildDetalle(residentes, categorias);
                 }
               },
               loading: () => const Center(child: CircularProgressIndicator()),
@@ -313,8 +438,9 @@ class _ListadoResidentesPageState extends ConsumerState<ListadoResidentesPage> {
     );
   }
 
-  Widget _buildResumen(List<Socio> residentes) {
-    final conteo = _contarPorCategoria(residentes);
+  Widget _buildResumen(
+      List<Socio> residentes, List<CategoriaResidente> categorias) {
+    final conteo = _contarPorCategoria(residentes, categorias);
     final total = residentes.length;
 
     return SingleChildScrollView(
@@ -353,52 +479,40 @@ class _ListadoResidentesPageState extends ConsumerState<ListadoResidentesPage> {
             ),
           ),
           const SizedBox(height: 24),
-          // Cards por categoría
-          Row(
+          // Cards por categoría - dinámicas
+          Wrap(
+            spacing: 16,
+            runSpacing: 16,
             children: [
-              Expanded(
-                child: _buildCategoriaCard(
-                  'R1',
-                  'Residente 1er año',
-                  conteo['R1'] ?? 0,
-                  total,
-                  Colors.blue,
-                  Icons.looks_one,
+              for (int i = 0; i < categorias.length; i++)
+                SizedBox(
+                  width: categorias.length <= 3
+                      ? (MediaQuery.of(context).size.width - 80) /
+                          categorias.length
+                      : 250,
+                  child: _buildCategoriaCard(
+                    categorias[i].codigo,
+                    categorias[i].descripcion,
+                    conteo[categorias[i].codigo] ?? 0,
+                    total,
+                    _colorParaIndice(i),
+                    _iconoParaIndice(i),
+                  ),
                 ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: _buildCategoriaCard(
-                  'R2',
-                  'Residente 2do año',
-                  conteo['R2'] ?? 0,
-                  total,
-                  Colors.orange,
-                  Icons.looks_two,
-                ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: _buildCategoriaCard(
-                  'R3',
-                  'Residente 3er año',
-                  conteo['R3'] ?? 0,
-                  total,
-                  Colors.green,
-                  Icons.looks_3,
-                ),
-              ),
             ],
           ),
           if ((conteo['Sin categoría'] ?? 0) > 0) ...[
             const SizedBox(height: 16),
-            _buildCategoriaCard(
-              'S/C',
-              'Sin categoría asignada',
-              conteo['Sin categoría'] ?? 0,
-              total,
-              Colors.grey,
-              Icons.help_outline,
+            SizedBox(
+              width: 250,
+              child: _buildCategoriaCard(
+                'S/C',
+                'Sin categoría asignada',
+                conteo['Sin categoría'] ?? 0,
+                total,
+                Colors.grey,
+                Icons.help_outline,
+              ),
             ),
           ],
           const SizedBox(height: 32),
@@ -432,12 +546,13 @@ class _ListadoResidentesPageState extends ConsumerState<ListadoResidentesPage> {
                           numeric: true),
                     ],
                     rows: [
-                      _buildResumenRow('R1', 'Residente 1er año (100% desc.)',
-                          conteo['R1'] ?? 0, total),
-                      _buildResumenRow('R2', 'Residente 2do año (100% desc.)',
-                          conteo['R2'] ?? 0, total),
-                      _buildResumenRow('R3', 'Residente 3er año (0% desc.)',
-                          conteo['R3'] ?? 0, total),
+                      for (final cat in categorias)
+                        _buildResumenRow(
+                          cat.codigo,
+                          '${cat.descripcion} (${cat.porcentajeDescuento.toStringAsFixed(0)}% desc.)',
+                          conteo[cat.codigo] ?? 0,
+                          total,
+                        ),
                       if ((conteo['Sin categoría'] ?? 0) > 0)
                         _buildResumenRow('S/C', 'Sin categoría',
                             conteo['Sin categoría'] ?? 0, total),
@@ -541,8 +656,15 @@ class _ListadoResidentesPageState extends ConsumerState<ListadoResidentesPage> {
     ]);
   }
 
-  Widget _buildDetalle(List<Socio> residentes) {
+  Widget _buildDetalle(
+      List<Socio> residentes, List<CategoriaResidente> categorias) {
     final filtrados = _aplicarFiltros(residentes);
+
+    // Mapa de código -> índice para colores
+    final catIndexMap = <String, int>{};
+    for (int i = 0; i < categorias.length; i++) {
+      catIndexMap[categorias[i].codigo] = i;
+    }
 
     if (filtrados.isEmpty) {
       return const Center(
@@ -612,6 +734,12 @@ class _ListadoResidentesPageState extends ConsumerState<ListadoResidentesPage> {
                           style: TextStyle(fontWeight: FontWeight.bold))),
                 ],
                 rows: filtrados.map((residente) {
+                  final catIdx =
+                      catIndexMap[residente.categoriaResidente] ?? -1;
+                  final catColor = catIdx >= 0
+                      ? _colorParaIndice(catIdx)
+                      : Colors.grey;
+
                   return DataRow(
                     cells: [
                       DataCell(Text('${residente.id ?? '-'}')),
@@ -622,8 +750,7 @@ class _ListadoResidentesPageState extends ConsumerState<ListadoResidentesPage> {
                           residente.categoriaResidente ?? '-',
                           style: TextStyle(
                             fontWeight: FontWeight.bold,
-                            color: _colorCategoria(
-                                residente.categoriaResidente),
+                            color: catColor,
                           ),
                         ),
                       ),
@@ -645,17 +772,17 @@ class _ListadoResidentesPageState extends ConsumerState<ListadoResidentesPage> {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           IconButton(
-                            icon: const Icon(Icons.visibility,
+                            icon: const Icon(Icons.edit,
                                 color: Colors.blue),
                             onPressed: () =>
-                                context.go('/socios/${residente.id}'),
-                            tooltip: 'Ver ficha',
+                                context.go('/socios/${residente.id}?returnTo=/listado-residentes'),
+                            tooltip: 'Editar socio',
                           ),
                           IconButton(
                             icon: const Icon(Icons.account_balance_wallet,
                                 color: Colors.green),
                             onPressed: () => context.go(
-                                '/socios/${residente.id}/cuenta-corriente'),
+                                '/socios/${residente.id}/cuenta-corriente?returnTo=/listado-residentes'),
                             tooltip: 'Cuenta corriente',
                           ),
                         ],
@@ -669,18 +796,5 @@ class _ListadoResidentesPageState extends ConsumerState<ListadoResidentesPage> {
         ),
       ],
     );
-  }
-
-  Color _colorCategoria(String? categoria) {
-    switch (categoria) {
-      case 'R1':
-        return Colors.blue;
-      case 'R2':
-        return Colors.orange;
-      case 'R3':
-        return Colors.green;
-      default:
-        return Colors.grey;
-    }
   }
 }

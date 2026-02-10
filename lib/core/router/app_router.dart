@@ -145,7 +145,8 @@ final routerProvider = Provider<GoRouter>((ref) {
         name: 'socios-edit',
         builder: (context, state) {
           final id = int.parse(state.pathParameters['id']!);
-          return SocioFormPage(socioId: id);
+          final returnTo = state.uri.queryParameters['returnTo'];
+          return SocioFormPage(socioId: id, returnTo: returnTo);
         },
       ),
       // Cuentas Corrientes

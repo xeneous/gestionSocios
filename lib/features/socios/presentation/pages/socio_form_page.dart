@@ -12,6 +12,7 @@ import '../../providers/provincias_provider.dart';
 import '../../providers/paises_provider.dart';
 import '../../providers/sexos_provider.dart';
 import '../../providers/categorias_residente_provider.dart';
+import '../../models/categoria_residente_model.dart';
 import '../widgets/concepto_search_dialog.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../../auth/presentation/providers/user_role_provider.dart';
@@ -25,8 +26,9 @@ import '../../../cuota_social/presentation/dialogs/cargar_cuotas_dialog.dart';
 
 class SocioFormPage extends ConsumerStatefulWidget {
   final int? socioId;
+  final String? returnTo;
 
-  const SocioFormPage({super.key, this.socioId});
+  const SocioFormPage({super.key, this.socioId, this.returnTo});
 
   @override
   ConsumerState<SocioFormPage> createState() => _SocioFormPageState();
@@ -175,6 +177,28 @@ class _SocioFormPageState extends ConsumerState<SocioFormPage>
     super.dispose();
   }
 
+  /// Sugiere la categoría de residente según los años transcurridos
+  /// desde la fecha de inicio de residencia.
+  /// Año 0 (< 1 año) → 1ra categoría, Año 1 → 2da, 2+ → última.
+  void _sugerirCategoria(DateTime fechaInicio) {
+    final categorias = ref.read(categoriasResidenteProvider).when(
+      data: (data) => data,
+      loading: () => <CategoriaResidente>[],
+      error: (_, __) => <CategoriaResidente>[],
+    );
+    if (categorias.isEmpty) return;
+
+    final hoy = DateTime.now();
+    final anios = hoy.year - fechaInicio.year -
+        ((hoy.month > fechaInicio.month ||
+                (hoy.month == fechaInicio.month && hoy.day >= fechaInicio.day))
+            ? 0
+            : 1);
+
+    final index = anios.clamp(0, categorias.length - 1);
+    _categoriaResidente = categorias[index].codigo;
+  }
+
   Future<void> _saveSocio({bool closeAfterSave = false}) async {
     if (!_formKey.currentState!.validate()) {
       return;
@@ -310,7 +334,7 @@ class _SocioFormPageState extends ConsumerState<SocioFormPage>
         }
 
         if (closeAfterSave) {
-          context.go('/socios');
+          context.go(widget.returnTo ?? '/socios');
         }
       }
     } catch (e) {
@@ -934,6 +958,7 @@ class _SocioFormPageState extends ConsumerState<SocioFormPage>
               if (date != null) {
                 setState(() {
                   _fechaInicioResidencia = date;
+                  _sugerirCategoria(date);
                 });
               }
             },
@@ -1976,7 +2001,7 @@ class _SocioFormPageState extends ConsumerState<SocioFormPage>
         mainAxisAlignment: MainAxisAlignment.end,
         children: [
           TextButton(
-            onPressed: () => context.go('/socios'),
+            onPressed: () => context.go(widget.returnTo ?? '/socios'),
             child: const Text('Cancelar'),
           ),
           const SizedBox(width: 16),
