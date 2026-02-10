@@ -17,6 +17,7 @@ class Socio {
   final DateTime? fechaInicioResidencia;
   final DateTime? fechaFinResidencia;
   final String? categoriaResidente;
+  final String? lugarResidencia;
   final String? matriculaNacional;
   final String? matriculaProvincial;
   final DateTime? fechaIngreso;
@@ -62,6 +63,7 @@ class Socio {
     this.fechaInicioResidencia,
     this.fechaFinResidencia,
     this.categoriaResidente,
+    this.lugarResidencia,
     this.matriculaNacional,
     this.matriculaProvincial,
     this.fechaIngreso,
@@ -113,6 +115,7 @@ class Socio {
           ? DateTime.parse(json['fecha_fin_residencia'])
           : null,
       categoriaResidente: json['categoria_residente'] as String?,
+      lugarResidencia: json['lugar_residencia'] as String?,
       matriculaNacional: json['matricula_nacional'] as String?,
       matriculaProvincial: json['matricula_provincial'] as String?,
       fechaIngreso: json['fecha_ingreso'] != null
@@ -165,6 +168,7 @@ class Socio {
       'fecha_inicio_residencia': fechaInicioResidencia?.toIso8601String().split('T')[0],
       'fecha_fin_residencia': fechaFinResidencia?.toIso8601String().split('T')[0],
       'categoria_residente': categoriaResidente,
+      'lugar_residencia': lugarResidencia,
       'matricula_nacional': matriculaNacional,
       'matricula_provincial': matriculaProvincial,
       'fecha_ingreso': fechaIngreso?.toIso8601String().split('T')[0],
@@ -202,6 +206,7 @@ class Socio {
     DateTime? fechaInicioResidencia,
     DateTime? fechaFinResidencia,
     String? categoriaResidente,
+    String? lugarResidencia,
     String? matriculaNacional,
     String? matriculaProvincial,
     DateTime? fechaIngreso,
@@ -237,6 +242,7 @@ class Socio {
       fechaInicioResidencia: fechaInicioResidencia ?? this.fechaInicioResidencia,
       fechaFinResidencia: fechaFinResidencia ?? this.fechaFinResidencia,
       categoriaResidente: categoriaResidente ?? this.categoriaResidente,
+      lugarResidencia: lugarResidencia ?? this.lugarResidencia,
       matriculaNacional: matriculaNacional ?? this.matriculaNacional,
       matriculaProvincial: matriculaProvincial ?? this.matriculaProvincial,
       fechaIngreso: fechaIngreso ?? this.fechaIngreso,

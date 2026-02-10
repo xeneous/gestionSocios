@@ -55,6 +55,7 @@ class _SocioFormPageState extends ConsumerState<SocioFormPage>
   DateTime? _fechaInicioResidencia;
   DateTime? _fechaFinResidencia;
   String? _categoriaResidente;
+  final _lugarResidenciaController = TextEditingController();
   DateTime? _fechaIngreso = DateTime.now(); // Fecha actual por defecto
 
   // Domicilio y Contacto
@@ -119,6 +120,7 @@ class _SocioFormPageState extends ConsumerState<SocioFormPage>
           _fechaInicioResidencia = socio.fechaInicioResidencia;
           _fechaFinResidencia = socio.fechaFinResidencia;
           _categoriaResidente = socio.categoriaResidente;
+          _lugarResidenciaController.text = socio.lugarResidencia ?? '';
           _fechaIngreso = socio.fechaIngreso;
 
           // Domicilio y Contacto
@@ -168,6 +170,7 @@ class _SocioFormPageState extends ConsumerState<SocioFormPage>
     _celularController.dispose();
     _emailController.dispose();
     _emailAlternativoController.dispose();
+    _lugarResidenciaController.dispose();
     _numeroTarjetaController.dispose();
     super.dispose();
   }
@@ -197,6 +200,9 @@ class _SocioFormPageState extends ConsumerState<SocioFormPage>
         fechaInicioResidencia: _fechaInicioResidencia,
         fechaFinResidencia: _fechaFinResidencia,
         categoriaResidente: _categoriaResidente,
+        lugarResidencia: _lugarResidenciaController.text.isEmpty
+            ? null
+            : _lugarResidenciaController.text,
         matriculaNacional: _matriculaNacionalController.text.isEmpty
             ? null
             : _matriculaNacionalController.text,
@@ -984,6 +990,18 @@ class _SocioFormPageState extends ConsumerState<SocioFormPage>
                 border: OutlineInputBorder(),
               ),
             ),
+          ),
+          const SizedBox(height: 16),
+          // Lugar de residencia
+          TextFormField(
+            controller: _lugarResidenciaController,
+            decoration: const InputDecoration(
+              labelText: 'Lugar de Residencia',
+              border: OutlineInputBorder(),
+              prefixIcon: Icon(Icons.location_on),
+              hintText: 'Ej: Hospital Central, Clínica San Martín',
+            ),
+            textCapitalization: TextCapitalization.words,
           ),
           const SizedBox(height: 16),
           // Fecha fin residencia
