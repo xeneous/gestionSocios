@@ -493,7 +493,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/listado-residentes',
         name: 'listado-residentes',
-        builder: (context, state) => const ListadoResidentesPage(),
+        builder: (context, state) {
+          final vista = state.uri.queryParameters['vista'];
+          return ListadoResidentesPage(vistaInicial: vista);
+        },
       ),
     ],
   );

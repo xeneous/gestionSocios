@@ -74,7 +74,9 @@ final residentesProvider =
 enum _VistaResidentes { resumen, detalle }
 
 class ListadoResidentesPage extends ConsumerStatefulWidget {
-  const ListadoResidentesPage({super.key});
+  final String? vistaInicial;
+
+  const ListadoResidentesPage({super.key, this.vistaInicial});
 
   @override
   ConsumerState<ListadoResidentesPage> createState() =>
@@ -85,7 +87,7 @@ class _ListadoResidentesPageState extends ConsumerState<ListadoResidentesPage> {
   final _dateFormat = DateFormat('dd/MM/yyyy');
   String _searchTerm = '';
   bool _soloActivos = true;
-  _VistaResidentes _vista = _VistaResidentes.resumen;
+  late _VistaResidentes _vista;
   String? _filtroCategoria; // null = todas
 
   ResidentesParams get _params => ResidentesParams(soloActivos: _soloActivos);
@@ -93,6 +95,9 @@ class _ListadoResidentesPageState extends ConsumerState<ListadoResidentesPage> {
   @override
   void initState() {
     super.initState();
+    _vista = widget.vistaInicial == 'detalle'
+        ? _VistaResidentes.detalle
+        : _VistaResidentes.resumen;
     // Refrescar datos al entrar/volver a la página
     Future.microtask(() {
       ref.invalidate(residentesProvider);
@@ -775,14 +780,14 @@ class _ListadoResidentesPageState extends ConsumerState<ListadoResidentesPage> {
                             icon: const Icon(Icons.edit,
                                 color: Colors.blue),
                             onPressed: () =>
-                                context.go('/socios/${residente.id}?returnTo=/listado-residentes'),
+                                context.go('/socios/${residente.id}?returnTo=/listado-residentes%3Fvista=detalle'),
                             tooltip: 'Editar socio',
                           ),
                           IconButton(
                             icon: const Icon(Icons.account_balance_wallet,
                                 color: Colors.green),
                             onPressed: () => context.go(
-                                '/socios/${residente.id}/cuenta-corriente?returnTo=/listado-residentes'),
+                                '/socios/${residente.id}/cuenta-corriente?returnTo=/listado-residentes%3Fvista=detalle'),
                             tooltip: 'Cuenta corriente',
                           ),
                         ],

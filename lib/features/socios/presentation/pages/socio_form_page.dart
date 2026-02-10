@@ -177,26 +177,39 @@ class _SocioFormPageState extends ConsumerState<SocioFormPage>
     super.dispose();
   }
 
-  /// Sugiere la categoría de residente según los años transcurridos
-  /// desde la fecha de inicio de residencia.
-  /// Año 0 (< 1 año) → 1ra categoría, Año 1 → 2da, 2+ → última.
-  void _sugerirCategoria(DateTime fechaInicio) {
+  /// Calcula la categoría de residente que corresponde según los años
+  /// completos transcurridos desde [fechaInicio] hasta el último día
+  /// del mes en curso. Retorna el código o null si no hay categorías.
+  String? _calcularCategoriaSugerida(DateTime fechaInicio) {
     final categorias = ref.read(categoriasResidenteProvider).when(
       data: (data) => data,
       loading: () => <CategoriaResidente>[],
       error: (_, __) => <CategoriaResidente>[],
     );
-    if (categorias.isEmpty) return;
+    if (categorias.isEmpty) return null;
 
-    final hoy = DateTime.now();
-    final anios = hoy.year - fechaInicio.year -
-        ((hoy.month > fechaInicio.month ||
-                (hoy.month == fechaInicio.month && hoy.day >= fechaInicio.day))
-            ? 0
-            : 1);
+    // Último día del mes en curso
+    final ahora = DateTime.now();
+    final ultimoDiaMes = DateTime(ahora.year, ahora.month + 1, 0);
+
+    // Años completos por meses
+    int anios = ultimoDiaMes.year - fechaInicio.year;
+    if (ultimoDiaMes.month < fechaInicio.month ||
+        (ultimoDiaMes.month == fechaInicio.month &&
+            ultimoDiaMes.day < fechaInicio.day)) {
+      anios--;
+    }
 
     final index = anios.clamp(0, categorias.length - 1);
-    _categoriaResidente = categorias[index].codigo;
+    return categorias[index].codigo;
+  }
+
+  /// Sugiere la categoría y la setea en el dropdown.
+  void _sugerirCategoria(DateTime fechaInicio) {
+    final sugerida = _calcularCategoriaSugerida(fechaInicio);
+    if (sugerida != null) {
+      _categoriaResidente = sugerida;
+    }
   }
 
   Future<void> _saveSocio({bool closeAfterSave = false}) async {
@@ -976,31 +989,75 @@ class _SocioFormPageState extends ConsumerState<SocioFormPage>
             ),
           ),
           const SizedBox(height: 16),
-          // Dropdown de categoría de residente
+          // Dropdown de categoría de residente + sugerencia
           ref.watch(categoriasResidenteProvider).when(
-            data: (categorias) => DropdownButtonFormField<String?>(
-              value: _categoriaResidente,
-              decoration: const InputDecoration(
-                labelText: 'Categoría Residente *',
-                border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.school),
-              ),
-              items: categorias
-                  .map((cat) => DropdownMenuItem<String?>(
-                        value: cat.codigo,
-                        child: Text('${cat.codigo} - ${cat.descripcion}'),
-                      ))
-                  .toList(),
-              onChanged: (value) {
-                setState(() => _categoriaResidente = value);
-              },
-              validator: (value) {
-                if (_residente && (value == null || value.isEmpty)) {
-                  return 'Seleccione categoría';
-                }
-                return null;
-              },
-            ),
+            data: (categorias) {
+              final sugerida = _fechaInicioResidencia != null
+                  ? _calcularCategoriaSugerida(_fechaInicioResidencia!)
+                  : null;
+              final coincide = sugerida == null || sugerida == _categoriaResidente;
+              return Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: DropdownButtonFormField<String?>(
+                      initialValue: _categoriaResidente,
+                      decoration: const InputDecoration(
+                        labelText: 'Categoría Residente *',
+                        border: OutlineInputBorder(),
+                        prefixIcon: Icon(Icons.school),
+                      ),
+                      items: categorias
+                          .map((cat) => DropdownMenuItem<String?>(
+                                value: cat.codigo,
+                                child: Text('${cat.codigo} - ${cat.descripcion}'),
+                              ))
+                          .toList(),
+                      onChanged: (value) {
+                        setState(() => _categoriaResidente = value);
+                      },
+                      validator: (value) {
+                        if (_residente && (value == null || value.isEmpty)) {
+                          return 'Seleccione categoría';
+                        }
+                        return null;
+                      },
+                    ),
+                  ),
+                  if (sugerida != null) ...[
+                    const SizedBox(width: 12),
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8),
+                      child: Tooltip(
+                        message: coincide
+                            ? 'Categoría correcta según fecha de inicio'
+                            : 'Según la fecha de inicio debería ser $sugerida',
+                        child: Chip(
+                          avatar: Icon(
+                            coincide ? Icons.check_circle : Icons.warning,
+                            size: 18,
+                            color: coincide ? Colors.green : Colors.orange,
+                          ),
+                          label: Text(
+                            coincide ? sugerida : 'Sug: $sugerida',
+                            style: TextStyle(
+                              color: coincide ? Colors.green.shade700 : Colors.orange.shade800,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          backgroundColor: coincide
+                              ? Colors.green.shade50
+                              : Colors.orange.shade50,
+                          side: BorderSide(
+                            color: coincide ? Colors.green.shade200 : Colors.orange.shade300,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
+              );
+            },
             loading: () => const TextField(
               enabled: false,
               decoration: InputDecoration(
