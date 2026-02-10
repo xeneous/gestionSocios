@@ -53,6 +53,7 @@ dependencies:
 
   # Utils
   intl: ^0.20.2
+  shared_preferences: ^2.3.0
 
   # PDF Generation & Printing
   pdf: ^3.11.1

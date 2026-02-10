@@ -133,7 +133,8 @@ class _ComprobantesCliListPageState
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () {
           if (widget.clienteId != null) {
-            context.go('/comprobantes-clientes/nuevo?cliente=${widget.clienteId}');
+            context
+                .go('/comprobantes-clientes/nuevo?cliente=${widget.clienteId}');
           } else {
             context.go('/comprobantes-clientes/nuevo');
           }
@@ -192,7 +193,7 @@ class _ComprobantesCliListPageState
                           flex: 2,
                           child: tiposAsync.when(
                             data: (tipos) => DropdownButtonFormField<int?>(
-                              value: searchState.tipoComprobante,
+                              initialValue: searchState.tipoComprobante,
                               decoration: const InputDecoration(
                                 labelText: 'Tipo Comprobante',
                                 border: OutlineInputBorder(),
@@ -257,7 +258,8 @@ class _ComprobantesCliListPageState
                               ),
                               child: Text(
                                 searchState.fechaDesde != null
-                                    ? _dateFormat.format(searchState.fechaDesde!)
+                                    ? _dateFormat
+                                        .format(searchState.fechaDesde!)
                                     : '',
                               ),
                             ),
@@ -286,7 +288,8 @@ class _ComprobantesCliListPageState
                               ),
                               child: Text(
                                 searchState.fechaHasta != null
-                                    ? _dateFormat.format(searchState.fechaHasta!)
+                                    ? _dateFormat
+                                        .format(searchState.fechaHasta!)
                                     : '',
                               ),
                             ),
@@ -424,9 +427,7 @@ class _ComprobantesCliListPageState
                     backgroundColor:
                         comp.estaCancelado ? Colors.green : Colors.blue,
                     child: Icon(
-                      comp.estaCancelado
-                          ? Icons.check
-                          : Icons.pending_actions,
+                      comp.estaCancelado ? Icons.check : Icons.pending_actions,
                       color: Colors.white,
                     ),
                   ),
@@ -458,12 +459,12 @@ class _ComprobantesCliListPageState
                   subtitle: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      if (comp.clienteNombre != null)
-                        Text(comp.clienteNombre!),
+                      if (comp.clienteNombre != null) Text(comp.clienteNombre!),
                       Text('Fecha: ${_dateFormat.format(comp.fecha)}'),
                       Row(
                         children: [
-                          Text('Total: ${_currencyFormat.format(comp.totalImporte)}'),
+                          Text(
+                              'Total: ${_currencyFormat.format(comp.totalImporte)}'),
                           const SizedBox(width: 16),
                           if (!comp.estaCancelado)
                             Text(

@@ -293,8 +293,10 @@ class _NuevaFacturaPageState extends ConsumerState<NuevaFacturaPage> {
 
                   // Sección: Agregar conceptos
                   conceptosAsync.when(
-                    data: (conceptos) => _buildAgregarConceptoSection(conceptos),
-                    loading: () => const Center(child: CircularProgressIndicator()),
+                    data: (conceptos) =>
+                        _buildAgregarConceptoSection(conceptos),
+                    loading: () =>
+                        const Center(child: CircularProgressIndicator()),
                     error: (e, _) => Text('Error cargando conceptos: $e'),
                   ),
                 ],
@@ -347,7 +349,8 @@ class _NuevaFacturaPageState extends ConsumerState<NuevaFacturaPage> {
                                 child: ListTile(
                                   title: Text(
                                     item.descripcion ?? item.concepto,
-                                    style: const TextStyle(fontWeight: FontWeight.bold),
+                                    style: const TextStyle(
+                                        fontWeight: FontWeight.bold),
                                   ),
                                   subtitle: Text(
                                     '${item.cantidad} x \$${item.precioUnitario.toStringAsFixed(2)}',
@@ -363,7 +366,8 @@ class _NuevaFacturaPageState extends ConsumerState<NuevaFacturaPage> {
                                         ),
                                       ),
                                       IconButton(
-                                        icon: const Icon(Icons.delete, color: Colors.red),
+                                        icon: const Icon(Icons.delete,
+                                            color: Colors.red),
                                         onPressed: () => _eliminarItem(index),
                                       ),
                                     ],
@@ -413,7 +417,9 @@ class _NuevaFacturaPageState extends ConsumerState<NuevaFacturaPage> {
                         SizedBox(
                           width: double.infinity,
                           child: FilledButton.icon(
-                            onPressed: _guardando || _items.isEmpty || _socioSeleccionado == null
+                            onPressed: _guardando ||
+                                    _items.isEmpty ||
+                                    _socioSeleccionado == null
                                 ? null
                                 : _guardarFactura,
                             icon: _guardando
@@ -426,7 +432,8 @@ class _NuevaFacturaPageState extends ConsumerState<NuevaFacturaPage> {
                                     ),
                                   )
                                 : const Icon(Icons.save),
-                            label: Text(_guardando ? 'Guardando...' : 'Crear Factura'),
+                            label: Text(
+                                _guardando ? 'Guardando...' : 'Crear Factura'),
                           ),
                         ),
                       ],
@@ -459,7 +466,6 @@ class _NuevaFacturaPageState extends ConsumerState<NuevaFacturaPage> {
               ],
             ),
             const SizedBox(height: 16),
-
             if (_socioSeleccionado != null) ...[
               // Mostrar socio seleccionado
               Container(
@@ -573,7 +579,8 @@ class _NuevaFacturaPageState extends ConsumerState<NuevaFacturaPage> {
                           child: Text(socio.apellido[0].toUpperCase()),
                         ),
                         title: Text(socio.nombreCompleto),
-                        subtitle: Text('ID: ${socio.id} | Grupo: ${socio.grupo ?? "N/A"}'),
+                        subtitle: Text(
+                            'ID: ${socio.id} | Grupo: ${socio.grupo ?? "N/A"}'),
                         onTap: () => _seleccionarSocio(socio),
                       );
                     },
@@ -636,7 +643,8 @@ class _NuevaFacturaPageState extends ConsumerState<NuevaFacturaPage> {
                     onTap: () async {
                       final date = await showDatePicker(
                         context: context,
-                        initialDate: _vencimiento ?? _fecha.add(const Duration(days: 30)),
+                        initialDate: _vencimiento ??
+                            _fecha.add(const Duration(days: 30)),
                         firstDate: _fecha,
                         lastDate: DateTime(2030),
                       );
@@ -690,7 +698,7 @@ class _NuevaFacturaPageState extends ConsumerState<NuevaFacturaPage> {
                 Expanded(
                   flex: 3,
                   child: DropdownButtonFormField<Concepto>(
-                    value: _conceptoSeleccionado,
+                    initialValue: _conceptoSeleccionado,
                     decoration: const InputDecoration(
                       labelText: 'Concepto',
                       border: OutlineInputBorder(),
@@ -698,7 +706,8 @@ class _NuevaFacturaPageState extends ConsumerState<NuevaFacturaPage> {
                     items: conceptos
                         .map((c) => DropdownMenuItem(
                               value: c,
-                              child: Text('${c.concepto} - ${c.descripcion ?? ""}'),
+                              child: Text(
+                                  '${c.concepto} - ${c.descripcion ?? ""}'),
                             ))
                         .toList(),
                     onChanged: (value) {
@@ -706,7 +715,8 @@ class _NuevaFacturaPageState extends ConsumerState<NuevaFacturaPage> {
                         _conceptoSeleccionado = value;
                         // Autocompletar precio si el concepto tiene uno configurado
                         if (value?.importe != null && value!.importe! > 0) {
-                          _precioController.text = value.importe!.toStringAsFixed(2);
+                          _precioController.text =
+                              value.importe!.toStringAsFixed(2);
                         }
                       });
                     },
@@ -736,9 +746,11 @@ class _NuevaFacturaPageState extends ConsumerState<NuevaFacturaPage> {
                       border: OutlineInputBorder(),
                       prefixText: '\$ ',
                     ),
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    keyboardType:
+                        const TextInputType.numberWithOptions(decimal: true),
                     inputFormatters: [
-                      FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,2}')),
+                      FilteringTextInputFormatter.allow(
+                          RegExp(r'^\d+\.?\d{0,2}')),
                     ],
                   ),
                 ),

@@ -149,14 +149,17 @@ class _ComprobanteProvFormPageState
     if (_pagarAlGuardar) {
       if (_formasPago.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Seleccione al menos una forma de pago')),
+          const SnackBar(
+              content: Text('Seleccione al menos una forma de pago')),
         );
         return;
       }
       final diferencia = (_calcularTotal() - _getTotalFormasPago()).abs();
       if (diferencia >= 0.01) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('El total de formas de pago debe coincidir con el importe')),
+          const SnackBar(
+              content: Text(
+                  'El total de formas de pago debe coincidir con el importe')),
         );
         return;
       }
@@ -178,7 +181,7 @@ class _ComprobanteProvFormPageState
         cancelado: _comprobante?.cancelado ?? 0,
         fecha1Venc: _fecha1Venc,
         fecha2Venc: _fecha2Venc,
-        estado: 'P',  // Estado siempre es P (Pendiente)
+        estado: 'P', // Estado siempre es P (Pendiente)
         fechaReal: _fechaReal,
         descripcionImporte: _descripcionController.text.trim().isEmpty
             ? null
@@ -194,13 +197,15 @@ class _ComprobanteProvFormPageState
         await notifier.actualizarComprobante(header, _items);
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Comprobante actualizado correctamente')),
+            const SnackBar(
+                content: Text('Comprobante actualizado correctamente')),
           );
           context.go('/comprobantes-proveedores');
         }
       } else {
         // Crear comprobante
-        final comprobanteCreado = await notifier.crearComprobante(header, _items);
+        final comprobanteCreado =
+            await notifier.crearComprobante(header, _items);
 
         // Si tiene pago inmediato, generar la OP
         if (_pagarAlGuardar) {
@@ -251,7 +256,8 @@ class _ComprobanteProvFormPageState
                         ),
                       ),
                       const SizedBox(height: 16),
-                      Text('Total: ${_currencyFormat.format(comprobanteCreado.totalImporte)}'),
+                      Text(
+                          'Total: ${_currencyFormat.format(comprobanteCreado.totalImporte)}'),
                       const SizedBox(height: 8),
                       const Text('La factura ha sido registrada y pagada.'),
                     ],
@@ -433,7 +439,8 @@ class _ComprobanteProvFormPageState
     try {
       final supabase = ref.read(supabaseProvider);
       final pdfService = OrdenPagoPdfService(supabase);
-      final pdf = await pdfService.generarOrdenPagoPdf(idTransaccion: idTransaccion);
+      final pdf =
+          await pdfService.generarOrdenPagoPdf(idTransaccion: idTransaccion);
 
       if (mounted) Navigator.pop(context);
 
@@ -541,7 +548,8 @@ class _ComprobanteProvFormPageState
                         spacing: 8,
                         runSpacing: 8,
                         children: conceptos.map((concepto) {
-                          final isSelected = _formasPago.containsKey(concepto.id);
+                          final isSelected =
+                              _formasPago.containsKey(concepto.id);
                           return FilterChip(
                             label: Text(concepto.descripcion ?? ''),
                             selected: isSelected,
@@ -551,7 +559,9 @@ class _ComprobanteProvFormPageState
                               } else {
                                 setState(() {
                                   _formasPago.remove(concepto.id);
-                                  _formasPagoControllers.remove(concepto.id)?.dispose();
+                                  _formasPagoControllers
+                                      .remove(concepto.id)
+                                      ?.dispose();
                                 });
                               }
                             },
@@ -564,9 +574,12 @@ class _ComprobanteProvFormPageState
                         ...conceptos
                             .where((c) => _formasPago.containsKey(c.id))
                             .map((concepto) {
-                          if (!_formasPagoControllers.containsKey(concepto.id)) {
-                            _formasPagoControllers[concepto.id] = TextEditingController(
-                              text: _formasPago[concepto.id]?.toStringAsFixed(2),
+                          if (!_formasPagoControllers
+                              .containsKey(concepto.id)) {
+                            _formasPagoControllers[concepto.id] =
+                                TextEditingController(
+                              text:
+                                  _formasPago[concepto.id]?.toStringAsFixed(2),
                             );
                           }
                           return Padding(
@@ -579,7 +592,8 @@ class _ComprobanteProvFormPageState
                                 ),
                                 Expanded(
                                   child: TextField(
-                                    controller: _formasPagoControllers[concepto.id],
+                                    controller:
+                                        _formasPagoControllers[concepto.id],
                                     decoration: const InputDecoration(
                                       prefixText: '\$ ',
                                       isDense: true,
@@ -597,11 +611,14 @@ class _ComprobanteProvFormPageState
                                   ),
                                 ),
                                 IconButton(
-                                  icon: const Icon(Icons.close, color: Colors.red),
+                                  icon: const Icon(Icons.close,
+                                      color: Colors.red),
                                   onPressed: () {
                                     setState(() {
                                       _formasPago.remove(concepto.id);
-                                      _formasPagoControllers.remove(concepto.id)?.dispose();
+                                      _formasPagoControllers
+                                          .remove(concepto.id)
+                                          ?.dispose();
                                     });
                                   },
                                 ),
@@ -708,17 +725,22 @@ class _ComprobanteProvFormPageState
                                   child: tiposAsync.when(
                                     data: (tipos) {
                                       // Verificar si el valor actual está en la lista
-                                      final valorValido = _tipoComprobante != null &&
-                                          tipos.any((t) => t.codigo == _tipoComprobante);
+                                      final valorValido =
+                                          _tipoComprobante != null &&
+                                              tipos.any((t) =>
+                                                  t.codigo == _tipoComprobante);
                                       return DropdownButtonFormField<int?>(
-                                        value: valorValido ? _tipoComprobante : null,
+                                        initialValue: valorValido
+                                            ? _tipoComprobante
+                                            : null,
                                         decoration: const InputDecoration(
                                           labelText: 'Tipo Comprobante *',
                                           border: OutlineInputBorder(),
                                           prefixIcon: Icon(Icons.category),
                                         ),
                                         items: tipos
-                                            .map((tipo) => DropdownMenuItem<int?>(
+                                            .map((tipo) =>
+                                                DropdownMenuItem<int?>(
                                                   value: tipo.codigo,
                                                   child: Text(tipo.descripcion),
                                                 ))
@@ -1310,7 +1332,8 @@ class _ProveedorSearchDialog extends ConsumerStatefulWidget {
       _ProveedorSearchDialogState();
 }
 
-class _ProveedorSearchDialogState extends ConsumerState<_ProveedorSearchDialog> {
+class _ProveedorSearchDialogState
+    extends ConsumerState<_ProveedorSearchDialog> {
   final _searchController = TextEditingController();
   List<Proveedor> _resultados = [];
   bool _isLoading = false;
@@ -1336,7 +1359,8 @@ class _ProveedorSearchDialogState extends ConsumerState<_ProveedorSearchDialog> 
         razonSocial: query,
         soloActivos: true,
       );
-      final proveedores = await ref.read(proveedoresSearchProvider(params).future);
+      final proveedores =
+          await ref.read(proveedoresSearchProvider(params).future);
 
       if (mounted) {
         setState(() {
@@ -1417,7 +1441,8 @@ class _ProveedorSearchDialogState extends ConsumerState<_ProveedorSearchDialog> 
                                   subtitle: proveedor.cuit?.isNotEmpty == true
                                       ? Text('CUIT: ${proveedor.cuit}')
                                       : null,
-                                  onTap: () => Navigator.pop(context, proveedor),
+                                  onTap: () =>
+                                      Navigator.pop(context, proveedor),
                                 );
                               },
                             ),

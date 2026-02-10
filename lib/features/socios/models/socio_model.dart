@@ -15,8 +15,8 @@ class Socio {
   final DateTime? grupoDesde;
   final bool residente;
   final DateTime? fechaInicioResidencia;
-  final bool descuentoPrimerAnio;
-  final DateTime? fechaFinDescuento;
+  final DateTime? fechaFinResidencia;
+  final String? categoriaResidente;
   final String? matriculaNacional;
   final String? matriculaProvincial;
   final DateTime? fechaIngreso;
@@ -60,8 +60,8 @@ class Socio {
     this.grupoDesde,
     this.residente = false,
     this.fechaInicioResidencia,
-    this.descuentoPrimerAnio = false,
-    this.fechaFinDescuento,
+    this.fechaFinResidencia,
+    this.categoriaResidente,
     this.matriculaNacional,
     this.matriculaProvincial,
     this.fechaIngreso,
@@ -109,10 +109,10 @@ class Socio {
       fechaInicioResidencia: json['fecha_inicio_residencia'] != null
           ? DateTime.parse(json['fecha_inicio_residencia'])
           : null,
-      descuentoPrimerAnio: json['descuento_primer_anio'] as bool? ?? false,
-      fechaFinDescuento: json['fecha_fin_descuento'] != null
-          ? DateTime.parse(json['fecha_fin_descuento'])
+      fechaFinResidencia: json['fecha_fin_residencia'] != null
+          ? DateTime.parse(json['fecha_fin_residencia'])
           : null,
+      categoriaResidente: json['categoria_residente'] as String?,
       matriculaNacional: json['matricula_nacional'] as String?,
       matriculaProvincial: json['matricula_provincial'] as String?,
       fechaIngreso: json['fecha_ingreso'] != null
@@ -163,8 +163,8 @@ class Socio {
       'grupo_desde': grupoDesde?.toIso8601String().split('T')[0],
       'residente': residente,
       'fecha_inicio_residencia': fechaInicioResidencia?.toIso8601String().split('T')[0],
-      'descuento_primer_anio': descuentoPrimerAnio,
-      'fecha_fin_descuento': fechaFinDescuento?.toIso8601String().split('T')[0],
+      'fecha_fin_residencia': fechaFinResidencia?.toIso8601String().split('T')[0],
+      'categoria_residente': categoriaResidente,
       'matricula_nacional': matriculaNacional,
       'matricula_provincial': matriculaProvincial,
       'fecha_ingreso': fechaIngreso?.toIso8601String().split('T')[0],
@@ -200,8 +200,8 @@ class Socio {
     DateTime? grupoDesde,
     bool? residente,
     DateTime? fechaInicioResidencia,
-    bool? descuentoPrimerAnio,
-    DateTime? fechaFinDescuento,
+    DateTime? fechaFinResidencia,
+    String? categoriaResidente,
     String? matriculaNacional,
     String? matriculaProvincial,
     DateTime? fechaIngreso,
@@ -235,8 +235,8 @@ class Socio {
       grupoDesde: grupoDesde ?? this.grupoDesde,
       residente: residente ?? this.residente,
       fechaInicioResidencia: fechaInicioResidencia ?? this.fechaInicioResidencia,
-      descuentoPrimerAnio: descuentoPrimerAnio ?? this.descuentoPrimerAnio,
-      fechaFinDescuento: fechaFinDescuento ?? this.fechaFinDescuento,
+      fechaFinResidencia: fechaFinResidencia ?? this.fechaFinResidencia,
+      categoriaResidente: categoriaResidente ?? this.categoriaResidente,
       matriculaNacional: matriculaNacional ?? this.matriculaNacional,
       matriculaProvincial: matriculaProvincial ?? this.matriculaProvincial,
       fechaIngreso: fechaIngreso ?? this.fechaIngreso,

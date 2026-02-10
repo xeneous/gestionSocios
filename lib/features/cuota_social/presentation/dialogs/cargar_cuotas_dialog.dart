@@ -9,14 +9,14 @@ class CargarCuotasDialog extends ConsumerStatefulWidget {
   final int socioId;
   final bool esResidente;
   final String nombreSocio;
-  final DateTime? fechaFinDescuento;  // Para descuento 50% primer año
+  final String? categoriaResidente;  // R1, R2, R3 - determina descuento
 
   const CargarCuotasDialog({
     super.key,
     required this.socioId,
     required this.esResidente,
     required this.nombreSocio,
-    this.fechaFinDescuento,
+    this.categoriaResidente,
   });
 
   @override
@@ -50,7 +50,7 @@ class _CargarCuotasDialogState extends ConsumerState<CargarCuotasDialog> {
       final items = await service.generarItemsCuota(
         esResidente: widget.esResidente,
         cantidadMeses: 3,
-        fechaFinDescuento: widget.fechaFinDescuento,
+        categoriaResidente: widget.categoriaResidente,
       );
 
       setState(() {

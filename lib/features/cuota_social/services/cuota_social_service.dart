@@ -35,16 +35,37 @@ class CuotaSocialService {
         .toList();
   }
 
+  /// Obtiene el porcentaje de descuento para una categoría de residente
+  Future<double> getPorcentajeDescuento(String? categoriaResidente) async {
+    if (categoriaResidente == null || categoriaResidente.isEmpty) {
+      return 0;
+    }
+
+    final response = await _supabase
+        .from('categorias_residente')
+        .select('porcentaje_descuento')
+        .eq('codigo', categoriaResidente)
+        .maybeSingle();
+
+    if (response == null) return 0;
+    return (response['porcentaje_descuento'] as num).toDouble();
+  }
+
   /// Genera items de cuota social para los próximos N meses
-  /// Si es residente y tiene fechaFinDescuento, aplica 50% a los meses dentro del período
+  /// Si es residente, aplica el descuento según la categoría (R1, R2, R3)
   Future<List<CuotaSocialItem>> generarItemsCuota({
     required bool esResidente,
     int cantidadMeses = 3,
     DateTime? fechaInicio,
-    DateTime? fechaFinDescuento,
+    String? categoriaResidente,
   }) async {
     final inicio = fechaInicio ?? DateTime.now();
     final items = <CuotaSocialItem>[];
+
+    // Obtener porcentaje de descuento según categoría
+    final porcentajeDescuento = esResidente
+        ? await getPorcentajeDescuento(categoriaResidente)
+        : 0.0;
 
     for (int i = 0; i < cantidadMeses; i++) {
       final fecha = DateTime(inicio.year, inicio.month + i, 1);
@@ -56,13 +77,11 @@ class CuotaSocialService {
           esResidente: esResidente,
         );
 
-        // Aplicar descuento 50% si es residente y el período está dentro del rango
+        // Aplicar descuento según categoría de residente
         bool tieneDescuento = false;
-        if (esResidente && fechaFinDescuento != null) {
-          if (fecha.isBefore(fechaFinDescuento)) {
-            valor = valor / 2;
-            tieneDescuento = true;
-          }
+        if (esResidente && porcentajeDescuento > 0) {
+          valor = valor * (100 - porcentajeDescuento) / 100;
+          tieneDescuento = porcentajeDescuento > 0;
         }
 
         items.add(CuotaSocialItem(

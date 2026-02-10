@@ -11,6 +11,7 @@ import '../../providers/tarjetas_provider.dart';
 import '../../providers/provincias_provider.dart';
 import '../../providers/paises_provider.dart';
 import '../../providers/sexos_provider.dart';
+import '../../providers/categorias_residente_provider.dart';
 import '../widgets/concepto_search_dialog.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../../auth/presentation/providers/user_role_provider.dart';
@@ -52,8 +53,8 @@ class _SocioFormPageState extends ConsumerState<SocioFormPage>
   final _matriculaProvincialController = TextEditingController();
   bool _residente = false;
   DateTime? _fechaInicioResidencia;
-  bool _descuentoPrimerAnio = false;
-  DateTime? _fechaFinDescuento;
+  DateTime? _fechaFinResidencia;
+  String? _categoriaResidente;
   DateTime? _fechaIngreso = DateTime.now(); // Fecha actual por defecto
 
   // Domicilio y Contacto
@@ -116,8 +117,8 @@ class _SocioFormPageState extends ConsumerState<SocioFormPage>
           _matriculaProvincialController.text = socio.matriculaProvincial ?? '';
           _residente = socio.residente;
           _fechaInicioResidencia = socio.fechaInicioResidencia;
-          _descuentoPrimerAnio = socio.descuentoPrimerAnio;
-          _fechaFinDescuento = socio.fechaFinDescuento;
+          _fechaFinResidencia = socio.fechaFinResidencia;
+          _categoriaResidente = socio.categoriaResidente;
           _fechaIngreso = socio.fechaIngreso;
 
           // Domicilio y Contacto
@@ -194,8 +195,8 @@ class _SocioFormPageState extends ConsumerState<SocioFormPage>
         grupoDesde: _grupoDesde,
         residente: _residente,
         fechaInicioResidencia: _fechaInicioResidencia,
-        descuentoPrimerAnio: _descuentoPrimerAnio,
-        fechaFinDescuento: _fechaFinDescuento,
+        fechaFinResidencia: _fechaFinResidencia,
+        categoriaResidente: _categoriaResidente,
         matriculaNacional: _matriculaNacionalController.text.isEmpty
             ? null
             : _matriculaNacionalController.text,
@@ -263,7 +264,7 @@ class _SocioFormPageState extends ConsumerState<SocioFormPage>
               socioId: nuevoSocioId!,
               esResidente: _residente,
               nombreSocio: '${_apellidoController.text}, ${_nombreController.text}',
-              fechaFinDescuento: _descuentoPrimerAnio ? _fechaFinDescuento : null,
+              categoriaResidente: _categoriaResidente,
             ),
           );
 
@@ -927,10 +928,6 @@ class _SocioFormPageState extends ConsumerState<SocioFormPage>
               if (date != null) {
                 setState(() {
                   _fechaInicioResidencia = date;
-                  // Si tiene descuento activo, actualizar fecha fin a un año
-                  if (_descuentoPrimerAnio) {
-                    _fechaFinDescuento = DateTime(date.year + 1, date.month, date.day);
-                  }
                 });
               }
             },
@@ -948,60 +945,77 @@ class _SocioFormPageState extends ConsumerState<SocioFormPage>
             ),
           ),
           const SizedBox(height: 16),
-          CheckboxListTile(
-            title: const Text('Primer año al 50%'),
-            subtitle: const Text('Descuento del 50% en cuota social durante el primer año'),
-            value: _descuentoPrimerAnio,
-            onChanged: (value) {
-              setState(() {
-                _descuentoPrimerAnio = value ?? false;
-                if (_descuentoPrimerAnio && _fechaInicioResidencia != null) {
-                  // Sugerir fecha fin a un año desde inicio residencia
-                  _fechaFinDescuento = DateTime(
-                    _fechaInicioResidencia!.year + 1,
-                    _fechaInicioResidencia!.month,
-                    _fechaInicioResidencia!.day,
-                  );
-                } else if (!_descuentoPrimerAnio) {
-                  _fechaFinDescuento = null;
-                }
-              });
-            },
-            controlAffinity: ListTileControlAffinity.leading,
-            contentPadding: EdgeInsets.zero,
-          ),
-          if (_descuentoPrimerAnio) ...[
-            const SizedBox(height: 16),
-            InkWell(
-              onTap: () async {
-                final date = await showDatePicker(
-                  context: context,
-                  initialDate: _fechaFinDescuento ??
-                      (_fechaInicioResidencia != null
-                          ? DateTime(_fechaInicioResidencia!.year + 1, _fechaInicioResidencia!.month, _fechaInicioResidencia!.day)
-                          : DateTime.now().add(const Duration(days: 365))),
-                  firstDate: DateTime.now(),
-                  lastDate: DateTime.now().add(const Duration(days: 730)),
-                );
-                if (date != null) {
-                  setState(() => _fechaFinDescuento = date);
-                }
+          // Dropdown de categoría de residente
+          ref.watch(categoriasResidenteProvider).when(
+            data: (categorias) => DropdownButtonFormField<String?>(
+              value: _categoriaResidente,
+              decoration: const InputDecoration(
+                labelText: 'Categoría Residente *',
+                border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.school),
+              ),
+              items: categorias
+                  .map((cat) => DropdownMenuItem<String?>(
+                        value: cat.codigo,
+                        child: Text('${cat.codigo} - ${cat.descripcion}'),
+                      ))
+                  .toList(),
+              onChanged: (value) {
+                setState(() => _categoriaResidente = value);
               },
-              child: InputDecorator(
-                decoration: const InputDecoration(
-                  labelText: 'Fecha Fin Descuento',
-                  border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.event_busy),
-                  helperText: 'Fecha hasta la cual aplica el 50%',
-                ),
-                child: Text(
-                  _fechaFinDescuento != null
-                      ? DateFormat('dd/MM/yyyy').format(_fechaFinDescuento!)
-                      : 'Seleccionar fecha',
-                ),
+              validator: (value) {
+                if (_residente && (value == null || value.isEmpty)) {
+                  return 'Seleccione categoría';
+                }
+                return null;
+              },
+            ),
+            loading: () => const TextField(
+              enabled: false,
+              decoration: InputDecoration(
+                labelText: 'Cargando categorías...',
+                border: OutlineInputBorder(),
               ),
             ),
-          ],
+            error: (_, __) => const TextField(
+              enabled: false,
+              decoration: InputDecoration(
+                labelText: 'Error cargando categorías',
+                border: OutlineInputBorder(),
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          // Fecha fin residencia
+          InkWell(
+            onTap: () async {
+              final date = await showDatePicker(
+                context: context,
+                initialDate: _fechaFinResidencia ??
+                    (_fechaInicioResidencia != null
+                        ? DateTime(_fechaInicioResidencia!.year + 3, _fechaInicioResidencia!.month, _fechaInicioResidencia!.day)
+                        : DateTime.now().add(const Duration(days: 365 * 3))),
+                firstDate: _fechaInicioResidencia ?? DateTime(1900),
+                lastDate: DateTime.now().add(const Duration(days: 365 * 10)),
+              );
+              if (date != null) {
+                setState(() => _fechaFinResidencia = date);
+              }
+            },
+            child: InputDecorator(
+              decoration: const InputDecoration(
+                labelText: 'Fecha Fin Residencia',
+                border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.event_busy),
+                helperText: 'Fecha estimada de finalización',
+              ),
+              child: Text(
+                _fechaFinResidencia != null
+                    ? DateFormat('dd/MM/yyyy').format(_fechaFinResidencia!)
+                    : 'Seleccionar fecha (opcional)',
+              ),
+            ),
+          ),
         ],
         const SizedBox(height: 16),
         InkWell(
