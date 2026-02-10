@@ -177,9 +177,9 @@ class _SocioFormPageState extends ConsumerState<SocioFormPage>
     super.dispose();
   }
 
-  /// Calcula la categoría de residente que corresponde según los años
-  /// completos transcurridos desde [fechaInicio] hasta el último día
-  /// del mes en curso. Retorna el código o null si no hay categorías.
+  /// Calcula la categoría de residente que corresponde según los meses
+  /// transcurridos desde [fechaInicio] hasta el último día del mes en curso.
+  /// 0-12 meses → 1ra categoría, 13-24 → 2da, >24 → última.
   String? _calcularCategoriaSugerida(DateTime fechaInicio) {
     final categorias = ref.read(categoriasResidenteProvider).when(
       data: (data) => data,
@@ -192,16 +192,14 @@ class _SocioFormPageState extends ConsumerState<SocioFormPage>
     final ahora = DateTime.now();
     final ultimoDiaMes = DateTime(ahora.year, ahora.month + 1, 0);
 
-    // Años completos por meses
-    int anios = ultimoDiaMes.year - fechaInicio.year;
-    if (ultimoDiaMes.month < fechaInicio.month ||
-        (ultimoDiaMes.month == fechaInicio.month &&
-            ultimoDiaMes.day < fechaInicio.day)) {
-      anios--;
-    }
+    // Meses transcurridos
+    final meses = (ultimoDiaMes.year - fechaInicio.year) * 12 +
+        (ultimoDiaMes.month - fechaInicio.month);
 
-    final index = anios.clamp(0, categorias.length - 1);
-    return categorias[index].codigo;
+    // 0-12 → index 0, 13-24 → index 1, >24 → index 2, etc.
+    final index = (meses <= 0) ? 0 : ((meses - 1) ~/ 12);
+
+    return categorias[index.clamp(0, categorias.length - 1)].codigo;
   }
 
   /// Sugiere la categoría y la setea en el dropdown.

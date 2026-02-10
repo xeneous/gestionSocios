@@ -14,7 +14,7 @@ class CategoriasResidenteNotifier extends AsyncNotifier<List<CategoriaResidente>
           .from('categorias_residente')
           .select()
           .eq('activo', true)
-          .order('orden');
+          .order('orden', ascending: true);
 
       return (response as List)
           .map((json) => CategoriaResidente.fromJson(json))
