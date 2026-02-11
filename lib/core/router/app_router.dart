@@ -495,7 +495,13 @@ final routerProvider = Provider<GoRouter>((ref) {
         name: 'listado-residentes',
         builder: (context, state) {
           final vista = state.uri.queryParameters['vista'];
-          return ListadoResidentesPage(vistaInicial: vista);
+          final pagina = int.tryParse(state.uri.queryParameters['pagina'] ?? '');
+          final pageSize = int.tryParse(state.uri.queryParameters['pageSize'] ?? '');
+          return ListadoResidentesPage(
+            vistaInicial: vista,
+            paginaInicial: pagina,
+            pageSizeInicial: pageSize,
+          );
         },
       ),
     ],

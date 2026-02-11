@@ -80,12 +80,14 @@ class _SocioFormPageState extends ConsumerState<SocioFormPage>
   DateTime? _debitarDesde;
 
   bool _isLoading = false;
+  bool _isLoadingData = false;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 6, vsync: this); // 6 tabs
     if (widget.socioId != null) {
+      _isLoadingData = true;
       _loadSocioData();
     }
   }
@@ -151,6 +153,10 @@ class _SocioFormPageState extends ConsumerState<SocioFormPage>
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Error al cargar socio: $e')),
         );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoadingData = false);
       }
     }
   }
@@ -379,7 +385,7 @@ class _SocioFormPageState extends ConsumerState<SocioFormPage>
           ),
         ],
       ),
-      body: _isLoading
+      body: (_isLoading || _isLoadingData)
           ? const Center(child: CircularProgressIndicator())
           : Form(
               key: _formKey,
