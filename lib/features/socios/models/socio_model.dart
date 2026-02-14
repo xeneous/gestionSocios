@@ -21,6 +21,8 @@ class Socio {
   final String? matriculaNacional;
   final String? matriculaProvincial;
   final DateTime? fechaIngreso;
+  final bool pagaSeguroMp;
+  final String? ultimaCategoria;
   
   // Domicilio
   final String? domicilio;
@@ -67,6 +69,8 @@ class Socio {
     this.matriculaNacional,
     this.matriculaProvincial,
     this.fechaIngreso,
+    this.pagaSeguroMp = false,
+    this.ultimaCategoria,
     this.domicilio,
     this.localidad,
     this.provinciaId,
@@ -121,6 +125,8 @@ class Socio {
       fechaIngreso: json['fecha_ingreso'] != null
           ? DateTime.parse(json['fecha_ingreso'])
           : null,
+      pagaSeguroMp: json['paga_seguro_mp'] as bool? ?? false,
+      ultimaCategoria: json['ultima_categoria'] as String?,
       domicilio: json['domicilio'] as String?,
       localidad: json['localidad'] as String?,
       provinciaId: json['provincia_id'] as int?,
@@ -172,6 +178,8 @@ class Socio {
       'matricula_nacional': matriculaNacional,
       'matricula_provincial': matriculaProvincial,
       'fecha_ingreso': fechaIngreso?.toIso8601String().split('T')[0],
+      'paga_seguro_mp': pagaSeguroMp,
+      'ultima_categoria': ultimaCategoria,
       'domicilio': domicilio,
       'localidad': localidad,
       'provincia_id': provinciaId,
@@ -210,6 +218,8 @@ class Socio {
     String? matriculaNacional,
     String? matriculaProvincial,
     DateTime? fechaIngreso,
+    bool? pagaSeguroMp,
+    String? ultimaCategoria,
     String? domicilio,
     String? localidad,
     int? provinciaId,
@@ -246,6 +256,8 @@ class Socio {
       matriculaNacional: matriculaNacional ?? this.matriculaNacional,
       matriculaProvincial: matriculaProvincial ?? this.matriculaProvincial,
       fechaIngreso: fechaIngreso ?? this.fechaIngreso,
+      pagaSeguroMp: pagaSeguroMp ?? this.pagaSeguroMp,
+      ultimaCategoria: ultimaCategoria ?? this.ultimaCategoria,
       domicilio: domicilio ?? this.domicilio,
       localidad: localidad ?? this.localidad,
       provinciaId: provinciaId ?? this.provinciaId,

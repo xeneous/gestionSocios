@@ -60,6 +60,8 @@ class _SocioFormPageState extends ConsumerState<SocioFormPage>
   String? _categoriaResidente;
   final _lugarResidenciaController = TextEditingController();
   DateTime? _fechaIngreso = DateTime.now(); // Fecha actual por defecto
+  bool _pagaSeguroMp = false;
+  String? _ultimaCategoria;
 
   // Domicilio y Contacto
   final _domicilioController = TextEditingController();
@@ -127,6 +129,8 @@ class _SocioFormPageState extends ConsumerState<SocioFormPage>
           _categoriaResidente = socio.categoriaResidente;
           _lugarResidenciaController.text = socio.lugarResidencia ?? '';
           _fechaIngreso = socio.fechaIngreso;
+          _pagaSeguroMp = socio.pagaSeguroMp;
+          _ultimaCategoria = socio.ultimaCategoria;
 
           // Domicilio y Contacto
           _domicilioController.text = socio.domicilio ?? '';
@@ -252,6 +256,8 @@ class _SocioFormPageState extends ConsumerState<SocioFormPage>
             ? null
             : _matriculaProvincialController.text,
         fechaIngreso: _fechaIngreso,
+        pagaSeguroMp: _pagaSeguroMp,
+        ultimaCategoria: _ultimaCategoria,
         domicilio: _domicilioController.text.isEmpty
             ? null
             : _domicilioController.text,
@@ -305,12 +311,15 @@ class _SocioFormPageState extends ConsumerState<SocioFormPage>
 
         // Si es un nuevo socio, mostrar diálogo de cargar cuotas
         if (isNewSocio && nuevoSocioId != null) {
+          // Vitalicios que pagan seguro MP → tarifa de residente
+          final usarTarifaResidente = _residente || (_grupo == 'V' && _pagaSeguroMp);
+
           final resultado = await showDialog<bool>(
             context: context,
             barrierDismissible: false,
             builder: (context) => CargarCuotasDialog(
               socioId: nuevoSocioId!,
-              esResidente: _residente,
+              esResidente: usarTarifaResidente,
               nombreSocio: '${_apellidoController.text}, ${_nombreController.text}',
               categoriaResidente: _categoriaResidente,
             ),
@@ -878,7 +887,13 @@ class _SocioFormPageState extends ConsumerState<SocioFormPage>
                 );
               }).toList(),
               onChanged: (value) {
-                setState(() => _grupo = value);
+                setState(() {
+                  // Si cambia a Vitalicio, sugerir la categoría anterior
+                  if (value == 'V' && _grupo != 'V' && _grupo != null) {
+                    _ultimaCategoria = _grupo;
+                  }
+                  _grupo = value;
+                });
               },
               validator: (value) {
                 if (value == null || value.isEmpty) {
@@ -926,6 +941,71 @@ class _SocioFormPageState extends ConsumerState<SocioFormPage>
             ),
           ),
         ),
+        // Campos específicos para Vitalicios (grupo V)
+        if (_grupo == 'V') ...[
+          const SizedBox(height: 16),
+          Card(
+            color: Colors.amber.shade50,
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Datos de Vitalicio',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: Colors.amber.shade900,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  SwitchListTile(
+                    title: const Text('Paga Seguro MP'),
+                    subtitle: Text(_pagaSeguroMp
+                        ? 'Se le cobrará CS a tarifa de residente'
+                        : 'No paga seguro de Mala Praxis'),
+                    value: _pagaSeguroMp,
+                    onChanged: (value) {
+                      setState(() => _pagaSeguroMp = value);
+                    },
+                  ),
+                  const SizedBox(height: 8),
+                  gruposAsync.when(
+                    data: (grupos) {
+                      // Filtrar: mostrar todos los grupos excepto V (Vitalicio) y S (Suspendido)
+                      final gruposAnteriores = grupos
+                          .where((g) => g.codigo != 'V' && g.codigo != 'S')
+                          .toList();
+                      return DropdownButtonFormField<String?>(
+                        initialValue: _ultimaCategoria,
+                        decoration: const InputDecoration(
+                          labelText: 'Ultima Categoría (antes de Vitalicio)',
+                          border: OutlineInputBorder(),
+                          prefixIcon: Icon(Icons.history),
+                        ),
+                        items: [
+                          const DropdownMenuItem<String?>(
+                            value: null,
+                            child: Text('Sin especificar'),
+                          ),
+                          ...gruposAnteriores.map((g) => DropdownMenuItem<String?>(
+                                value: g.codigo,
+                                child: Text('${g.codigo} - ${g.descripcion}'),
+                              )),
+                        ],
+                        onChanged: (value) {
+                          setState(() => _ultimaCategoria = value);
+                        },
+                      );
+                    },
+                    loading: () => const LinearProgressIndicator(),
+                    error: (_, __) => const Text('Error cargando grupos'),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
         const SizedBox(height: 16),
         Row(
           children: [
