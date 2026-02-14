@@ -36,9 +36,13 @@ class _CobranzasPageState extends ConsumerState<CobranzasPage> {
   // Controllers para campos de pagos parciales
   final Map<int, TextEditingController> _pagosControllers = {};
 
+  // Número de recibo
+  final _numeroReciboController = TextEditingController();
+  bool _numeroReciboCargado = false;
+
   @override
   void dispose() {
-    // Limpiar controllers
+    _numeroReciboController.dispose();
     for (var controller in _formasPagoControllers.values) {
       controller.dispose();
     }
@@ -48,8 +52,27 @@ class _CobranzasPageState extends ConsumerState<CobranzasPage> {
     super.dispose();
   }
 
+  Future<void> _cargarProximoNumeroRecibo() async {
+    if (_numeroReciboCargado) return;
+    _numeroReciboCargado = true;
+    try {
+      final service = ref.read(cobranzasServiceProvider);
+      final proximo = await service.peekNextNumeroRecibo();
+      if (mounted) {
+        setState(() {
+          _numeroReciboController.text = proximo.toString();
+        });
+      }
+    } catch (_) {
+      // Si falla, el usuario puede ingresarlo manualmente
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    // Cargar próximo número de recibo la primera vez
+    _cargarProximoNumeroRecibo();
+
     final socioAsync = ref.watch(socioByIdProvider(widget.socioId));
     final saldoAsync = ref.watch(saldoSocioProvider(widget.socioId));
 
@@ -604,18 +627,38 @@ class _CobranzasPageState extends ConsumerState<CobranzasPage> {
                                       },
                                     ),
                             ),
-                            // Botón de generar recibo
+                            // Número de recibo + Botón de generar recibo
                             Container(
                               padding: const EdgeInsets.all(12),
-                              child: FilledButton.icon(
-                                onPressed: _canGenerateRecibo()
-                                    ? _generarRecibo
-                                    : null,
-                                icon: const Icon(Icons.receipt),
-                                label: const Text('Generar Recibo'),
-                                style: FilledButton.styleFrom(
-                                  minimumSize: const Size(double.infinity, 48),
-                                ),
+                              child: Row(
+                                children: [
+                                  SizedBox(
+                                    width: 180,
+                                    child: TextField(
+                                      controller: _numeroReciboController,
+                                      decoration: const InputDecoration(
+                                        labelText: 'Nro. Recibo',
+                                        border: OutlineInputBorder(),
+                                        prefixIcon: Icon(Icons.receipt_long),
+                                        isDense: true,
+                                      ),
+                                      keyboardType: TextInputType.number,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 16),
+                                  Expanded(
+                                    child: FilledButton.icon(
+                                      onPressed: _canGenerateRecibo()
+                                          ? _generarRecibo
+                                          : null,
+                                      icon: const Icon(Icons.receipt),
+                                      label: const Text('Generar Recibo'),
+                                      style: FilledButton.styleFrom(
+                                        minimumSize: const Size(0, 48),
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
                           ],
@@ -733,6 +776,9 @@ class _CobranzasPageState extends ConsumerState<CobranzasPage> {
       // Guardar el total ANTES de generar el recibo (para mostrarlo después)
       final totalCobrado = _getTotalSeleccionado();
 
+      // Obtener número de recibo ingresado por el usuario
+      final nroReciboIngresado = int.tryParse(_numeroReciboController.text.trim());
+
       // Generar el recibo usando el servicio
       final resultado = await ref
           .read(cobranzasNotifierProvider.notifier)
@@ -740,6 +786,7 @@ class _CobranzasPageState extends ConsumerState<CobranzasPage> {
             socioId: widget.socioId,
             transaccionesAPagar: _selectedPagos,
             formasPago: _formasPago,
+            numeroRecibo: nroReciboIngresado,
           );
 
       final numeroRecibo = resultado['numero_recibo']!;
@@ -748,7 +795,8 @@ class _CobranzasPageState extends ConsumerState<CobranzasPage> {
       // Cerrar diálogo de carga
       if (mounted) Navigator.pop(context);
 
-      // Limpiar selección
+      // Limpiar selección y recargar próximo número de recibo
+      _numeroReciboCargado = false;
       setState(() {
         _selectedPagos.clear();
         _formasPago.clear();

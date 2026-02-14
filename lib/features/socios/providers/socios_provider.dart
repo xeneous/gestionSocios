@@ -22,6 +22,10 @@ final sociosSearchProvider =
     query = query.ilike('nombre', '%${params.nombre}%');
   }
 
+  if (params.email != null && params.email!.isNotEmpty) {
+    query = query.ilike('email', '%${params.email}%');
+  }
+
   if (params.grupo != null && params.grupo!.isNotEmpty) {
     query = query.eq('grupo', params.grupo!);
   }
@@ -46,6 +50,7 @@ class SociosSearchParams {
   final int? socioId;
   final String? apellido;
   final String? nombre;
+  final String? email;
   final String? grupo;
   final bool? soloActivos; // true = solo grupos activos, false/null = todos
 
@@ -53,6 +58,7 @@ class SociosSearchParams {
     this.socioId,
     this.apellido,
     this.nombre,
+    this.email,
     this.grupo,
     this.soloActivos,
   });
@@ -65,6 +71,7 @@ class SociosSearchParams {
           socioId == other.socioId &&
           apellido == other.apellido &&
           nombre == other.nombre &&
+          email == other.email &&
           grupo == other.grupo &&
           soloActivos == other.soloActivos;
 
@@ -73,6 +80,7 @@ class SociosSearchParams {
       socioId.hashCode ^
       apellido.hashCode ^
       nombre.hashCode ^
+      email.hashCode ^
       grupo.hashCode ^
       soloActivos.hashCode;
 }
@@ -180,6 +188,10 @@ class SociosNotifier extends Notifier<AsyncValue<void>> {
       query = query.ilike('nombre', '%${params.nombre}%');
     }
 
+    if (params.email != null && params.email!.isNotEmpty) {
+      query = query.ilike('email', '%${params.email}%');
+    }
+
     if (params.grupo != null && params.grupo!.isNotEmpty) {
       query = query.eq('grupo', params.grupo!);
     }
@@ -215,6 +227,7 @@ class SociosSearchState {
   final String socioId;
   final String apellido;
   final String nombre;
+  final String email;
   final String? grupo;
   final bool soloActivos;
   final bool hasSearched;
@@ -225,6 +238,7 @@ class SociosSearchState {
     this.socioId = '',
     this.apellido = '',
     this.nombre = '',
+    this.email = '',
     this.grupo,
     this.soloActivos = true,
     this.hasSearched = false,
@@ -236,6 +250,7 @@ class SociosSearchState {
     String? socioId,
     String? apellido,
     String? nombre,
+    String? email,
     String? grupo,
     bool? soloActivos,
     bool? hasSearched,
@@ -246,6 +261,7 @@ class SociosSearchState {
       socioId: socioId ?? this.socioId,
       apellido: apellido ?? this.apellido,
       nombre: nombre ?? this.nombre,
+      email: email ?? this.email,
       grupo: grupo,
       soloActivos: soloActivos ?? this.soloActivos,
       hasSearched: hasSearched ?? this.hasSearched,
@@ -260,6 +276,7 @@ class SociosSearchState {
       socioId: socioId.isNotEmpty ? int.tryParse(socioId) : null,
       apellido: apellido.isNotEmpty ? apellido : null,
       nombre: nombre.isNotEmpty ? nombre : null,
+      email: email.isNotEmpty ? email : null,
       grupo: grupo,
       soloActivos: soloActivos,
     );
@@ -270,6 +287,7 @@ class SociosSearchState {
       socioId.isNotEmpty ||
       apellido.isNotEmpty ||
       nombre.isNotEmpty ||
+      email.isNotEmpty ||
       grupo != null;
 }
 
@@ -290,6 +308,10 @@ class SociosSearchStateNotifier extends Notifier<SociosSearchState> {
 
   void updateNombre(String value) {
     state = state.copyWith(nombre: value);
+  }
+
+  void updateEmail(String value) {
+    state = state.copyWith(email: value);
   }
 
   void updateGrupo(String? value) {

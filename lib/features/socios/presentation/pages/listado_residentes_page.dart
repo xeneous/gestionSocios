@@ -134,6 +134,8 @@ class _ListadoResidentesPageState extends ConsumerState<ListadoResidentesPage> {
   bool _soloAlertas = false;
   int _rowsPerPage = 25;
   int _currentPage = 0;
+  int _sortColumnIndex = 1; // Apellido por defecto
+  bool _sortAscending = true;
 
   ResidentesParams get _params => ResidentesParams(soloActivos: _soloActivos);
 
@@ -157,9 +159,17 @@ class _ListadoResidentesPageState extends ConsumerState<ListadoResidentesPage> {
 
     // Filtrar por categoría
     if (_filtroCategoria != null) {
-      filtrados = filtrados
-          .where((r) => r.categoriaResidente == _filtroCategoria)
-          .toList();
+      if (_filtroCategoria == 'S/C') {
+        filtrados = filtrados
+            .where((r) =>
+                r.categoriaResidente == null ||
+                r.categoriaResidente!.isEmpty)
+            .toList();
+      } else {
+        filtrados = filtrados
+            .where((r) => r.categoriaResidente == _filtroCategoria)
+            .toList();
+      }
     }
 
     // Filtrar por búsqueda
@@ -443,6 +453,8 @@ class _ListadoResidentesPageState extends ConsumerState<ListadoResidentesPage> {
                               value: null, child: Text('Todas')),
                           ...categorias.map((cat) => DropdownMenuItem(
                               value: cat.codigo, child: Text(cat.codigo))),
+                          const DropdownMenuItem(
+                              value: 'S/C', child: Text('S/C')),
                         ],
                         onChanged: (value) {
                           setState(() {
@@ -528,8 +540,17 @@ class _ListadoResidentesPageState extends ConsumerState<ListadoResidentesPage> {
 
   Widget _buildResumen(
       List<Socio> residentes, List<CategoriaResidente> categorias) {
-    final conteo = _contarPorCategoria(residentes, categorias);
-    final total = residentes.length;
+    // Aplicar filtro de búsqueda si hay texto ingresado
+    final residentesFiltrados = _searchTerm.isNotEmpty
+        ? residentes.where((r) {
+            final nombreCompleto = '${r.apellido} ${r.nombre}'.toLowerCase();
+            final lugar = (r.lugarResidencia ?? '').toLowerCase();
+            return nombreCompleto.contains(_searchTerm) ||
+                lugar.contains(_searchTerm);
+          }).toList()
+        : residentes;
+    final conteo = _contarPorCategoria(residentesFiltrados, categorias);
+    final total = residentesFiltrados.length;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24),
@@ -566,12 +587,12 @@ class _ListadoResidentesPageState extends ConsumerState<ListadoResidentesPage> {
               ),
             ),
           ),
-          // Alertas de control
+          // Alertas de control (siempre sobre el total sin filtrar)
           Builder(builder: (context) {
-            final conCatDesactualizada = residentes
+            final conCatDesactualizada = residentesFiltrados
                 .where((r) => _tieneAlertaCategoria(r, categorias))
                 .length;
-            final conResidenciaVencida = residentes
+            final conResidenciaVencida = residentesFiltrados
                 .where((r) => _tieneAlertaVencida(r))
                 .length;
             if (conCatDesactualizada == 0 && conResidenciaVencida == 0) {
@@ -744,7 +765,7 @@ class _ListadoResidentesPageState extends ConsumerState<ListadoResidentesPage> {
       child: InkWell(
         onTap: () {
           setState(() {
-            _filtroCategoria = codigo == 'S/C' ? null : codigo;
+            _filtroCategoria = codigo;
             _vista = _VistaResidentes.detalle;
           });
         },
@@ -866,6 +887,50 @@ class _ListadoResidentesPageState extends ConsumerState<ListadoResidentesPage> {
       List<Socio> residentes, List<CategoriaResidente> categorias) {
     final filtrados = _aplicarFiltros(residentes, categorias);
 
+    // Ordenar según columna seleccionada
+    filtrados.sort((a, b) {
+      int result;
+      switch (_sortColumnIndex) {
+        case 0: // Socio ID
+          result = (a.id ?? 0).compareTo(b.id ?? 0);
+          break;
+        case 1: // Apellido
+          result = a.apellido.toLowerCase().compareTo(b.apellido.toLowerCase());
+          break;
+        case 2: // Nombre
+          result = a.nombre.toLowerCase().compareTo(b.nombre.toLowerCase());
+          break;
+        case 3: // Categoría
+          result = (a.categoriaResidente ?? '').compareTo(b.categoriaResidente ?? '');
+          break;
+        case 4: // Lugar Residencia
+          result = (a.lugarResidencia ?? '').toLowerCase().compareTo((b.lugarResidencia ?? '').toLowerCase());
+          break;
+        case 5: // Inicio Residencia
+          final fa = a.fechaInicioResidencia;
+          final fb = b.fechaInicioResidencia;
+          if (fa == null && fb == null) { result = 0; }
+          else if (fa == null) { result = 1; }
+          else if (fb == null) { result = -1; }
+          else { result = fa.compareTo(fb); }
+          break;
+        case 6: // Fin Residencia
+          final fa = a.fechaFinResidencia;
+          final fb = b.fechaFinResidencia;
+          if (fa == null && fb == null) { result = 0; }
+          else if (fa == null) { result = 1; }
+          else if (fb == null) { result = -1; }
+          else { result = fa.compareTo(fb); }
+          break;
+        case 7: // Grupo
+          result = (a.grupo ?? '').compareTo(b.grupo ?? '');
+          break;
+        default:
+          result = 0;
+      }
+      return _sortAscending ? result : -result;
+    });
+
     // Mapa de código -> índice para colores
     final catIndexMap = <String, int>{};
     for (int i = 0; i < categorias.length; i++) {
@@ -914,7 +979,13 @@ class _ListadoResidentesPageState extends ConsumerState<ListadoResidentesPage> {
     );
 
     return SingleChildScrollView(
-      child: PaginatedDataTable(
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: SizedBox(
+          width: MediaQuery.of(context).size.width < 1200
+              ? 1200
+              : MediaQuery.of(context).size.width - 32,
+          child: PaginatedDataTable(
         header: Row(
           children: [
             Text('${filtrados.length} residente(s)'),
@@ -927,40 +998,50 @@ class _ListadoResidentesPageState extends ConsumerState<ListadoResidentesPage> {
           ],
         ),
         columnSpacing: 24,
-        columns: const [
+        sortColumnIndex: _sortColumnIndex,
+        sortAscending: _sortAscending,
+        columns: [
           DataColumn(
-              label: Text('Socio',
-                  style: TextStyle(fontWeight: FontWeight.bold))),
+              label: const Text('Socio',
+                  style: TextStyle(fontWeight: FontWeight.bold)),
+              onSort: (i, asc) => setState(() { _sortColumnIndex = i; _sortAscending = asc; })),
           DataColumn(
-              label: Text('Apellido',
-                  style: TextStyle(fontWeight: FontWeight.bold))),
+              label: const Text('Apellido',
+                  style: TextStyle(fontWeight: FontWeight.bold)),
+              onSort: (i, asc) => setState(() { _sortColumnIndex = i; _sortAscending = asc; })),
           DataColumn(
-              label: Text('Nombre',
-                  style: TextStyle(fontWeight: FontWeight.bold))),
+              label: const Text('Nombre',
+                  style: TextStyle(fontWeight: FontWeight.bold)),
+              onSort: (i, asc) => setState(() { _sortColumnIndex = i; _sortAscending = asc; })),
           DataColumn(
-              label: Text('Categoría',
-                  style: TextStyle(fontWeight: FontWeight.bold))),
+              label: const Text('Categoría',
+                  style: TextStyle(fontWeight: FontWeight.bold)),
+              onSort: (i, asc) => setState(() { _sortColumnIndex = i; _sortAscending = asc; })),
           DataColumn(
-              label: Text('Lugar Residencia',
-                  style: TextStyle(fontWeight: FontWeight.bold))),
+              label: const Text('Lugar Residencia',
+                  style: TextStyle(fontWeight: FontWeight.bold)),
+              onSort: (i, asc) => setState(() { _sortColumnIndex = i; _sortAscending = asc; })),
           DataColumn(
-              label: Text('Inicio Residencia',
-                  style: TextStyle(fontWeight: FontWeight.bold))),
+              label: const Text('Inicio Res.',
+                  style: TextStyle(fontWeight: FontWeight.bold)),
+              onSort: (i, asc) => setState(() { _sortColumnIndex = i; _sortAscending = asc; })),
           DataColumn(
-              label: Text('Fin Residencia',
-                  style: TextStyle(fontWeight: FontWeight.bold))),
+              label: const Text('Fin Res.',
+                  style: TextStyle(fontWeight: FontWeight.bold)),
+              onSort: (i, asc) => setState(() { _sortColumnIndex = i; _sortAscending = asc; })),
           DataColumn(
-              label: Text('Grupo',
-                  style: TextStyle(fontWeight: FontWeight.bold))),
-          DataColumn(
+              label: const Text('Grupo',
+                  style: TextStyle(fontWeight: FontWeight.bold)),
+              onSort: (i, asc) => setState(() { _sortColumnIndex = i; _sortAscending = asc; })),
+          const DataColumn(
               label: Text('Estado',
                   style: TextStyle(fontWeight: FontWeight.bold))),
-          DataColumn(
+          const DataColumn(
               label: Text('Acciones',
                   style: TextStyle(fontWeight: FontWeight.bold))),
         ],
         source: source,
-        rowsPerPage: _rowsPerPage.clamp(1, filtrados.length.clamp(1, 300)),
+        rowsPerPage: _rowsPerPage,
         availableRowsPerPage: const [25, 50, 100, 300],
         onRowsPerPageChanged: (value) {
           setState(() {
@@ -974,6 +1055,8 @@ class _ListadoResidentesPageState extends ConsumerState<ListadoResidentesPage> {
             _currentPage = firstRowIndex ~/ _rowsPerPage;
           });
         },
+      ),
+      ),
       ),
     );
   }
@@ -1048,7 +1131,18 @@ class _ResidentesDataSource extends DataTableSource {
             ),
           ),
         ),
-        DataCell(Text(residente.lugarResidencia ?? '-')),
+        DataCell(
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 200),
+            child: Tooltip(
+              message: residente.lugarResidencia ?? '-',
+              child: Text(
+                residente.lugarResidencia ?? '-',
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ),
+        ),
         DataCell(Text(
           residente.fechaInicioResidencia != null
               ? dateFormat.format(residente.fechaInicioResidencia!)

@@ -17,6 +17,7 @@ class _SociosListPageState extends ConsumerState<SociosListPage> {
   final _socioIdController = TextEditingController();
   final _apellidoController = TextEditingController();
   final _nombreController = TextEditingController();
+  final _emailController = TextEditingController();
   bool _isLoadingMore = false;
   bool _initialized = false;
 
@@ -25,6 +26,7 @@ class _SociosListPageState extends ConsumerState<SociosListPage> {
     _socioIdController.dispose();
     _apellidoController.dispose();
     _nombreController.dispose();
+    _emailController.dispose();
     super.dispose();
   }
 
@@ -33,6 +35,7 @@ class _SociosListPageState extends ConsumerState<SociosListPage> {
       _socioIdController.text = searchState.socioId;
       _apellidoController.text = searchState.apellido;
       _nombreController.text = searchState.nombre;
+      _emailController.text = searchState.email;
       _initialized = true;
     }
   }
@@ -44,6 +47,7 @@ class _SociosListPageState extends ConsumerState<SociosListPage> {
     notifier.updateSocioId(_socioIdController.text.trim());
     notifier.updateApellido(_apellidoController.text.trim());
     notifier.updateNombre(_nombreController.text.trim());
+    notifier.updateEmail(_emailController.text.trim());
 
     // Limpiar resultados previos
     notifier.clearResults();
@@ -68,6 +72,7 @@ class _SociosListPageState extends ConsumerState<SociosListPage> {
     _socioIdController.clear();
     _apellidoController.clear();
     _nombreController.clear();
+    _emailController.clear();
     ref.read(sociosSearchStateProvider.notifier).clearSearch();
   }
 
@@ -154,6 +159,20 @@ class _SociosListPageState extends ConsumerState<SociosListPage> {
                               prefixIcon: Icon(Icons.person),
                             ),
                             textCapitalization: TextCapitalization.words,
+                            onSubmitted: (_) => _performSearch(),
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          flex: 2,
+                          child: TextField(
+                            controller: _emailController,
+                            decoration: const InputDecoration(
+                              labelText: 'Email',
+                              border: OutlineInputBorder(),
+                              prefixIcon: Icon(Icons.email),
+                            ),
+                            keyboardType: TextInputType.emailAddress,
                             onSubmitted: (_) => _performSearch(),
                           ),
                         ),
@@ -302,6 +321,7 @@ class _SociosListPageState extends ConsumerState<SociosListPage> {
               return Card(
                 margin: const EdgeInsets.only(bottom: 12),
                 child: ListTile(
+                  onTap: () => context.go('/socios/${socio.id}'),
                   leading: CircleAvatar(
                     // Grupo activo: A, H, T, V | Inactivo: B, F, M, R
                     backgroundColor:
@@ -317,7 +337,7 @@ class _SociosListPageState extends ConsumerState<SociosListPage> {
                     ),
                   ),
                   title: Text(
-                    socio.nombreCompleto,
+                    '#${socio.id} - ${socio.nombreCompleto}',
                     style: TextStyle(
                       fontWeight: FontWeight.bold,
                       color: ['A', 'H', 'T', 'V'].contains(socio.grupo)

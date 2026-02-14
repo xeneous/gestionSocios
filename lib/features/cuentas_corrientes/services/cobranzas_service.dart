@@ -16,11 +16,20 @@ class CobranzasService {
   ///
   /// Retorna el número de recibo generado
   /// NOTA: El asiento de diario debe generarse por separado usando AsientosService
+  /// Obtiene el próximo número de recibo sugerido sin consumirlo
+  Future<int> peekNextNumeroRecibo() async {
+    final response = await _supabase.rpc('peek_next_numero', params: {
+      'p_tipo': 'RECIBO',
+    });
+    return response as int;
+  }
+
   Future<int> generarRecibo({
     required int socioId,
     required Map<int, double> transaccionesAPagar,
     required Map<int, double> formasPago,
     int? operadorId,
+    int? numeroRecibo,
   }) async {
     // Validar que los totales coincidan
     final totalAPagar = transaccionesAPagar.values.fold(0.0, (a, b) => a + b);
@@ -49,6 +58,7 @@ class CobranzasService {
         'p_transacciones_a_pagar': transaccionesJson,
         'p_formas_pago': formasPagoJson,
         'p_operador_id': operadorId,
+        'p_numero_recibo': numeroRecibo,
       });
 
       if (response == null || (response as List).isEmpty) {
@@ -57,9 +67,9 @@ class CobranzasService {
 
       // La función retorna una fila con numero_recibo e ids_valores_creados
       final resultado = response.first;
-      final numeroRecibo = resultado['numero_recibo'] as int;
+      final nroRecibo = resultado['numero_recibo'] as int;
 
-      return numeroRecibo;
+      return nroRecibo;
     } catch (e) {
       // Si hay error, la transacción en PostgreSQL hace rollback automático
       rethrow;

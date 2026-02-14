@@ -13,6 +13,7 @@ import '../../providers/paises_provider.dart';
 import '../../providers/sexos_provider.dart';
 import '../../providers/categorias_residente_provider.dart';
 import '../../models/categoria_residente_model.dart';
+import '../../providers/lugares_residencia_provider.dart';
 import '../widgets/concepto_search_dialog.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../../auth/presentation/providers/user_role_provider.dart';
@@ -1078,16 +1079,69 @@ class _SocioFormPageState extends ConsumerState<SocioFormPage>
             ),
           ),
           const SizedBox(height: 16),
-          // Lugar de residencia
-          TextFormField(
-            controller: _lugarResidenciaController,
-            decoration: const InputDecoration(
-              labelText: 'Lugar de Residencia',
-              border: OutlineInputBorder(),
-              prefixIcon: Icon(Icons.location_on),
-              hintText: 'Ej: Hospital Central, Clínica San Martín',
-            ),
-            textCapitalization: TextCapitalization.words,
+          // Lugar de residencia con autocompletado
+          Consumer(
+            builder: (context, ref, child) {
+              final lugaresAsync = ref.watch(lugaresResidenciaProvider);
+              final lugares = lugaresAsync.when(
+                data: (data) => data.map((l) => l.nombre).toList(),
+                loading: () => <String>[],
+                error: (_, __) => <String>[],
+              );
+              return Autocomplete<String>(
+                initialValue: TextEditingValue(text: _lugarResidenciaController.text),
+                optionsBuilder: (textEditingValue) {
+                  final input = textEditingValue.text.toLowerCase().trim();
+                  if (input.isEmpty) return const Iterable<String>.empty();
+                  final matches = lugares
+                      .where((l) => l.toLowerCase().contains(input))
+                      .toList();
+                  // Si no hay matches exactos, ofrecer agregar nuevo
+                  if (matches.isEmpty && input.length >= 3) {
+                    return ['Agregar: ${textEditingValue.text.trim()}'];
+                  }
+                  return matches;
+                },
+                onSelected: (selection) async {
+                  if (selection.startsWith('Agregar: ')) {
+                    final nuevoNombre = selection.substring(9);
+                    _lugarResidenciaController.text = nuevoNombre;
+                    try {
+                      await agregarLugarResidencia(nuevoNombre, ref);
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('Lugar "$nuevoNombre" agregado'),
+                            backgroundColor: Colors.green,
+                          ),
+                        );
+                      }
+                    } catch (e) {
+                      // Puede fallar si ya existe, no es grave
+                    }
+                  } else {
+                    _lugarResidenciaController.text = selection;
+                  }
+                },
+                fieldViewBuilder: (context, textController, focusNode, onFieldSubmitted) {
+                  // Sincronizar con nuestro controller
+                  textController.addListener(() {
+                    _lugarResidenciaController.text = textController.text;
+                  });
+                  return TextFormField(
+                    controller: textController,
+                    focusNode: focusNode,
+                    decoration: const InputDecoration(
+                      labelText: 'Lugar de Residencia',
+                      border: OutlineInputBorder(),
+                      prefixIcon: Icon(Icons.location_on),
+                      hintText: 'Escriba para buscar o agregar nuevo',
+                    ),
+                    textCapitalization: TextCapitalization.words,
+                  );
+                },
+              );
+            },
           ),
           const SizedBox(height: 16),
           // Fecha fin residencia

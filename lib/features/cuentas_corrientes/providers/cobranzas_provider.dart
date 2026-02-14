@@ -35,6 +35,7 @@ class CobranzasNotifier extends Notifier<AsyncValue<void>> {
     required Map<int, double> transaccionesAPagar,
     required Map<int, double> formasPago,
     int? operadorId,
+    int? numeroRecibo,
   }) async {
     state = const AsyncValue.loading();
 
@@ -53,11 +54,12 @@ class CobranzasNotifier extends Notifier<AsyncValue<void>> {
       final nombreCompleto = '${socioData['apellido']}, ${socioData['nombre']}'.trim();
 
       // 1. Generar el recibo (PostgreSQL)
-      final numeroRecibo = await cobranzasService.generarRecibo(
+      final nroRecibo = await cobranzasService.generarRecibo(
         socioId: socioId,
         transaccionesAPagar: transaccionesAPagar,
         formasPago: formasPago,
         operadorId: operadorId,
+        numeroRecibo: numeroRecibo,
       );
 
       // 2. Preparar items del asiento de diario
@@ -86,7 +88,7 @@ class CobranzasNotifier extends Notifier<AsyncValue<void>> {
           cuentaId: numeroCuenta,
           debe: formaPago.value,
           haber: 0,
-          observacion: 'Recibo Nro. $numeroRecibo',
+          observacion: 'Recibo Nro. $nroRecibo',
         ));
       }
 
@@ -130,8 +132,8 @@ class CobranzasNotifier extends Notifier<AsyncValue<void>> {
 
           // Construir observación con tipo y número de documento
           final observacion = documentoNumero != null
-              ? 'Recibo Nro. $numeroRecibo - $tipoComprobante $documentoNumero'
-              : 'Recibo Nro. $numeroRecibo - $tipoComprobante';
+              ? 'Recibo Nro. $nroRecibo - $tipoComprobante $documentoNumero'
+              : 'Recibo Nro. $nroRecibo - $tipoComprobante';
 
           itemsAsiento.add(AsientoItemData(
             cuentaId: numeroCuentaContable,
@@ -146,16 +148,16 @@ class CobranzasNotifier extends Notifier<AsyncValue<void>> {
       final numeroAsiento = await asientosService.crearAsiento(
         tipoAsiento: AsientosService.tipoIngreso, // Tipo 1 = Ingreso
         fecha: DateTime.now(),
-        detalle: 'Recibo Nro. $numeroRecibo',
+        detalle: 'Recibo Nro. $nroRecibo',
         items: itemsAsiento,
-        numeroComprobante: numeroRecibo,
+        numeroComprobante: nroRecibo,
         nombrePersona: nombreCompleto,
       );
 
       state = const AsyncValue.data(null);
 
       return {
-        'numero_recibo': numeroRecibo,
+        'numero_recibo': nroRecibo,
         'numero_asiento': numeroAsiento,
       };
     } catch (e, st) {

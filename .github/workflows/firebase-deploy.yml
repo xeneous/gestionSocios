@@ -34,3 +34,40 @@ jobs:
           firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
           channelId: live
           projectId: saoweb-7e02a
+
+      - name: Notificar deploy exitoso
+        if: success()
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.gmail.com
+          server_port: 587
+          username: ${{ secrets.MAIL_USERNAME }}
+          password: ${{ secrets.MAIL_PASSWORD }}
+          subject: "SAO 2026 - Deploy exitoso"
+          body: |
+            Deploy completado exitosamente.
+
+            Commit: ${{ github.sha }}
+            Mensaje: ${{ github.event.head_commit.message }}
+            Autor: ${{ github.actor }}
+            Fecha: ${{ github.event.head_commit.timestamp }}
+          to: dspato@gmail.com
+          from: SAO Deploy <${{ secrets.MAIL_USERNAME }}>
+
+      - name: Notificar deploy fallido
+        if: failure()
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.gmail.com
+          server_port: 587
+          username: ${{ secrets.MAIL_USERNAME }}
+          password: ${{ secrets.MAIL_PASSWORD }}
+          subject: "SAO 2026 - Deploy FALLIDO"
+          body: |
+            El deploy falló. Revisar los logs en GitHub Actions.
+
+            Commit: ${{ github.sha }}
+            Mensaje: ${{ github.event.head_commit.message }}
+            Ver logs: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          to: dspato@gmail.com
+          from: SAO Deploy <${{ secrets.MAIL_USERNAME }}>
