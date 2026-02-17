@@ -256,7 +256,14 @@ class _ProveedoresListPageState extends ConsumerState<ProveedoresListPage> {
           child: ListTile(
             leading: CircleAvatar(
               backgroundColor: proveedor.esActivo ? Colors.orange : Colors.grey,
-              child: const Icon(Icons.store, color: Colors.white),
+              child: Text(
+                proveedor.codigo?.toString() ?? '?',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
             ),
             title: Text(
               proveedor.nombreCompleto,
@@ -268,6 +275,13 @@ class _ProveedoresListPageState extends ConsumerState<ProveedoresListPage> {
             subtitle: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                if (proveedor.codigo != null)
+                  Text(
+                    'Cód: ${proveedor.codigo}',
+                    style: const TextStyle(fontWeight: FontWeight.w500),
+                  ),
+                if (proveedor.cuenta != null)
+                  Text('Cta. contable: ${proveedor.cuenta}'),
                 if (proveedor.cuit != null && proveedor.cuit!.isNotEmpty)
                   Text('CUIT: ${proveedor.cuit}'),
                 if (proveedor.mail != null && proveedor.mail!.isNotEmpty)

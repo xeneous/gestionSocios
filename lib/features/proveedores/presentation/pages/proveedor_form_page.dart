@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../models/proveedor_model.dart';
 import '../../providers/proveedores_provider.dart';
+import '../../../asientos/presentation/widgets/cuentas_search_dialog.dart';
+import '../../../cuentas/models/cuenta_model.dart';
 
 class ProveedorFormPage extends ConsumerStatefulWidget {
   final int? proveedorId;
@@ -32,6 +34,7 @@ class _ProveedorFormPageState extends ConsumerState<ProveedorFormPage> {
   final _telefono2Controller = TextEditingController();
   final _mailController = TextEditingController();
   final _notasController = TextEditingController();
+  final _cuentaController = TextEditingController();
 
   bool get isEditing => widget.proveedorId != null;
 
@@ -58,6 +61,7 @@ class _ProveedorFormPageState extends ConsumerState<ProveedorFormPage> {
     _telefono2Controller.dispose();
     _mailController.dispose();
     _notasController.dispose();
+    _cuentaController.dispose();
     super.dispose();
   }
 
@@ -78,6 +82,7 @@ class _ProveedorFormPageState extends ConsumerState<ProveedorFormPage> {
           _telefono2Controller.text = proveedor.telefono2 ?? '';
           _mailController.text = proveedor.mail ?? '';
           _notasController.text = proveedor.notas ?? '';
+          _cuentaController.text = proveedor.cuenta?.toString() ?? '';
           _activo = proveedor.activo == 1;
           _isLoadingData = false;
         });
@@ -133,6 +138,7 @@ class _ProveedorFormPageState extends ConsumerState<ProveedorFormPage> {
         notas: _notasController.text.trim().isEmpty
             ? null
             : _notasController.text.trim(),
+        cuenta: int.tryParse(_cuentaController.text.trim()),
         activo: _activo ? 1 : 0,
       );
 
@@ -263,6 +269,33 @@ class _ProveedorFormPageState extends ConsumerState<ProveedorFormPage> {
                                 prefixIcon: Icon(Icons.credit_card),
                                 hintText: 'XX-XXXXXXXX-X',
                               ),
+                            ),
+                            const SizedBox(height: 16),
+                            TextFormField(
+                              controller: _cuentaController,
+                              decoration: InputDecoration(
+                                labelText: 'Cuenta Contable',
+                                border: const OutlineInputBorder(),
+                                prefixIcon: const Icon(Icons.account_tree),
+                                hintText: 'Número de cuenta',
+                                suffixIcon: IconButton(
+                                  icon: const Icon(Icons.search),
+                                  tooltip: 'Buscar cuenta',
+                                  onPressed: () async {
+                                    final result = await showDialog<Cuenta>(
+                                      context: context,
+                                      builder: (_) => const CuentasSearchDialog(),
+                                    );
+                                    if (result != null) {
+                                      setState(() {
+                                        _cuentaController.text =
+                                            result.cuenta.toString();
+                                      });
+                                    }
+                                  },
+                                ),
+                              ),
+                              keyboardType: TextInputType.number,
                             ),
                           ],
                         ),

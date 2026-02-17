@@ -16,9 +16,14 @@ final asientosSearchProvider = FutureProvider.family<List<AsientoCompleto>, Asie
   // Construir query con filtros
   var query = supabase.from('asientos_header').select();
 
-  // Filtro por año/mes
-  if (params.anioMes != null) {
-    query = query.eq('anio_mes', params.anioMes!);
+  // Filtro por fecha desde
+  if (params.fechaDesde != null) {
+    query = query.gte('fecha', params.fechaDesde!.toIso8601String().substring(0, 10));
+  }
+
+  // Filtro por fecha hasta
+  if (params.fechaHasta != null) {
+    query = query.lte('fecha', params.fechaHasta!.toIso8601String().substring(0, 10));
   }
 
   // Filtro por tipo de asiento
@@ -26,73 +31,83 @@ final asientosSearchProvider = FutureProvider.family<List<AsientoCompleto>, Asie
     query = query.eq('tipo_asiento', params.tipoAsiento!);
   }
 
-  // Filtro por número de asiento
-  if (params.numeroAsiento != null) {
-    query = query.eq('asiento', params.numeroAsiento!);
+  // Filtro por número de asiento desde
+  if (params.asientoDesde != null) {
+    query = query.gte('asiento', params.asientoDesde!);
   }
 
-  // Filtro por detalle (búsqueda parcial)
-  if (params.detalle != null && params.detalle!.isNotEmpty) {
-    query = query.ilike('detalle', '%${params.detalle}%');
+  // Filtro por número de asiento hasta
+  if (params.asientoHasta != null) {
+    query = query.lte('asiento', params.asientoHasta!);
   }
 
   // Ordenar y limitar
   final headersResponse = await query
       .order('fecha', ascending: false)
+      .order('asiento', ascending: false)
       .limit(params.limit);
 
   final headers = (headersResponse as List)
       .map((json) => AsientoHeader.fromJson(json))
       .toList();
 
-  // Para cada header, obtener sus items
-  final asientosCompletos = <AsientoCompleto>[];
+  if (headers.isEmpty) return [];
 
-  for (final header in headers) {
-    final itemsResponse = await supabase
-        .from('asientos_items')
-        .select('''
-          *,
-          cuentas!inner(cuenta, descripcion)
-        ''')
-        .eq('asiento', header.asiento)
-        .eq('anio_mes', header.anioMes)
-        .eq('tipo_asiento', header.tipoAsiento)
-        .order('item');
+  // Obtener TODOS los items en una sola query (batch) en lugar de N queries
+  final asientoNums = headers.map((h) => h.asiento).toSet().toList();
 
-    final items = (itemsResponse as List).map((json) {
-      final item = AsientoItem.fromJson(json);
-      // Agregar info de cuenta
-      if (json['cuentas'] != null) {
-        item.cuentaNumero = json['cuentas']['cuenta'];
-        item.cuentaDescripcion = json['cuentas']['descripcion'];
-      }
-      return item;
-    }).toList();
+  var itemsQuery = supabase
+      .from('asientos_items')
+      .select('*, cuentas(cuenta, descripcion)')
+      .inFilter('asiento', asientoNums);
 
-    asientosCompletos.add(AsientoCompleto(
-      header: header,
-      items: items,
-    ));
+  // Si hay filtro de tipo, lo aplica para reducir resultados
+  if (params.tipoAsiento != null) {
+    itemsQuery = itemsQuery.eq('tipo_asiento', params.tipoAsiento!);
   }
 
-  return asientosCompletos;
+  final itemsAllResponse = await itemsQuery
+      .order('asiento')
+      .order('item');
+
+  // Agrupar items por clave compuesta (asiento_anioMes_tipoAsiento)
+  final itemsByKey = <String, List<AsientoItem>>{};
+  for (final json in (itemsAllResponse as List)) {
+    final item = AsientoItem.fromJson(json);
+    if (json['cuentas'] != null) {
+      item.cuentaNumero = json['cuentas']['cuenta'];
+      item.cuentaDescripcion = json['cuentas']['descripcion'];
+    }
+    final key = '${item.asiento}_${item.anioMes}_${item.tipoAsiento}';
+    itemsByKey.putIfAbsent(key, () => []).add(item);
+  }
+
+  // Armar resultados
+  return headers.map((header) {
+    final key = '${header.asiento}_${header.anioMes}_${header.tipoAsiento}';
+    return AsientoCompleto(
+      header: header,
+      items: itemsByKey[key] ?? [],
+    );
+  }).toList();
 });
 
 // Clase para parámetros de búsqueda
 class AsientosSearchParams {
-  final int? anioMes;
+  final DateTime? fechaDesde;
+  final DateTime? fechaHasta;
   final int? tipoAsiento;
-  final int? numeroAsiento;
-  final String? detalle;
+  final int? asientoDesde;
+  final int? asientoHasta;
   final int limit;
 
   AsientosSearchParams({
-    this.anioMes,
+    this.fechaDesde,
+    this.fechaHasta,
     this.tipoAsiento,
-    this.numeroAsiento,
-    this.detalle,
-    this.limit = 20,
+    this.asientoDesde,
+    this.asientoHasta,
+    this.limit = 100,
   });
 
   @override
@@ -100,18 +115,20 @@ class AsientosSearchParams {
       identical(this, other) ||
       other is AsientosSearchParams &&
           runtimeType == other.runtimeType &&
-          anioMes == other.anioMes &&
+          fechaDesde == other.fechaDesde &&
+          fechaHasta == other.fechaHasta &&
           tipoAsiento == other.tipoAsiento &&
-          numeroAsiento == other.numeroAsiento &&
-          detalle == other.detalle &&
+          asientoDesde == other.asientoDesde &&
+          asientoHasta == other.asientoHasta &&
           limit == other.limit;
 
   @override
   int get hashCode =>
-      anioMes.hashCode ^
+      fechaDesde.hashCode ^
+      fechaHasta.hashCode ^
       tipoAsiento.hashCode ^
-      numeroAsiento.hashCode ^
-      detalle.hashCode ^
+      asientoDesde.hashCode ^
+      asientoHasta.hashCode ^
       limit.hashCode;
 }
 

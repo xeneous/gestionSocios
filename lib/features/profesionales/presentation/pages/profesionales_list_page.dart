@@ -239,11 +239,76 @@ class _ProfesionalesListPageState extends ConsumerState<ProfesionalesListPage> {
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             IconButton(
+                              icon: const Icon(Icons.account_balance_wallet,
+                                  color: Colors.teal),
+                              onPressed: () => context.go(
+                                  '/profesionales/${profesional.id}/cuenta-corriente'),
+                              tooltip: 'Cuenta Corriente',
+                            ),
+                            IconButton(
                               icon: const Icon(Icons.edit, color: Colors.blue),
                               onPressed: () => context.go(
                                   '/profesionales/${profesional.id}/editar'),
                               tooltip: 'Editar',
                             ),
+                            if (userRole.esAdministrador)
+                              IconButton(
+                                icon: const Icon(Icons.delete,
+                                    color: Colors.red),
+                                onPressed: () async {
+                                  final confirm = await showDialog<bool>(
+                                    context: context,
+                                    builder: (context) => AlertDialog(
+                                      title: const Text('Eliminar profesional'),
+                                      content: Text(
+                                          '¿Eliminar permanentemente a ${profesional.nombreCompleto}? Esta acción no se puede deshacer.'),
+                                      actions: [
+                                        TextButton(
+                                          onPressed: () =>
+                                              Navigator.pop(context, false),
+                                          child: const Text('Cancelar'),
+                                        ),
+                                        FilledButton(
+                                          onPressed: () =>
+                                              Navigator.pop(context, true),
+                                          style: FilledButton.styleFrom(
+                                              backgroundColor: Colors.red),
+                                          child: const Text('Eliminar'),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+
+                                  if (confirm == true) {
+                                    try {
+                                      await ref
+                                          .read(profesionalesNotifierProvider
+                                              .notifier)
+                                          .deleteProfesional(profesional.id!);
+                                      ref.invalidate(
+                                          profesionalesSearchProvider);
+                                      if (mounted) {
+                                        ScaffoldMessenger.of(context)
+                                            .showSnackBar(
+                                          const SnackBar(
+                                              content: Text(
+                                                  'Profesional eliminado')),
+                                        );
+                                      }
+                                    } catch (e) {
+                                      if (mounted) {
+                                        ScaffoldMessenger.of(context)
+                                            .showSnackBar(
+                                          SnackBar(
+                                              content: Text('Error: $e'),
+                                              backgroundColor: Colors.red),
+                                        );
+                                      }
+                                    }
+                                  }
+                                },
+                                tooltip: 'Eliminar',
+                              ),
                             if (userRole.esAdministrador)
                               IconButton(
                                 icon: Icon(

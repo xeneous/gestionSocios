@@ -14,23 +14,81 @@ class AsientosListPage extends ConsumerStatefulWidget {
 }
 
 class _AsientosListPageState extends ConsumerState<AsientosListPage> {
-  String _searchTerm = '';
+  DateTime? _fechaDesde;
+  DateTime? _fechaHasta;
   int? _filterTipo;
-  int? _filterAnioMes;
-  int? _filterNumeroAsiento;
+  int? _asientoDesde;
+  int? _asientoHasta;
   bool _hasSearched = false;
 
+  final _asientoDesdeController = TextEditingController();
+  final _asientoHastaController = TextEditingController();
+  final _dateFormat = DateFormat('dd/MM/yyyy');
+
+  @override
+  void dispose() {
+    _asientoDesdeController.dispose();
+    _asientoHastaController.dispose();
+    super.dispose();
+  }
+
   AsientosSearchParams get _searchParams => AsientosSearchParams(
-        anioMes: _filterAnioMes,
+        fechaDesde: _fechaDesde,
+        fechaHasta: _fechaHasta,
         tipoAsiento: _filterTipo,
-        numeroAsiento: _filterNumeroAsiento,
-        detalle: _searchTerm.isNotEmpty ? _searchTerm : null,
-        limit: 20,
+        asientoDesde: _asientoDesde,
+        asientoHasta: _asientoHasta,
       );
+
+  Future<void> _pickFechaDesde() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _fechaDesde ?? DateTime.now(),
+      firstDate: DateTime(2000),
+      lastDate: DateTime(2100),
+    );
+    if (picked != null) setState(() => _fechaDesde = picked);
+  }
+
+  Future<void> _pickFechaHasta() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _fechaHasta ?? DateTime.now(),
+      firstDate: DateTime(2000),
+      lastDate: DateTime(2100),
+    );
+    if (picked != null) setState(() => _fechaHasta = picked);
+  }
+
+  void _search() {
+    if (_fechaDesde == null && _fechaHasta == null && _asientoDesde == null && _asientoHasta == null && _filterTipo == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Ingrese al menos un filtro para buscar'),
+          backgroundColor: Colors.orange,
+          duration: Duration(seconds: 2),
+        ),
+      );
+      return;
+    }
+    setState(() => _hasSearched = true);
+  }
+
+  void _clear() {
+    _asientoDesdeController.clear();
+    _asientoHastaController.clear();
+    setState(() {
+      _fechaDesde = null;
+      _fechaHasta = null;
+      _filterTipo = null;
+      _asientoDesde = null;
+      _asientoHasta = null;
+      _hasSearched = false;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
-    // Solo hacer la búsqueda si el usuario ha buscado
     final asientosAsync = _hasSearched
         ? ref.watch(asientosSearchProvider(_searchParams))
         : const AsyncValue<List<AsientoCompleto>>.data([]);
@@ -54,57 +112,85 @@ class _AsientosListPageState extends ConsumerState<AsientosListPage> {
       ),
       body: Column(
         children: [
-          // Search and filter bar
           Container(
             padding: const EdgeInsets.all(16),
             color: Colors.grey[100],
             child: Column(
               children: [
-                // Primera fila: Año/Mes, Número de Asiento, Tipo
+                // Fila 1: Fechas y Tipo
                 Row(
                   children: [
-                    Expanded(
-                      flex: 3,
-                      child: TextField(
-                        decoration: const InputDecoration(
-                          labelText: 'Año/Mes (YYYYMM) *',
-                          hintText: 'Ej: 202601',
-                          border: OutlineInputBorder(),
-                          filled: true,
-                          fillColor: Colors.white,
-                        ),
-                        keyboardType: TextInputType.number,
-                        onChanged: (value) {
-                          setState(() {
-                            _filterAnioMes = int.tryParse(value);
-                          });
-                        },
-                      ),
-                    ),
-                    const SizedBox(width: 16),
+                    // Fecha Desde
                     Expanded(
                       flex: 2,
-                      child: TextField(
-                        decoration: const InputDecoration(
-                          labelText: 'Nº Asiento',
-                          hintText: 'Opcional',
-                          border: OutlineInputBorder(),
-                          filled: true,
-                          fillColor: Colors.white,
+                      child: InkWell(
+                        onTap: _pickFechaDesde,
+                        child: InputDecorator(
+                          decoration: const InputDecoration(
+                            labelText: 'Fecha Desde',
+                            border: OutlineInputBorder(),
+                            filled: true,
+                            fillColor: Colors.white,
+                            prefixIcon: Icon(Icons.calendar_today),
+                          ),
+                          child: Text(
+                            _fechaDesde != null
+                                ? _dateFormat.format(_fechaDesde!)
+                                : 'Seleccionar...',
+                            style: TextStyle(
+                              color: _fechaDesde != null
+                                  ? Colors.black
+                                  : Colors.grey,
+                            ),
+                          ),
                         ),
-                        keyboardType: TextInputType.number,
-                        onChanged: (value) {
-                          setState(() {
-                            _filterNumeroAsiento = int.tryParse(value);
-                          });
-                        },
                       ),
                     ),
-                    const SizedBox(width: 16),
+                    if (_fechaDesde != null)
+                      IconButton(
+                        icon: const Icon(Icons.clear, size: 18),
+                        onPressed: () => setState(() => _fechaDesde = null),
+                        tooltip: 'Limpiar fecha desde',
+                      ),
+                    const SizedBox(width: 8),
+                    // Fecha Hasta
+                    Expanded(
+                      flex: 2,
+                      child: InkWell(
+                        onTap: _pickFechaHasta,
+                        child: InputDecorator(
+                          decoration: const InputDecoration(
+                            labelText: 'Fecha Hasta',
+                            border: OutlineInputBorder(),
+                            filled: true,
+                            fillColor: Colors.white,
+                            prefixIcon: Icon(Icons.calendar_today),
+                          ),
+                          child: Text(
+                            _fechaHasta != null
+                                ? _dateFormat.format(_fechaHasta!)
+                                : 'Seleccionar...',
+                            style: TextStyle(
+                              color: _fechaHasta != null
+                                  ? Colors.black
+                                  : Colors.grey,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    if (_fechaHasta != null)
+                      IconButton(
+                        icon: const Icon(Icons.clear, size: 18),
+                        onPressed: () => setState(() => _fechaHasta = null),
+                        tooltip: 'Limpiar fecha hasta',
+                      ),
+                    const SizedBox(width: 8),
+                    // Tipo de asiento
                     Expanded(
                       flex: 3,
                       child: DropdownButtonFormField<int?>(
-                        initialValue: _filterTipo,
+                        value: _filterTipo,
                         decoration: const InputDecoration(
                           labelText: 'Tipo de asiento',
                           border: OutlineInputBorder(),
@@ -114,91 +200,71 @@ class _AsientosListPageState extends ConsumerState<AsientosListPage> {
                         items: const [
                           DropdownMenuItem(value: null, child: Text('Todos')),
                           DropdownMenuItem(value: 0, child: Text('0 - Diario')),
-                          DropdownMenuItem(
-                              value: 1, child: Text('1 - Caja Ingresos')),
-                          DropdownMenuItem(
-                              value: 2, child: Text('2 - Caja Egresos')),
+                          DropdownMenuItem(value: 1, child: Text('1 - Caja Ingresos')),
+                          DropdownMenuItem(value: 2, child: Text('2 - Caja Egresos')),
                           DropdownMenuItem(value: 3, child: Text('3 - Compras')),
                           DropdownMenuItem(value: 4, child: Text('4 - Ventas')),
                         ],
-                        onChanged: (value) {
-                          setState(() => _filterTipo = value);
-                        },
+                        onChanged: (value) => setState(() => _filterTipo = value),
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 16),
-                // Segunda fila: Detalle y botones
+                const SizedBox(height: 12),
+                // Fila 2: Número asiento desde/hasta y botones
                 Row(
                   children: [
                     Expanded(
+                      flex: 2,
                       child: TextField(
-                        decoration: InputDecoration(
-                          labelText: 'Buscar en detalle',
-                          hintText: 'Texto del detalle...',
-                          prefixIcon: const Icon(Icons.search),
-                          border: const OutlineInputBorder(),
+                        controller: _asientoDesdeController,
+                        decoration: const InputDecoration(
+                          labelText: 'Nº Asiento Desde',
+                          hintText: 'Opcional',
+                          border: OutlineInputBorder(),
                           filled: true,
                           fillColor: Colors.white,
-                          suffixIcon: _searchTerm.isNotEmpty
-                              ? IconButton(
-                                  icon: const Icon(Icons.clear),
-                                  onPressed: () {
-                                    setState(() => _searchTerm = '');
-                                  },
-                                )
-                              : null,
                         ),
-                        onChanged: (value) {
-                          setState(() => _searchTerm = value);
-                        },
+                        keyboardType: TextInputType.number,
+                        onChanged: (value) =>
+                            setState(() => _asientoDesde = int.tryParse(value)),
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      flex: 2,
+                      child: TextField(
+                        controller: _asientoHastaController,
+                        decoration: const InputDecoration(
+                          labelText: 'Nº Asiento Hasta',
+                          hintText: 'Opcional',
+                          border: OutlineInputBorder(),
+                          filled: true,
+                          fillColor: Colors.white,
+                        ),
+                        keyboardType: TextInputType.number,
+                        onChanged: (value) =>
+                            setState(() => _asientoHasta = int.tryParse(value)),
                       ),
                     ),
                     const SizedBox(width: 16),
                     ElevatedButton.icon(
-                      onPressed: () {
-                        if (_filterAnioMes == null) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Debe completar el campo Año/Mes para buscar'),
-                              backgroundColor: Colors.orange,
-                              duration: Duration(seconds: 2),
-                            ),
-                          );
-                          return;
-                        }
-                        setState(() {
-                          _hasSearched = true;
-                        });
-                      },
+                      onPressed: _search,
                       icon: const Icon(Icons.search),
                       label: const Text('Buscar'),
                       style: ElevatedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(
-                          horizontal: 24,
-                          vertical: 20,
-                        ),
+                            horizontal: 24, vertical: 20),
                       ),
                     ),
                     const SizedBox(width: 8),
-                    ElevatedButton.icon(
-                      onPressed: () {
-                        setState(() {
-                          _searchTerm = '';
-                          _filterTipo = null;
-                          _filterAnioMes = null;
-                          _filterNumeroAsiento = null;
-                          _hasSearched = false;
-                        });
-                      },
+                    OutlinedButton.icon(
+                      onPressed: _clear,
                       icon: const Icon(Icons.clear_all),
                       label: const Text('Limpiar'),
-                      style: ElevatedButton.styleFrom(
+                      style: OutlinedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(
-                          horizontal: 24,
-                          vertical: 20,
-                        ),
+                            horizontal: 24, vertical: 20),
                       ),
                     ),
                   ],
@@ -210,7 +276,6 @@ class _AsientosListPageState extends ConsumerState<AsientosListPage> {
           Expanded(
             child: asientosAsync.when(
               data: (asientos) {
-                // Mostrar mensaje si no se ha buscado aún
                 if (!_hasSearched) {
                   return const Center(
                     child: Column(
@@ -221,11 +286,6 @@ class _AsientosListPageState extends ConsumerState<AsientosListPage> {
                         Text(
                           'Usa los filtros para buscar asientos',
                           style: TextStyle(fontSize: 16),
-                        ),
-                        SizedBox(height: 8),
-                        Text(
-                          'La búsqueda está limitada a 20 resultados',
-                          style: TextStyle(color: Colors.grey, fontSize: 14),
                         ),
                       ],
                     ),
@@ -252,12 +312,11 @@ class _AsientosListPageState extends ConsumerState<AsientosListPage> {
                   padding: const EdgeInsets.all(16),
                   itemCount: asientos.length + 1,
                   itemBuilder: (context, index) {
-                    // First item: results counter
                     if (index == 0) {
                       return Padding(
                         padding: const EdgeInsets.only(bottom: 16),
                         child: Text(
-                          '${asientos.length} asiento(s) encontrado(s) (máximo 20)',
+                          '${asientos.length} asiento(s) encontrado(s)',
                           style: TextStyle(
                             color: Colors.grey[600],
                             fontWeight: FontWeight.w500,
@@ -282,7 +341,7 @@ class _AsientosListPageState extends ConsumerState<AsientosListPage> {
                           ),
                         ),
                         title: Text(
-                          'Asiento ${header.asiento} - ${_getTipoNombre(header.tipoAsiento)} (${header.anioMes})',
+                          'Asiento ${header.asiento} - ${_getTipoNombre(header.tipoAsiento)}',
                           style: const TextStyle(fontWeight: FontWeight.bold),
                         ),
                         subtitle: Column(
@@ -328,7 +387,8 @@ class _AsientosListPageState extends ConsumerState<AsientosListPage> {
                               tooltip: 'Editar',
                             ),
                             IconButton(
-                              icon: const Icon(Icons.delete, color: Colors.red),
+                              icon:
+                                  const Icon(Icons.delete, color: Colors.red),
                               onPressed: () =>
                                   _confirmDelete(context, ref, asiento),
                               tooltip: 'Eliminar',
@@ -416,7 +476,7 @@ class _AsientosListPageState extends ConsumerState<AsientosListPage> {
   }
 
   Future<void> _confirmDelete(
-      BuildContext context, WidgetRef ref, asiento) async {
+      BuildContext context, WidgetRef ref, AsientoCompleto asiento) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(

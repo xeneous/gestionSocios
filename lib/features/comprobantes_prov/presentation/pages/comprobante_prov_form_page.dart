@@ -51,6 +51,12 @@ class _ComprobanteProvFormPageState
 
   // Items
   List<CompProvItem> _items = [];
+  int? _cuentaProveedor; // Cuenta contable habitual del proveedor seleccionado
+
+  // Validación de proveedor
+  Proveedor? _proveedorSeleccionado;
+  bool _buscandoProveedor = false;
+  bool _proveedorValidado = false;
 
   // Pago inmediato
   bool _pagarAlGuardar = false;
@@ -65,11 +71,14 @@ class _ComprobanteProvFormPageState
   @override
   void initState() {
     super.initState();
+    _proveedorController.addListener(_onProveedorCodigoChanged);
     if (isEditing) {
       _loadComprobante();
     } else {
       if (widget.proveedorId != null) {
         _proveedorController.text = widget.proveedorId.toString();
+        Future.microtask(
+            () => _validarYCargarProveedor(widget.proveedorId.toString()));
       }
       _isLoadingData = false;
     }
@@ -77,6 +86,7 @@ class _ComprobanteProvFormPageState
 
   @override
   void dispose() {
+    _proveedorController.removeListener(_onProveedorCodigoChanged);
     _proveedorController.dispose();
     _nroComprobanteController.dispose();
     _descripcionController.dispose();
@@ -86,14 +96,37 @@ class _ComprobanteProvFormPageState
     super.dispose();
   }
 
+  void _onProveedorCodigoChanged() {
+    final codigoActual = _proveedorController.text.trim();
+    if (_proveedorSeleccionado != null &&
+        codigoActual != _proveedorSeleccionado!.codigo.toString()) {
+      setState(() {
+        _proveedorSeleccionado = null;
+        _proveedorValidado = false;
+        _cuentaProveedor = null;
+      });
+    }
+  }
+
   Future<void> _loadComprobante() async {
     try {
       final comprobante =
           await ref.read(comprobanteProvProvider(widget.idTransaccion!).future);
+
+      // Cargar datos del proveedor si el comprobante existe
+      Proveedor? proveedor;
+      if (comprobante != null) {
+        proveedor =
+            await ref.read(proveedorProvider(comprobante.proveedor).future);
+      }
+
       if (comprobante != null && mounted) {
         setState(() {
           _comprobante = comprobante;
           _proveedorController.text = comprobante.proveedor.toString();
+          _proveedorSeleccionado = proveedor;
+          _proveedorValidado = true;
+          _cuentaProveedor = proveedor?.cuenta;
           _nroComprobanteController.text = comprobante.nroComprobante;
           _descripcionController.text = comprobante.descripcionImporte ?? '';
           _fecha = comprobante.fecha;
@@ -114,6 +147,45 @@ class _ComprobanteProvFormPageState
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Error cargando comprobante: $e')),
         );
+      }
+    }
+  }
+
+  Future<void> _validarYCargarProveedor(String codigo) async {
+    final parsedCodigo = int.tryParse(codigo.trim());
+    if (parsedCodigo == null) {
+      if (mounted && codigo.trim().isNotEmpty) {
+        setState(() {
+          _proveedorSeleccionado = null;
+          _proveedorValidado = true;
+          _buscandoProveedor = false;
+          _cuentaProveedor = null;
+        });
+      }
+      return;
+    }
+
+    if (mounted) setState(() => _buscandoProveedor = true);
+
+    try {
+      final proveedor =
+          await ref.read(proveedorProvider(parsedCodigo).future);
+      if (mounted) {
+        setState(() {
+          _proveedorSeleccionado = proveedor;
+          _cuentaProveedor = proveedor?.cuenta;
+          _buscandoProveedor = false;
+          _proveedorValidado = true;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _proveedorSeleccionado = null;
+          _buscandoProveedor = false;
+          _proveedorValidado = true;
+          _cuentaProveedor = null;
+        });
       }
     }
   }
@@ -141,6 +213,14 @@ class _ComprobanteProvFormPageState
     if (proveedorId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Código de proveedor inválido')),
+      );
+      return;
+    }
+
+    if (_proveedorSeleccionado == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text('Proveedor no encontrado. Verifique el código.')),
       );
       return;
     }
@@ -305,12 +385,31 @@ class _ComprobanteProvFormPageState
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
+        final errorStr = e.toString();
+        if (errorStr.contains('ASIENTO_WARNING:')) {
+          // El comprobante fue guardado pero falló la generación del asiento
+          final warning = errorStr
+              .split('ASIENTO_WARNING:')
+              .last
+              .replaceFirst('Exception: ', '');
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'Comprobante guardado. Advertencia en asiento contable: $warning',
+              ),
+              backgroundColor: Colors.orange,
+              duration: const Duration(seconds: 8),
+            ),
+          );
+          context.go('/comprobantes-proveedores');
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Error: $errorStr'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
       }
     } finally {
       if (mounted) {
@@ -369,6 +468,8 @@ class _ComprobanteProvFormPageState
     showDialog(
       context: context,
       builder: (context) => _ItemDialog(
+        tipoComprobante: _tipoComprobante,
+        cuentaProveedor: _cuentaProveedor,
         onSave: (item) {
           setState(() {
             _items.add(item);
@@ -383,6 +484,8 @@ class _ComprobanteProvFormPageState
       context: context,
       builder: (context) => _ItemDialog(
         item: _items[index],
+        tipoComprobante: _tipoComprobante,
+        cuentaProveedor: _cuentaProveedor,
         onSave: (item) {
           setState(() {
             _items[index] = item;
@@ -407,6 +510,9 @@ class _ComprobanteProvFormPageState
     if (result != null) {
       setState(() {
         _proveedorController.text = result.codigo.toString();
+        _cuentaProveedor = result.cuenta;
+        _proveedorSeleccionado = result;
+        _proveedorValidado = true;
       });
     }
   }
@@ -700,13 +806,30 @@ class _ComprobanteProvFormPageState
                                       labelText: 'Código Proveedor *',
                                       border: const OutlineInputBorder(),
                                       prefixIcon: const Icon(Icons.store),
-                                      suffixIcon: IconButton(
-                                        icon: const Icon(Icons.search),
-                                        tooltip: 'Buscar proveedor',
-                                        onPressed: _buscarProveedor,
+                                      suffixIcon: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          if (_buscandoProveedor)
+                                            const Padding(
+                                              padding: EdgeInsets.all(12),
+                                              child: SizedBox(
+                                                width: 16,
+                                                height: 16,
+                                                child:
+                                                    CircularProgressIndicator(
+                                                        strokeWidth: 2),
+                                              ),
+                                            ),
+                                          IconButton(
+                                            icon: const Icon(Icons.search),
+                                            tooltip: 'Buscar proveedor',
+                                            onPressed: _buscarProveedor,
+                                          ),
+                                        ],
                                       ),
                                     ),
                                     keyboardType: TextInputType.number,
+                                    onFieldSubmitted: _validarYCargarProveedor,
                                     validator: (value) {
                                       if (value == null ||
                                           value.trim().isEmpty) {
@@ -776,6 +899,46 @@ class _ComprobanteProvFormPageState
                                 ),
                               ],
                             ),
+                            // Mostrar razon social del proveedor validado
+                            if (_proveedorSeleccionado != null)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 6),
+                                child: Row(
+                                  children: [
+                                    const Icon(Icons.check_circle,
+                                        color: Colors.green, size: 16),
+                                    const SizedBox(width: 6),
+                                    Expanded(
+                                      child: Text(
+                                        _proveedorSeleccionado!.nombreCompleto,
+                                        style: const TextStyle(
+                                          color: Colors.green,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              )
+                            else if (_proveedorValidado &&
+                                _proveedorController.text.trim().isNotEmpty)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 6),
+                                child: Row(
+                                  children: [
+                                    Icon(Icons.error_outline,
+                                        color: Colors.red[700], size: 16),
+                                    const SizedBox(width: 6),
+                                    Text(
+                                      'Proveedor no encontrado',
+                                      style: TextStyle(
+                                        color: Colors.red[700],
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
                             const SizedBox(height: 16),
                             Row(
                               children: [
@@ -1107,30 +1270,38 @@ class _ComprobanteProvFormPageState
 }
 
 // Diálogo para agregar/editar items
-class _ItemDialog extends StatefulWidget {
+class _ItemDialog extends ConsumerStatefulWidget {
   final CompProvItem? item;
+  final int? tipoComprobante;
+  final int? cuentaProveedor;
   final Function(CompProvItem) onSave;
 
-  const _ItemDialog({this.item, required this.onSave});
+  const _ItemDialog({
+    this.item,
+    this.tipoComprobante,
+    this.cuentaProveedor,
+    required this.onSave,
+  });
 
   @override
-  State<_ItemDialog> createState() => _ItemDialogState();
+  ConsumerState<_ItemDialog> createState() => _ItemDialogState();
 }
 
-class _ItemDialogState extends State<_ItemDialog> {
+class _ItemDialogState extends ConsumerState<_ItemDialog> {
   final _formKey = GlobalKey<FormState>();
-  final _conceptoController = TextEditingController();
   final _cuentaController = TextEditingController();
   final _importeController = TextEditingController();
   final _baseContableController = TextEditingController();
   final _alicuotaController = TextEditingController();
   final _detalleController = TextEditingController();
 
+  String? _selectedConcepto;
+
   @override
   void initState() {
     super.initState();
     if (widget.item != null) {
-      _conceptoController.text = widget.item!.concepto;
+      _selectedConcepto = widget.item!.concepto.trim();
       _cuentaController.text = widget.item!.cuenta.toString();
       _importeController.text = widget.item!.importe.toString();
       _baseContableController.text = widget.item!.baseContable.toString();
@@ -1139,12 +1310,15 @@ class _ItemDialogState extends State<_ItemDialog> {
     } else {
       _baseContableController.text = '0';
       _alicuotaController.text = '0';
+      // Pre-llenar cuenta con la cuenta habitual del proveedor
+      if (widget.cuentaProveedor != null) {
+        _cuentaController.text = widget.cuentaProveedor.toString();
+      }
     }
   }
 
   @override
   void dispose() {
-    _conceptoController.dispose();
     _cuentaController.dispose();
     _importeController.dispose();
     _baseContableController.dispose();
@@ -1158,7 +1332,6 @@ class _ItemDialogState extends State<_ItemDialog> {
       context: context,
       builder: (context) => const CuentasSearchDialog(),
     );
-
     if (result != null) {
       setState(() {
         _cuentaController.text = result.cuenta.toString();
@@ -1166,8 +1339,55 @@ class _ItemDialogState extends State<_ItemDialog> {
     }
   }
 
+  Widget _buildConceptoField(List<String> conceptos) {
+    // Si hay conceptos disponibles para el tipo seleccionado, mostrar dropdown
+    if (conceptos.isNotEmpty) {
+      // Asegurarse que el valor seleccionado sea válido dentro de la lista
+      final valorValido =
+          _selectedConcepto != null && conceptos.contains(_selectedConcepto);
+
+      return DropdownButtonFormField<String>(
+        value: valorValido ? _selectedConcepto : null,
+        decoration: const InputDecoration(
+          labelText: 'Concepto *',
+          border: OutlineInputBorder(),
+          prefixIcon: Icon(Icons.category),
+        ),
+        items: conceptos
+            .map((c) => DropdownMenuItem(value: c, child: Text(c)))
+            .toList(),
+        onChanged: (value) => setState(() => _selectedConcepto = value),
+        validator: (value) =>
+            (value == null || value.trim().isEmpty) ? 'Requerido' : null,
+      );
+    }
+
+    // Fallback: campo de texto libre, con 'EXE' como sugerencia por defecto
+    _selectedConcepto ??= 'EXE';
+    return TextFormField(
+      initialValue: _selectedConcepto,
+      decoration: InputDecoration(
+        labelText: 'Concepto *',
+        border: const OutlineInputBorder(),
+        helperText: widget.tipoComprobante == null
+            ? 'Seleccione el tipo de comprobante primero'
+            : 'Sin conceptos configurados para este tipo',
+      ),
+      maxLength: 5,
+      textCapitalization: TextCapitalization.characters,
+      onChanged: (value) => _selectedConcepto = value.trim().toUpperCase(),
+      validator: (value) =>
+          (value == null || value.trim().isEmpty) ? 'Requerido' : null,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    // Cargar conceptos del tipo de comprobante seleccionado
+    final conceptosAsync = widget.tipoComprobante != null
+        ? ref.watch(conceptosPorTipoProvider(widget.tipoComprobante!))
+        : const AsyncValue<List<String>>.data([]);
+
     return AlertDialog(
       title: Text(widget.item != null ? 'Editar Item' : 'Agregar Item'),
       content: SizedBox(
@@ -1181,20 +1401,16 @@ class _ItemDialogState extends State<_ItemDialog> {
                 Row(
                   children: [
                     Expanded(
-                      child: TextFormField(
-                        controller: _conceptoController,
-                        decoration: const InputDecoration(
-                          labelText: 'Concepto *',
-                          border: OutlineInputBorder(),
+                      child: conceptosAsync.when(
+                        data: _buildConceptoField,
+                        loading: () => const TextField(
+                          enabled: false,
+                          decoration: InputDecoration(
+                            labelText: 'Cargando conceptos...',
+                            border: OutlineInputBorder(),
+                          ),
                         ),
-                        maxLength: 3,
-                        textCapitalization: TextCapitalization.characters,
-                        validator: (value) {
-                          if (value == null || value.trim().isEmpty) {
-                            return 'Requerido';
-                          }
-                          return null;
-                        },
+                        error: (_, __) => _buildConceptoField([]),
                       ),
                     ),
                     const SizedBox(width: 16),
@@ -1302,12 +1518,13 @@ class _ItemDialogState extends State<_ItemDialog> {
                 comprobante: widget.item?.comprobante ?? 0,
                 anioMes: widget.item?.anioMes ?? 0,
                 item: widget.item?.item ?? 0,
-                concepto: _conceptoController.text.trim().toUpperCase(),
+                concepto: (_selectedConcepto ?? '').toUpperCase(),
                 cuenta: int.parse(_cuentaController.text.trim()),
                 importe: double.parse(_importeController.text.trim()),
                 baseContable:
                     double.tryParse(_baseContableController.text.trim()) ?? 0,
-                alicuota: double.tryParse(_alicuotaController.text.trim()) ?? 0,
+                alicuota:
+                    double.tryParse(_alicuotaController.text.trim()) ?? 0,
                 detalle: _detalleController.text.trim().isEmpty
                     ? null
                     : _detalleController.text.trim(),
@@ -1430,7 +1647,7 @@ class _ProveedorSearchDialogState
                                   leading: CircleAvatar(
                                     backgroundColor: Colors.orange,
                                     child: Text(
-                                      proveedor.codigo.toString(),
+                                      proveedor.codigo?.toString() ?? '?',
                                       style: const TextStyle(
                                         color: Colors.white,
                                         fontSize: 12,
@@ -1438,9 +1655,12 @@ class _ProveedorSearchDialogState
                                     ),
                                   ),
                                   title: Text(proveedor.nombreCompleto),
-                                  subtitle: proveedor.cuit?.isNotEmpty == true
-                                      ? Text('CUIT: ${proveedor.cuit}')
-                                      : null,
+                                  subtitle: Text([
+                                    if (proveedor.codigo != null)
+                                      'Cód: ${proveedor.codigo}',
+                                    if (proveedor.cuit?.isNotEmpty == true)
+                                      'CUIT: ${proveedor.cuit}',
+                                  ].join('  |  ')),
                                   onTap: () =>
                                       Navigator.pop(context, proveedor),
                                 );

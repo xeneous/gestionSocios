@@ -863,7 +863,9 @@ class _OrdenPagoPageState extends ConsumerState<OrdenPagoPage> {
       );
     } catch (e) {
       // Cerrar diálogo de carga si está abierto
-      if (mounted) Navigator.pop(context);
+      try {
+        if (mounted) Navigator.of(context, rootNavigator: true).pop();
+      } catch (_) {}
 
       // Mostrar error
       if (!mounted) return;

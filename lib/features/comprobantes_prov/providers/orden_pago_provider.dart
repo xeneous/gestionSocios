@@ -52,7 +52,7 @@ class OrdenPagoNotifier extends Notifier<AsyncValue<void>> {
       final proveedorData = await supabase
           .from('proveedores')
           .select('razon_social')
-          .eq('codigo', proveedorId)
+          .eq('id', proveedorId)
           .single();
 
       final nombreCompleto = (proveedorData['razon_social'] as String?)?.trim() ?? 'Proveedor $proveedorId';
