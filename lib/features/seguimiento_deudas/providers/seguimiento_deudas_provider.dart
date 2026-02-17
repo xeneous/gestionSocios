@@ -1,10 +1,10 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../auth/presentation/providers/auth_provider.dart';
 import '../services/seguimiento_deudas_service.dart';
-import '../models/socio_deuda_item.dart';
 
 /// Provider del servicio de seguimiento de deudas
-final seguimientoDeudasServiceProvider = Provider<SeguimientoDeudasService>((ref) {
+final seguimientoDeudasServiceProvider =
+    Provider<SeguimientoDeudasService>((ref) {
   final supabase = ref.watch(supabaseProvider);
   return SeguimientoDeudasService(supabase);
 });
@@ -67,8 +67,8 @@ class FiltroSeguimientoParamsConPaginacion {
 }
 
 /// Provider para obtener socios con deudas según filtros (paginado)
-final sociosConDeudaProvider =
-    FutureProvider.family<Map<String, dynamic>, FiltroSeguimientoParamsConPaginacion>(
+final sociosConDeudaProvider = FutureProvider.family<Map<String, dynamic>,
+    FiltroSeguimientoParamsConPaginacion>(
   (ref, params) async {
     final service = ref.watch(seguimientoDeudasServiceProvider);
 

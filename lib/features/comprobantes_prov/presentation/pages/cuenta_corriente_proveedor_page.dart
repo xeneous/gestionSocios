@@ -4,7 +4,10 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import '../../providers/comprobantes_prov_provider.dart';
 import '../../models/comprobante_prov_model.dart';
+import '../../services/orden_pago_pdf_service.dart';
 import '../../../proveedores/providers/proveedores_provider.dart';
+import '../../../auth/presentation/providers/auth_provider.dart';
+import '../../../auth/presentation/providers/user_role_provider.dart';
 
 /// Página de cuenta corriente de proveedor (A PAGAR)
 /// Saldo positivo = debemos al proveedor
@@ -272,6 +275,7 @@ class _CuentaCorrienteProveedorPageState
   ) {
     double saldoAcumulado = 0;
     final rows = <DataRow>[];
+    final userRole = ref.read(userRoleProvider);
 
     // Ordenar por fecha ascendente para calcular saldo acumulado
     final sorted = List<CompProvHeader>.from(comprobantes)
@@ -372,6 +376,18 @@ class _CuentaCorrienteProveedorPageState
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(),
                   ),
+                  if (userRole.esAdministrador &&
+                      multiplicador == -1 &&
+                      comp.idTransaccion != null)
+                    IconButton(
+                      icon: const Icon(Icons.print,
+                          size: 18, color: Colors.teal),
+                      onPressed: () =>
+                          _reimprimirOP(comp),
+                      tooltip: 'Reimprimir OP',
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                    ),
                 ],
               ),
             ),
@@ -381,5 +397,171 @@ class _CuentaCorrienteProveedorPageState
     }
 
     return rows;
+  }
+
+  Future<void> _reimprimirOP(CompProvHeader comp) async {
+    final claveController = TextEditingController();
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.lock, color: Colors.orange),
+            SizedBox(width: 8),
+            Text('Reimprimir Orden de Pago'),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'OP Nro. ${comp.comprobante}',
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 16),
+            const Text('Ingrese la clave de administrador:'),
+            const SizedBox(height: 8),
+            TextField(
+              controller: claveController,
+              obscureText: true,
+              autofocus: true,
+              decoration: const InputDecoration(
+                labelText: 'Clave',
+                border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.key),
+              ),
+              onSubmitted: (_) => Navigator.pop(context, true),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Confirmar'),
+          ),
+        ],
+      ),
+    );
+
+    final claveIngresada = claveController.text;
+    claveController.dispose();
+    if (confirmed != true) return;
+
+    const adminClave = 'SAO2026';
+    if (claveIngresada != adminClave) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Clave incorrecta'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+      return;
+    }
+
+    if (!mounted) return;
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(
+        child: Card(
+          child: Padding(
+            padding: EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CircularProgressIndicator(),
+                SizedBox(height: 16),
+                Text('Generando PDF...'),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+
+    try {
+      final supabase = ref.read(supabaseProvider);
+      final pdfService = OrdenPagoPdfService(supabase);
+      final pdf = await pdfService.generarOrdenPagoPdf(
+        idTransaccion: comp.idTransaccion!,
+      );
+
+      if (mounted) Navigator.pop(context);
+
+      if (!mounted) return;
+      await showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: Row(
+            children: [
+              const Icon(Icons.print, color: Colors.teal),
+              const SizedBox(width: 8),
+              Text('OP Nro. ${comp.comprobante}'),
+            ],
+          ),
+          content: const Text('¿Qué desea hacer con la orden de pago?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cerrar'),
+            ),
+            FilledButton.icon(
+              onPressed: () async {
+                final messenger = ScaffoldMessenger.of(context);
+                try {
+                  await pdfService.imprimirOrdenPago(pdf);
+                } catch (e) {
+                  messenger.showSnackBar(SnackBar(
+                    content: Text('Error: $e'),
+                    backgroundColor: Colors.red,
+                  ));
+                }
+              },
+              icon: const Icon(Icons.print),
+              label: const Text('Imprimir'),
+            ),
+            FilledButton.icon(
+              onPressed: () async {
+                final messenger = ScaffoldMessenger.of(context);
+                try {
+                  final provData = ref.read(proveedorProvider(widget.proveedorId));
+                  final nombre = provData.value?.razonSocial ?? 'proveedor_${widget.proveedorId}';
+                  await pdfService.compartirOrdenPago(
+                    pdf: pdf,
+                    numeroOP: comp.comprobante,
+                    nombreProveedor: nombre,
+                  );
+                } catch (e) {
+                  messenger.showSnackBar(SnackBar(
+                    content: Text('Error: $e'),
+                    backgroundColor: Colors.red,
+                  ));
+                }
+              },
+              icon: const Icon(Icons.share),
+              label: const Text('Compartir'),
+            ),
+          ],
+        ),
+      );
+    } catch (e) {
+      if (mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error al generar PDF: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 }

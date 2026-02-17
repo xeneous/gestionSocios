@@ -68,12 +68,14 @@ class _OrdenPagoPageState extends ConsumerState<OrdenPagoPage> {
       });
 
       // Refrescar la lista de comprobantes pendientes
-      ref.invalidate(comprobantesPendientesProveedorProvider(widget.proveedorId));
+      ref.invalidate(
+          comprobantesPendientesProveedorProvider(widget.proveedorId));
       ref.invalidate(saldoProveedorProvider(widget.proveedorId));
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Factura ${result.nroComprobante} creada y seleccionada para pago'),
+          content: Text(
+              'Factura ${result.nroComprobante} creada y seleccionada para pago'),
           backgroundColor: Colors.green,
         ),
       );
@@ -84,12 +86,14 @@ class _OrdenPagoPageState extends ConsumerState<OrdenPagoPage> {
   Widget build(BuildContext context) {
     final proveedorAsync = ref.watch(proveedorProvider(widget.proveedorId));
     final saldoAsync = ref.watch(saldoProveedorProvider(widget.proveedorId));
-    final pendientesAsync = ref.watch(comprobantesPendientesProveedorProvider(widget.proveedorId));
+    final pendientesAsync =
+        ref.watch(comprobantesPendientesProveedorProvider(widget.proveedorId));
 
     return Scaffold(
       appBar: AppBar(
         title: proveedorAsync.when(
-          data: (proveedor) => Text('Orden de Pago - ${proveedor?.razonSocial ?? "Proveedor"}'),
+          data: (proveedor) =>
+              Text('Orden de Pago - ${proveedor?.razonSocial ?? "Proveedor"}'),
           loading: () => const Text('Orden de Pago'),
           error: (_, __) => const Text('Orden de Pago'),
         ),
@@ -366,14 +370,16 @@ class _OrdenPagoPageState extends ConsumerState<OrdenPagoPage> {
                   if (comp['tipo_factura'] != null) ...[
                     const SizedBox(width: 4),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 4, vertical: 1),
                       decoration: BoxDecoration(
                         color: Colors.blue[100],
                         borderRadius: BorderRadius.circular(4),
                       ),
                       child: Text(
                         comp['tipo_factura'],
-                        style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
+                        style: const TextStyle(
+                            fontSize: 10, fontWeight: FontWeight.bold),
                       ),
                     ),
                   ],
@@ -407,8 +413,10 @@ class _OrdenPagoPageState extends ConsumerState<OrdenPagoPage> {
                       child: Builder(
                         builder: (context) {
                           if (!_pagosControllers.containsKey(idTransaccion)) {
-                            _pagosControllers[idTransaccion] = TextEditingController(
-                              text: _selectedPagos[idTransaccion]?.toStringAsFixed(2),
+                            _pagosControllers[idTransaccion] =
+                                TextEditingController(
+                              text: _selectedPagos[idTransaccion]
+                                  ?.toStringAsFixed(2),
                             );
                           }
 
@@ -509,7 +517,8 @@ class _OrdenPagoPageState extends ConsumerState<OrdenPagoPage> {
                               color: Colors.orange[50],
                               child: const Row(
                                 children: [
-                                  Icon(Icons.account_balance_wallet, color: Colors.orange),
+                                  Icon(Icons.account_balance_wallet,
+                                      color: Colors.orange),
                                   SizedBox(width: 8),
                                   Text(
                                     'Medios de Pago Disponibles',
@@ -589,15 +598,17 @@ class _OrdenPagoPageState extends ConsumerState<OrdenPagoPage> {
                                             .where((c) => c.id == conceptoId)
                                             .firstOrNull;
 
-                                        if (!_formasPagoControllers.containsKey(conceptoId)) {
-                                          _formasPagoControllers[conceptoId] = TextEditingController(
+                                        if (!_formasPagoControllers
+                                            .containsKey(conceptoId)) {
+                                          _formasPagoControllers[conceptoId] =
+                                              TextEditingController(
                                             text: monto.toStringAsFixed(2),
                                           );
                                         }
 
                                         return ListTile(
-                                          title: Text(
-                                              concepto?.descripcion ?? ''),
+                                          title:
+                                              Text(concepto?.descripcion ?? ''),
                                           subtitle: SizedBox(
                                             width: 150,
                                             child: TextField(
@@ -608,7 +619,9 @@ class _OrdenPagoPageState extends ConsumerState<OrdenPagoPage> {
                                               ),
                                               keyboardType:
                                                   TextInputType.number,
-                                              controller: _formasPagoControllers[conceptoId],
+                                              controller:
+                                                  _formasPagoControllers[
+                                                      conceptoId],
                                               onChanged: (value) {
                                                 final newMonto =
                                                     double.tryParse(value);
@@ -639,9 +652,8 @@ class _OrdenPagoPageState extends ConsumerState<OrdenPagoPage> {
                             Container(
                               padding: const EdgeInsets.all(12),
                               child: FilledButton.icon(
-                                onPressed: _canGenerateOP()
-                                    ? _generarOrdenPago
-                                    : null,
+                                onPressed:
+                                    _canGenerateOP() ? _generarOrdenPago : null,
                                 icon: const Icon(Icons.payment),
                                 label: const Text('Generar Orden de Pago'),
                                 style: FilledButton.styleFrom(
@@ -763,13 +775,12 @@ class _OrdenPagoPageState extends ConsumerState<OrdenPagoPage> {
     try {
       final totalPagado = _getTotalSeleccionado();
 
-      final resultado = await ref
-          .read(ordenPagoNotifierProvider.notifier)
-          .generarOrdenPago(
-            proveedorId: widget.proveedorId,
-            transaccionesAPagar: _selectedPagos,
-            formasPago: _formasPago,
-          );
+      final resultado =
+          await ref.read(ordenPagoNotifierProvider.notifier).generarOrdenPago(
+                proveedorId: widget.proveedorId,
+                transaccionesAPagar: _selectedPagos,
+                formasPago: _formasPago,
+              );
 
       final numeroOP = resultado['numero_orden_pago']!;
       final numeroAsiento = resultado['numero_asiento']!;
@@ -891,7 +902,8 @@ class _OrdenPagoPageState extends ConsumerState<OrdenPagoPage> {
     try {
       final supabase = ref.read(supabaseProvider);
       final pdfService = OrdenPagoPdfService(supabase);
-      final pdf = await pdfService.generarOrdenPagoPdf(idTransaccion: idTransaccion);
+      final pdf =
+          await pdfService.generarOrdenPagoPdf(idTransaccion: idTransaccion);
 
       // Cerrar diálogo de carga
       if (mounted) Navigator.pop(context);
@@ -1069,9 +1081,10 @@ class _NuevaFacturaRapidaDialogState
                 tiposAsync.when(
                   data: (tipos) {
                     // Filtrar solo facturas (multiplicador = 1)
-                    final tiposFactura = tipos.where((t) => t.multiplicador == 1).toList();
+                    final tiposFactura =
+                        tipos.where((t) => t.multiplicador == 1).toList();
                     return DropdownButtonFormField<int?>(
-                      value: _tipoComprobante,
+                      initialValue: _tipoComprobante,
                       decoration: const InputDecoration(
                         labelText: 'Tipo Comprobante *',
                         border: OutlineInputBorder(),
@@ -1115,7 +1128,7 @@ class _NuevaFacturaRapidaDialogState
                     const SizedBox(width: 16),
                     Expanded(
                       child: DropdownButtonFormField<String?>(
-                        value: _tipoFactura,
+                        initialValue: _tipoFactura,
                         decoration: const InputDecoration(
                           labelText: 'Letra',
                           border: OutlineInputBorder(),

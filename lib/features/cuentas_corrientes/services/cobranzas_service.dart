@@ -25,12 +25,16 @@ class CobranzasService {
   }
 
   Future<int> generarRecibo({
-    required int socioId,
+    int? socioId,
+    int? profesionalId,
     required Map<int, double> transaccionesAPagar,
     required Map<int, double> formasPago,
     int? operadorId,
     int? numeroRecibo,
   }) async {
+    assert(socioId != null || profesionalId != null,
+        'Debe proveer socioId o profesionalId');
+
     // Validar que los totales coincidan
     final totalAPagar = transaccionesAPagar.values.fold(0.0, (a, b) => a + b);
     final totalFormasPago = formasPago.values.fold(0.0, (a, b) => a + b);
@@ -55,6 +59,7 @@ class CobranzasService {
       // Llamar a la función PostgreSQL que maneja todo de forma transaccional
       final response = await _supabase.rpc('generar_recibo_cobranza', params: {
         'p_socio_id': socioId,
+        'p_profesional_id': profesionalId,
         'p_transacciones_a_pagar': transaccionesJson,
         'p_formas_pago': formasPagoJson,
         'p_operador_id': operadorId,

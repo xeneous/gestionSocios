@@ -10,7 +10,8 @@ class FacturadorService {
   Future<ResumenFacturacion> obtenerVistaPrevia({
     required List<PeriodoFacturacion> periodos,
   }) async {
-    // 1. Obtener todos los socios con grupo 'A' o 'T' (con paginación)
+    // 1. Obtener todos los socios con grupo A, T o V (con paginación)
+    //    Los V solo se facturan si tienen paga_seguro_mp = true
     final socios = <Map<String, dynamic>>[];
     const pageSize = 1000;
     int offset = 0;
@@ -19,8 +20,8 @@ class FacturadorService {
     while (hasMore) {
       final sociosResponse = await _supabase
           .from('socios')
-          .select('id, apellido, nombre, grupo, residente, descuento_primer_anio, fecha_fin_descuento')
-          .inFilter('grupo', ['A', 'T'])
+          .select('id, apellido, nombre, grupo, residente, paga_seguro_mp, descuento_primer_anio, fecha_fin_descuento')
+          .inFilter('grupo', ['A', 'T', 'V'])
           .order('apellido')
           .range(offset, offset + pageSize - 1);
 
@@ -82,15 +83,23 @@ class FacturadorService {
 
     for (final socio in socios) {
       final socioId = socio['id'] as int;
+      final grupo = socio['grupo'] as String;
       final residente = socio['residente'] as bool? ?? false;
+      final pagaSeguroMp = socio['paga_seguro_mp'] as bool? ?? false;
+
+      // Vitalicios: solo facturar si pagan seguro MP
+      if (grupo == 'V' && !pagaSeguroMp) continue;
+
+      // Vitalicios con seguro MP usan tarifa de residente
+      final usarTarifaResidente = residente || (grupo == 'V' && pagaSeguroMp);
+
       final descuentoPrimerAnio = socio['descuento_primer_anio'] as bool? ?? false;
       final fechaFinDescuentoStr = socio['fecha_fin_descuento'] as String?;
-      final fechaFinDescuento = (descuentoPrimerAnio && residente && fechaFinDescuentoStr != null)
+      final fechaFinDescuento = (descuentoPrimerAnio && usarTarifaResidente && fechaFinDescuentoStr != null)
           ? DateTime.tryParse(fechaFinDescuentoStr)
           : null;
       final nombreCompleto =
           '${socio['apellido']} ${socio['nombre']}'.trim();
-      final grupo = socio['grupo'] as String;
 
       // Filtrar solo los meses faltantes (búsqueda en Set = O(1))
       final mesesFaltantes = periodos.where((p) {
@@ -105,9 +114,9 @@ class FacturadorService {
       for (final periodo in mesesFaltantes) {
         final valor = valoresMap[periodo.anioMes];
         if (valor != null) {
-          double importePeriodo = residente ? valor['residente']! : valor['noResidente']!;
-          // Aplicar descuento 50% solo si es residente y el período está dentro del rango
-          if (residente && fechaFinDescuento != null) {
+          double importePeriodo = usarTarifaResidente ? valor['residente']! : valor['noResidente']!;
+          // Aplicar descuento 50% solo si usa tarifa residente y el período está dentro del rango
+          if (usarTarifaResidente && fechaFinDescuento != null) {
             final fechaPeriodo = DateTime(periodo.anio, periodo.mes, 1);
             if (fechaPeriodo.isBefore(fechaFinDescuento)) {
               importePeriodo = importePeriodo / 2;
@@ -121,7 +130,7 @@ class FacturadorService {
         socioId: socioId,
         socioNombre: nombreCompleto,
         socioGrupo: grupo,
-        residente: residente,
+        residente: usarTarifaResidente,
         fechaFinDescuento: fechaFinDescuento,
         mesesFaltantes: mesesFaltantes,
         importeTotal: importeSocio,

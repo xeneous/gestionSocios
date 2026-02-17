@@ -48,6 +48,10 @@ import '../../features/comprobantes_cli/presentation/pages/saldos_clientes_page.
 import '../../features/comprobantes_prov/presentation/pages/saldos_proveedores_page.dart';
 import '../../features/asientos/presentation/pages/mayor_cuentas_page.dart';
 import '../../features/socios/presentation/pages/listado_residentes_page.dart';
+import '../../features/profesionales/presentation/pages/profesionales_list_page.dart';
+import '../../features/profesionales/presentation/pages/profesional_form_page.dart';
+import '../../features/profesionales/presentation/pages/cobranzas_select_profesional_page.dart';
+import '../../features/cuentas_corrientes/presentation/pages/cuenta_corriente_profesional_table_page.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   final authState = ref.watch(authStateProvider);
@@ -502,6 +506,67 @@ final routerProvider = Provider<GoRouter>((ref) {
             paginaInicial: pagina,
             pageSizeInicial: pageSize,
           );
+        },
+      ),
+      // Profesionales
+      GoRoute(
+        path: '/profesionales',
+        name: 'profesionales',
+        builder: (context, state) => const ProfesionalesListPage(),
+      ),
+      GoRoute(
+        path: '/profesionales/nuevo',
+        name: 'profesionales-nuevo',
+        builder: (context, state) => const ProfesionalFormPage(),
+      ),
+      GoRoute(
+        path: '/profesionales/:id/editar',
+        name: 'profesionales-editar',
+        builder: (context, state) {
+          final id = int.parse(state.pathParameters['id']!);
+          return ProfesionalFormPage(profesionalId: id);
+        },
+      ),
+      // Cuenta Corriente de Profesional
+      GoRoute(
+        path: '/profesionales/:profesionalId/cuenta-corriente',
+        name: 'cuenta-corriente-profesional',
+        builder: (context, state) {
+          final profesionalId =
+              int.parse(state.pathParameters['profesionalId']!);
+          return CuentaCorrienteProfesionalTablePage(
+              profesionalId: profesionalId);
+        },
+      ),
+      // Facturación a Profesionales
+      GoRoute(
+        path: '/facturacion-profesionales',
+        name: 'facturacion-profesionales',
+        builder: (context, state) =>
+            const NuevaFacturaPage(esProfesionalInicial: true),
+      ),
+      GoRoute(
+        path: '/facturacion-profesionales/:profesionalId',
+        name: 'facturacion-profesionales-id',
+        builder: (context, state) {
+          final profesionalId =
+              int.parse(state.pathParameters['profesionalId']!);
+          return NuevaFacturaPage(profesionalId: profesionalId);
+        },
+      ),
+      // Cobranzas de Profesionales
+      GoRoute(
+        path: '/cobranzas-profesionales',
+        name: 'cobranzas-profesionales-select',
+        builder: (context, state) => const CobranzasSelectProfesionalPage(),
+      ),
+      GoRoute(
+        path: '/cobranzas-profesionales/:profesionalId',
+        name: 'cobranzas-profesionales',
+        builder: (context, state) {
+          final profesionalId =
+              int.parse(state.pathParameters['profesionalId']!);
+          return CobranzasPage(profesionalId: profesionalId);
         },
       ),
     ],

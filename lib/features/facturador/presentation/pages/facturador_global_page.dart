@@ -93,13 +93,15 @@ class _FacturadorGlobalPageState extends ConsumerState<FacturadorGlobalPage> {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      'Esta función genera cuotas sociales (CS) para todos los socios Asistentes (A) y Titulares (T) '
+                      'Esta función genera cuotas sociales (CS) para todos los socios Asistentes (A), Titulares (T) '
+                      'y Vitalicios (V) que paguen Seguro MP, '
                       'que NO tengan cuotas creadas en los meses seleccionados.',
                       style: TextStyle(color: Colors.blue[800]),
                     ),
                     const SizedBox(height: 8),
                     Text(
                       '• Se respetan los valores de residente/no residente de cada socio\n'
+                      '• Vitalicios con Seguro MP se facturan a tarifa de residente\n'
                       '• Solo se generan cuotas para meses faltantes\n'
                       '• Se puede ver una vista previa antes de confirmar',
                       style: TextStyle(
@@ -294,7 +296,7 @@ class _FacturadorGlobalPageState extends ConsumerState<FacturadorGlobalPage> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Todos los socios Asistentes y Titulares ya tienen sus cuotas creadas para el período seleccionado.',
+                    'Todos los socios (Asistentes, Titulares y Vitalicios con Seguro MP) ya tienen sus cuotas creadas para el período seleccionado.',
                     style: TextStyle(color: Colors.grey[600]),
                     textAlign: TextAlign.center,
                   ),

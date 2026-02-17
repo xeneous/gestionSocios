@@ -112,6 +112,39 @@ class AppDrawer extends ConsumerWidget {
             ],
           ),
 
+          // ==================== ZONA PROFESIONALES ====================
+          _buildSectionTile(
+            context: context,
+            ref: ref,
+            icon: Icons.people_alt,
+            title: 'PROFESIONALES',
+            color: Colors.teal,
+            initiallyExpanded: _isProfesionalesSection(currentRoute),
+            children: [
+              _buildMenuItem(
+                context: context,
+                icon: Icons.people_alt,
+                title: 'Profesionales',
+                route: '/profesionales',
+                currentRoute: currentRoute,
+              ),
+              _buildMenuItem(
+                context: context,
+                icon: Icons.receipt,
+                title: 'Facturar Conceptos',
+                route: '/facturacion-profesionales',
+                currentRoute: currentRoute,
+              ),
+              _buildMenuItem(
+                context: context,
+                icon: Icons.payments,
+                title: 'Cobranzas',
+                route: '/cobranzas-profesionales',
+                currentRoute: currentRoute,
+              ),
+            ],
+          ),
+
           // ==================== ZONA PROCESOS ====================
           if (userRole.puedeFacturarMasivo)
             _buildSectionTile(
@@ -330,8 +363,17 @@ class AppDrawer extends ConsumerWidget {
     return route.startsWith('/socios') ||
         route == '/listado-residentes' ||
         route.startsWith('/facturacion-conceptos') ||
-        (route.startsWith('/cobranzas') && !route.startsWith('/cobranzas-clientes')) ||
+        (route.startsWith('/cobranzas') &&
+            !route.startsWith('/cobranzas-clientes') &&
+            !route.startsWith('/cobranzas-profesionales')) ||
         route.startsWith('/resumen-cuentas-corrientes');
+  }
+
+  /// Verifica si la ruta actual pertenece a la sección Profesionales
+  bool _isProfesionalesSection(String route) {
+    return route.startsWith('/profesionales') ||
+        route.startsWith('/facturacion-profesionales') ||
+        route.startsWith('/cobranzas-profesionales');
   }
 
   /// Verifica si la ruta actual pertenece a la sección Procesos

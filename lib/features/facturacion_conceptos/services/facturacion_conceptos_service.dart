@@ -23,7 +23,8 @@ class FacturacionConceptosService {
     // Crear header de la transacción
     final transaccion = {
       'socio_id': factura.socioId,
-      'entidad_id': 0, // 0 = Socios
+      'profesional_id': factura.profesionalId,
+      'entidad_id': factura.entidadId,
       'fecha': factura.fecha.toIso8601String(),
       'tipo_comprobante': 'FC',
       'documento_numero': documentoNumero,

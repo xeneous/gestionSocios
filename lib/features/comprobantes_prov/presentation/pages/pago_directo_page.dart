@@ -161,8 +161,8 @@ class _PagoDirectoPageState extends ConsumerState<PagoDirectoPage> {
     if (diferencia >= 0.01) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-            content:
-                Text('El total de formas de pago debe coincidir con el importe')),
+            content: Text(
+                'El total de formas de pago debe coincidir con el importe')),
       );
       return;
     }
@@ -226,7 +226,8 @@ class _PagoDirectoPageState extends ConsumerState<PagoDirectoPage> {
       );
 
       final compNotifier = ref.read(comprobantesProvNotifierProvider.notifier);
-      final comprobanteCreado = await compNotifier.crearComprobante(header, [item]);
+      final comprobanteCreado =
+          await compNotifier.crearComprobante(header, [item]);
 
       // 2. Crear la orden de pago
       final transaccionesAPagar = {
@@ -578,13 +579,14 @@ class _PagoDirectoPageState extends ConsumerState<PagoDirectoPage> {
                                           .where((t) => t.multiplicador == 1)
                                           .toList();
                                       return DropdownButtonFormField<int?>(
-                                        value: _tipoComprobante,
+                                        initialValue: _tipoComprobante,
                                         decoration: const InputDecoration(
                                           labelText: 'Tipo *',
                                           border: OutlineInputBorder(),
                                         ),
                                         items: tiposFactura
-                                            .map((tipo) => DropdownMenuItem<int?>(
+                                            .map((tipo) =>
+                                                DropdownMenuItem<int?>(
                                                   value: tipo.codigo,
                                                   child: Text(tipo.descripcion),
                                                 ))
@@ -624,7 +626,7 @@ class _PagoDirectoPageState extends ConsumerState<PagoDirectoPage> {
                                 const SizedBox(width: 16),
                                 Expanded(
                                   child: DropdownButtonFormField<String?>(
-                                    value: _tipoFactura,
+                                    initialValue: _tipoFactura,
                                     decoration: const InputDecoration(
                                       labelText: 'Letra',
                                       border: OutlineInputBorder(),
@@ -832,7 +834,8 @@ class _PagoDirectoPageState extends ConsumerState<PagoDirectoPage> {
                               children: [
                                 const Text('Diferencia:'),
                                 Text(
-                                  _currencyFormat.format(importe - totalFormasPago),
+                                  _currencyFormat
+                                      .format(importe - totalFormasPago),
                                   style: const TextStyle(
                                     fontWeight: FontWeight.bold,
                                     color: Colors.red,
@@ -963,8 +966,8 @@ class _PagoDirectoPageState extends ConsumerState<PagoDirectoPage> {
                         },
                         loading: () =>
                             const Center(child: CircularProgressIndicator()),
-                        error: (_, __) =>
-                            const Center(child: Text('Error cargando conceptos')),
+                        error: (_, __) => const Center(
+                            child: Text('Error cargando conceptos')),
                       ),
                     ),
 
@@ -972,8 +975,9 @@ class _PagoDirectoPageState extends ConsumerState<PagoDirectoPage> {
                     Container(
                       padding: const EdgeInsets.all(16),
                       child: FilledButton.icon(
-                        onPressed:
-                            _isLoading || !_canProcesar() ? null : _procesarPago,
+                        onPressed: _isLoading || !_canProcesar()
+                            ? null
+                            : _procesarPago,
                         icon: _isLoading
                             ? const SizedBox(
                                 width: 20,

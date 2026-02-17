@@ -11,6 +11,7 @@ import '../../auth/presentation/providers/auth_provider.dart';
 
 class CuentasCorrientesSearchParams {
   final int? socioId;
+  final int? profesionalId;
   final int? entidadId;
   final String? tipoComprobante;
   final DateTime? fechaDesde;
@@ -19,6 +20,7 @@ class CuentasCorrientesSearchParams {
 
   CuentasCorrientesSearchParams({
     this.socioId,
+    this.profesionalId,
     this.entidadId,
     this.tipoComprobante,
     this.fechaDesde,
@@ -32,6 +34,7 @@ class CuentasCorrientesSearchParams {
       other is CuentasCorrientesSearchParams &&
           runtimeType == other.runtimeType &&
           socioId == other.socioId &&
+          profesionalId == other.profesionalId &&
           entidadId == other.entidadId &&
           tipoComprobante == other.tipoComprobante &&
           fechaDesde == other.fechaDesde &&
@@ -41,6 +44,7 @@ class CuentasCorrientesSearchParams {
   @override
   int get hashCode =>
       socioId.hashCode ^
+      profesionalId.hashCode ^
       entidadId.hashCode ^
       tipoComprobante.hashCode ^
       fechaDesde.hashCode ^
@@ -69,6 +73,10 @@ final cuentasCorrientesSearchProvider = FutureProvider.family<
     // Aplicar filtros
     if (params.socioId != null) {
       query = query.eq('socio_id', params.socioId!);
+    }
+
+    if (params.profesionalId != null) {
+      query = query.eq('profesional_id', params.profesionalId!);
     }
 
     if (params.entidadId != null) {
@@ -492,6 +500,59 @@ final saldoSocioProvider =
   return ref
       .read(cuentasCorrientesNotifierProvider.notifier)
       .getSaldoSocio(socioId);
+});
+
+// ============================================================================
+// PROVIDER DE SALDO POR PROFESIONAL
+// ============================================================================
+
+final saldoProfesionalProvider =
+    FutureProvider.family<Map<String, double>, int>((ref, profesionalId) async {
+  try {
+    final supabase = ref.read(supabaseProvider);
+
+    final response = await supabase.from('cuentas_corrientes').select('''
+          importe,
+          cancelado,
+          tipos_comprobante_socios(signo)
+        ''').eq('profesional_id', profesionalId);
+
+    double totalDebe = 0.0;
+    double totalHaber = 0.0;
+    double totalCancelado = 0.0;
+    int totalTransacciones = 0;
+
+    for (final row in (response as List)) {
+      final importe = (row['importe'] as num?)?.toDouble() ?? 0.0;
+      final cancelado = (row['cancelado'] as num?)?.toDouble() ?? 0.0;
+      final signo = row['tipos_comprobante_socios']?['signo'] as int? ?? 1;
+
+      if (signo == 1) {
+        totalDebe += importe;
+      } else {
+        totalHaber += importe;
+      }
+      totalCancelado += cancelado;
+      totalTransacciones++;
+    }
+
+    final saldoTotal = totalDebe - totalHaber;
+    final saldoPendiente = saldoTotal - totalCancelado;
+
+    return {
+      'saldo_total': saldoTotal,
+      'total_cancelado': totalCancelado,
+      'saldo_pendiente': saldoPendiente,
+      'total_transacciones': totalTransacciones.toDouble(),
+    };
+  } catch (e) {
+    return {
+      'saldo_total': 0.0,
+      'total_cancelado': 0.0,
+      'saldo_pendiente': 0.0,
+      'total_transacciones': 0.0,
+    };
+  }
 });
 
 // ============================================================================

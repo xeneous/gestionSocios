@@ -53,7 +53,7 @@ class CuentaCorriente {
   factory CuentaCorriente.fromJson(Map<String, dynamic> json) {
     return CuentaCorriente(
       idtransaccion: json['idtransaccion'] as int?,
-      socioId: json['socio_id'] as int,
+      socioId: (json['socio_id'] as int?) ?? 0, // 0 cuando es profesional
       entidadId: json['entidad_id'] as int,
       fecha: DateTime.parse(json['fecha']),
       tipoComprobante: json['tipo_comprobante'] as String,

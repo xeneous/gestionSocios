@@ -1,8 +1,10 @@
+import 'dart:convert' show base64Decode;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import 'package:universal_html/html.dart' as html;
 import '../../models/socio_model.dart';
 import '../../models/tipo_documento_model.dart';
 import '../../providers/socios_provider.dart';
@@ -23,6 +25,10 @@ import '../../providers/conceptos_provider.dart';
 import '../../models/concepto_model.dart';
 import '../../models/concepto_socio_model.dart';
 import '../../models/observacion_socio_model.dart';
+import '../../providers/recertificaciones_provider.dart';
+import '../../models/recertificacion_model.dart';
+import '../../providers/archivos_socio_provider.dart';
+import '../../models/archivo_socio_model.dart';
 import '../../../cuota_social/presentation/dialogs/cargar_cuotas_dialog.dart';
 
 class SocioFormPage extends ConsumerStatefulWidget {
@@ -84,11 +90,33 @@ class _SocioFormPageState extends ConsumerState<SocioFormPage>
 
   bool _isLoading = false;
   bool _isLoadingData = false;
+  bool _formModified = false;
+
+  /// Marca el formulario como modificado (ignora cambios durante carga inicial)
+  void _markFormModified() {
+    if (!_isLoadingData) {
+      _formModified = true;
+    }
+  }
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 6, vsync: this); // 6 tabs
+    _tabController = TabController(length: 7, vsync: this);
+
+    // Escuchar cambios en todos los TextEditingControllers
+    final controllers = [
+      _apellidoController, _nombreController, _numeroDocumentoController,
+      _cuilController, _matriculaNacionalController, _matriculaProvincialController,
+      _lugarResidenciaController, _domicilioController, _localidadController,
+      _codigoPostalController, _telefonoController, _telefonoSecundarioController,
+      _celularController, _emailController, _emailAlternativoController,
+      _numeroTarjetaController,
+    ];
+    for (final c in controllers) {
+      c.addListener(_markFormModified);
+    }
+
     if (widget.socioId != null) {
       _isLoadingData = true;
       _loadSocioData();
@@ -420,7 +448,8 @@ class _SocioFormPageState extends ConsumerState<SocioFormPage>
                         Tab(
                             icon: Icon(Icons.credit_card),
                             text: 'Débito Automático'),
-                        Tab(icon: Icon(Icons.receipt_long), text: 'Conceptos'),
+                        Tab(icon: Icon(Icons.verified), text: 'Recertificaciones'),
+                        Tab(icon: Icon(Icons.attach_file), text: 'Archivos'),
                         Tab(icon: Icon(Icons.note), text: 'Observaciones'),
                       ],
                     ),
@@ -434,7 +463,8 @@ class _SocioFormPageState extends ConsumerState<SocioFormPage>
                         _buildDatosProfesionalesTab(gruposAsync),
                         _buildDomicilioContactoTab(),
                         _buildDebitoAutomaticoTab(),
-                        _buildConceptosTab(),
+                        _buildRecertificacionesTab(),
+                        _buildArchivosTab(),
                         _buildObservacionesTab(),
                       ],
                     ),
@@ -734,6 +764,7 @@ class _SocioFormPageState extends ConsumerState<SocioFormPage>
                   );
                 }).toList(),
                 onChanged: (value) {
+                  _markFormModified();
                   setState(() => _tipoDocumento = value ?? 'DNI');
                 },
               ),
@@ -798,6 +829,7 @@ class _SocioFormPageState extends ConsumerState<SocioFormPage>
                           );
                         }).toList(),
                         onChanged: (value) {
+                          _markFormModified();
                           setState(() => _sexo = value);
                         },
                       );
@@ -829,6 +861,7 @@ class _SocioFormPageState extends ConsumerState<SocioFormPage>
               lastDate: DateTime.now(),
             );
             if (date != null) {
+              _markFormModified();
               setState(() => _fechaNacimiento = date);
             }
           },
@@ -887,6 +920,7 @@ class _SocioFormPageState extends ConsumerState<SocioFormPage>
                 );
               }).toList(),
               onChanged: (value) {
+                _markFormModified();
                 setState(() {
                   // Si cambia a Vitalicio, sugerir la categoría anterior
                   if (value == 'V' && _grupo != 'V' && _grupo != null) {
@@ -925,6 +959,7 @@ class _SocioFormPageState extends ConsumerState<SocioFormPage>
               lastDate: DateTime.now(),
             );
             if (date != null) {
+              _markFormModified();
               setState(() => _grupoDesde = date);
             }
           },
@@ -966,6 +1001,7 @@ class _SocioFormPageState extends ConsumerState<SocioFormPage>
                         : 'No paga seguro de Mala Praxis'),
                     value: _pagaSeguroMp,
                     onChanged: (value) {
+                      _markFormModified();
                       setState(() => _pagaSeguroMp = value);
                     },
                   ),
@@ -994,6 +1030,7 @@ class _SocioFormPageState extends ConsumerState<SocioFormPage>
                               )),
                         ],
                         onChanged: (value) {
+                          _markFormModified();
                           setState(() => _ultimaCategoria = value);
                         },
                       );
@@ -1040,6 +1077,7 @@ class _SocioFormPageState extends ConsumerState<SocioFormPage>
               : 'El socio no es residente'),
           value: _residente,
           onChanged: (value) {
+            _markFormModified();
             setState(() => _residente = value);
           },
         ),
@@ -1054,6 +1092,7 @@ class _SocioFormPageState extends ConsumerState<SocioFormPage>
                 lastDate: DateTime.now(),
               );
               if (date != null) {
+                _markFormModified();
                 setState(() {
                   _fechaInicioResidencia = date;
                   _sugerirCategoria(date);
@@ -1099,6 +1138,7 @@ class _SocioFormPageState extends ConsumerState<SocioFormPage>
                               ))
                           .toList(),
                       onChanged: (value) {
+                        _markFormModified();
                         setState(() => _categoriaResidente = value);
                       },
                       validator: (value) {
@@ -1237,6 +1277,7 @@ class _SocioFormPageState extends ConsumerState<SocioFormPage>
                 lastDate: DateTime.now().add(const Duration(days: 365 * 10)),
               );
               if (date != null) {
+                _markFormModified();
                 setState(() => _fechaFinResidencia = date);
               }
             },
@@ -1265,6 +1306,7 @@ class _SocioFormPageState extends ConsumerState<SocioFormPage>
               lastDate: DateTime.now(),
             );
             if (date != null) {
+              _markFormModified();
               setState(() => _fechaIngreso = date);
             }
           },
@@ -1363,6 +1405,7 @@ class _SocioFormPageState extends ConsumerState<SocioFormPage>
                           );
                         }).toList(),
                         onChanged: (value) {
+                          _markFormModified();
                           setState(() => _provinciaId = value);
                         },
                       );
@@ -1411,6 +1454,7 @@ class _SocioFormPageState extends ConsumerState<SocioFormPage>
                           );
                         }).toList(),
                         onChanged: (value) {
+                          _markFormModified();
                           setState(() => _paisId = value);
                         },
                       );
@@ -1526,6 +1570,7 @@ class _SocioFormPageState extends ConsumerState<SocioFormPage>
               : 'El socio no está adherido'),
           value: _adheridoDebito,
           onChanged: (value) {
+            _markFormModified();
             setState(() => _adheridoDebito = value);
           },
         ),
@@ -1551,6 +1596,7 @@ class _SocioFormPageState extends ConsumerState<SocioFormPage>
                       );
                     }).toList(),
                     onChanged: (value) {
+                      _markFormModified();
                       setState(() => _tarjetaId = value);
                     },
                     validator: (value) {
@@ -1594,6 +1640,7 @@ class _SocioFormPageState extends ConsumerState<SocioFormPage>
                 lastDate: DateTime.now().add(const Duration(days: 3650)),
               );
               if (date != null) {
+                _markFormModified();
                 setState(() => _vencimientoTarjeta = date);
               }
             },
@@ -1620,6 +1667,7 @@ class _SocioFormPageState extends ConsumerState<SocioFormPage>
                 lastDate: DateTime.now().add(const Duration(days: 365)),
               );
               if (date != null) {
+                _markFormModified();
                 setState(() => _debitarDesde = date);
               }
             },
@@ -1728,6 +1776,328 @@ class _SocioFormPageState extends ConsumerState<SocioFormPage>
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (error, _) => Center(child: Text('Error: $error')),
     );
+  }
+
+  Widget _buildArchivosTab() {
+    if (widget.socioId == null) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(32.0),
+          child: Text(
+            'Debe guardar el socio antes de adjuntar archivos',
+            style: TextStyle(fontSize: 16),
+            textAlign: TextAlign.center,
+          ),
+        ),
+      );
+    }
+
+    final archivosAsync = ref.watch(archivosSocioProvider(widget.socioId!));
+
+    return archivosAsync.when(
+      data: (archivos) => Column(
+        children: [
+          // Header con botón de subir
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  'Archivos Adjuntos',
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                ),
+                FilledButton.icon(
+                  onPressed: () => _subirArchivo(),
+                  icon: const Icon(Icons.upload_file),
+                  label: const Text('Subir Archivo'),
+                ),
+              ],
+            ),
+          ),
+          const Divider(height: 1),
+          // Lista de archivos
+          Expanded(
+            child: archivos.isEmpty
+                ? const Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.folder_open, size: 64, color: Colors.grey),
+                        SizedBox(height: 16),
+                        Text(
+                          'No hay archivos adjuntos',
+                          style: TextStyle(fontSize: 16, color: Colors.grey),
+                        ),
+                        SizedBox(height: 8),
+                        Text(
+                          'Use el botón "Subir Archivo" para adjuntar documentos',
+                          style: TextStyle(fontSize: 14, color: Colors.grey),
+                        ),
+                      ],
+                    ),
+                  )
+                : ListView.builder(
+                    padding: const EdgeInsets.all(16),
+                    itemCount: archivos.length,
+                    itemBuilder: (context, index) {
+                      final archivo = archivos[index];
+                      return Card(
+                        margin: const EdgeInsets.only(bottom: 8),
+                        child: ListTile(
+                          leading: Icon(
+                            archivo.esImagen
+                                ? Icons.image
+                                : archivo.esPdf
+                                    ? Icons.picture_as_pdf
+                                    : Icons.insert_drive_file,
+                            color: archivo.esImagen
+                                ? Colors.blue
+                                : archivo.esPdf
+                                    ? Colors.red
+                                    : Colors.orange,
+                            size: 32,
+                          ),
+                          title: Text(
+                            archivo.nombre,
+                            style: const TextStyle(fontWeight: FontWeight.w500),
+                          ),
+                          subtitle: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              if (archivo.descripcion != null &&
+                                  archivo.descripcion!.isNotEmpty)
+                                Text(archivo.descripcion!,
+                                    style: const TextStyle(fontSize: 12)),
+                              Text(
+                                '${archivo.tamanioFormateado}  •  ${archivo.createdAt != null ? DateFormat('dd/MM/yyyy HH:mm').format(archivo.createdAt!) : ''}',
+                                style: TextStyle(
+                                    fontSize: 11, color: Colors.grey[600]),
+                              ),
+                            ],
+                          ),
+                          trailing: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              IconButton(
+                                icon: const Icon(Icons.download,
+                                    color: Colors.teal),
+                                tooltip: 'Descargar',
+                                onPressed: () =>
+                                    _descargarArchivo(archivo),
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.delete,
+                                    color: Colors.red),
+                                tooltip: 'Eliminar',
+                                onPressed: () =>
+                                    _eliminarArchivo(archivo),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+          ),
+        ],
+      ),
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (error, _) => Center(child: Text('Error: $error')),
+    );
+  }
+
+  Future<void> _subirArchivo() async {
+    // Usar input HTML para seleccionar archivo (web)
+    final uploadInput = html.FileUploadInputElement()..accept = '*/*';
+    uploadInput.click();
+
+    // Esperar selección de archivo
+    await uploadInput.onChange.first;
+    final files = uploadInput.files;
+    if (files == null || files.isEmpty) return;
+
+    final file = files[0];
+
+    // Leer el archivo como DataURL (base64)
+    final reader = html.FileReader();
+    reader.readAsDataUrl(file);
+    await reader.onLoad.first;
+
+    final dataUrl = reader.result as String;
+    final base64Data = dataUrl.split(',').last;
+    final bytes = base64Decode(base64Data);
+
+    final tipoContenido =
+        file.type.isNotEmpty ? file.type : 'application/octet-stream';
+
+    // Pedir descripción opcional
+    String? descripcion;
+    if (mounted) {
+      final descController = TextEditingController();
+      descripcion = await showDialog<String>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: Text('Subir: ${file.name}'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Tamaño: ${_formatearTamanio(bytes.length)}',
+                style: const TextStyle(fontSize: 12),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: descController,
+                decoration: const InputDecoration(
+                  labelText: 'Descripción (opcional)',
+                  border: OutlineInputBorder(),
+                  prefixIcon: Icon(Icons.description),
+                ),
+                maxLines: 2,
+                autofocus: true,
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, null),
+              child: const Text('Cancelar'),
+            ),
+            FilledButton.icon(
+              onPressed: () => Navigator.pop(context, descController.text),
+              icon: const Icon(Icons.upload),
+              label: const Text('Subir'),
+            ),
+          ],
+        ),
+      );
+      descController.dispose();
+    }
+
+    if (descripcion == null) return; // Usuario canceló
+
+    // Subir el archivo
+    if (!mounted) return;
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(
+        child: Card(
+          child: Padding(
+            padding: EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CircularProgressIndicator(),
+                SizedBox(height: 16),
+                Text('Subiendo archivo...'),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+
+    try {
+      await ref.read(archivosNotifierProvider.notifier).subirArchivo(
+            socioId: widget.socioId!,
+            nombre: file.name,
+            bytes: bytes,
+            tipoContenido: tipoContenido,
+            descripcion: descripcion.isNotEmpty ? descripcion : null,
+          );
+
+      if (mounted) {
+        Navigator.pop(context);
+        ref.invalidate(archivosSocioProvider);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Archivo subido correctamente')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error al subir archivo: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _descargarArchivo(ArchivoSocioModel archivo) async {
+    try {
+      final service = ref.read(archivosServiceProvider);
+      final url = await service.obtenerUrlDescarga(archivo.storagePath);
+
+      // Abrir URL de descarga en el navegador
+      html.AnchorElement(href: url)
+        ..setAttribute('download', archivo.nombre)
+        ..click();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error al descargar: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  String _formatearTamanio(int bytes) {
+    if (bytes < 1024) return '$bytes B';
+    if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
+    return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+  }
+
+  Future<void> _eliminarArchivo(ArchivoSocioModel archivo) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Eliminar Archivo'),
+        content: Text('¿Desea eliminar "${archivo.nombre}"?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text('Eliminar'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    try {
+      await ref
+          .read(archivosNotifierProvider.notifier)
+          .eliminarArchivo(archivo);
+      if (mounted) {
+        ref.invalidate(archivosSocioProvider);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Archivo eliminado')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error al eliminar: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 
   Widget _buildObservacionesTab() {
@@ -2179,6 +2549,469 @@ class _SocioFormPageState extends ConsumerState<SocioFormPage>
     }
   }
 
+  Widget _buildRecertificacionesTab() {
+    if (widget.socioId == null) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(32.0),
+          child: Text(
+            'Debe guardar el socio antes de agregar recertificaciones',
+            style: TextStyle(fontSize: 16),
+            textAlign: TextAlign.center,
+          ),
+        ),
+      );
+    }
+
+    final recertificacionesAsync =
+        ref.watch(recertificacionesSocioProvider(widget.socioId!));
+
+    return recertificacionesAsync.when(
+      data: (recertificaciones) => ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'Recertificaciones',
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              ),
+              FilledButton.icon(
+                onPressed: () => _showAgregarRecertificacionDialog(),
+                icon: const Icon(Icons.add),
+                label: const Text('Nueva Recertificación'),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          if (recertificaciones.isEmpty)
+            const Center(
+              child: Padding(
+                padding: EdgeInsets.all(32.0),
+                child: Text(
+                  'No hay recertificaciones registradas',
+                  style: TextStyle(fontSize: 16, color: Colors.grey),
+                ),
+              ),
+            )
+          else
+            ...recertificaciones.map((recert) => Card(
+                  margin: const EdgeInsets.only(bottom: 12),
+                  child: ListTile(
+                    leading: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.verified,
+                            size: 24,
+                            color: _getEstadoColor(recert.estado)),
+                        const SizedBox(height: 4),
+                        Text(
+                          DateFormat('dd/MM').format(recert.fechaRecertificacion),
+                          style: const TextStyle(fontSize: 10),
+                        ),
+                      ],
+                    ),
+                    title: Text(recert.titulo),
+                    subtitle: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const SizedBox(height: 4),
+                        Row(
+                          children: [
+                            Icon(
+                              _getEstadoIcon(recert.estado),
+                              size: 16,
+                              color: _getEstadoColor(recert.estado),
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              recert.estado,
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                                color: _getEstadoColor(recert.estado),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Fecha: ${DateFormat('dd/MM/yyyy').format(recert.fechaRecertificacion)}',
+                          style: const TextStyle(fontSize: 12),
+                        ),
+                      ],
+                    ),
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.edit, color: Colors.blue),
+                          tooltip: 'Editar',
+                          onPressed: () => _showEditarRecertificacionDialog(recert),
+                        ),
+                        if (ref.read(userRoleProvider).esAdministrador)
+                          IconButton(
+                            icon: const Icon(Icons.delete, color: Colors.red),
+                            tooltip: 'Eliminar',
+                            onPressed: () => _eliminarRecertificacion(recert),
+                          ),
+                      ],
+                    ),
+                  ),
+                )),
+        ],
+      ),
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (error, _) => Center(child: Text('Error: $error')),
+    );
+  }
+
+  Color _getEstadoColor(String estado) {
+    switch (estado) {
+      case 'Iniciada':
+        return Colors.orange;
+      case 'En proceso':
+        return Colors.blue;
+      case 'Finalizada':
+        return Colors.green;
+      default:
+        return Colors.grey;
+    }
+  }
+
+  IconData _getEstadoIcon(String estado) {
+    switch (estado) {
+      case 'Iniciada':
+        return Icons.play_circle_outline;
+      case 'En proceso':
+        return Icons.pending;
+      case 'Finalizada':
+        return Icons.check_circle;
+      default:
+        return Icons.help_outline;
+    }
+  }
+
+  Future<void> _showAgregarRecertificacionDialog() async {
+    final tituloController = TextEditingController();
+    DateTime? fechaRecertificacion;
+    String? selectedEstado;
+
+    await showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          title: const Text('Nueva Recertificación'),
+          content: SizedBox(
+            width: 400,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextFormField(
+                  controller: tituloController,
+                  decoration: const InputDecoration(
+                    labelText: 'Título *',
+                    border: OutlineInputBorder(),
+                    prefixIcon: Icon(Icons.title),
+                  ),
+                  maxLines: 2,
+                  autofocus: true,
+                ),
+                const SizedBox(height: 16),
+                InkWell(
+                  onTap: () async {
+                    final date = await showDatePicker(
+                      context: context,
+                      initialDate: fechaRecertificacion ?? DateTime.now(),
+                      firstDate: DateTime(2000),
+                      lastDate: DateTime(2100),
+                    );
+                    if (date != null) {
+                      setState(() => fechaRecertificacion = date);
+                    }
+                  },
+                  child: InputDecorator(
+                    decoration: const InputDecoration(
+                      labelText: 'Fecha de Recertificación *',
+                      border: OutlineInputBorder(),
+                      prefixIcon: Icon(Icons.calendar_today),
+                    ),
+                    child: Text(
+                      fechaRecertificacion != null
+                          ? DateFormat('dd/MM/yyyy').format(fechaRecertificacion!)
+                          : 'Seleccionar fecha',
+                      style: TextStyle(
+                        color: fechaRecertificacion != null
+                            ? Colors.black
+                            : Colors.grey[600],
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                DropdownButtonFormField<String>(
+                  value: selectedEstado,
+                  decoration: const InputDecoration(
+                    labelText: 'Estado *',
+                    border: OutlineInputBorder(),
+                    prefixIcon: Icon(Icons.flag),
+                  ),
+                  items: EstadoRecertificacion.todos.map((estado) {
+                    return DropdownMenuItem(
+                      value: estado,
+                      child: Row(
+                        children: [
+                          Icon(
+                            _getEstadoIcon(estado),
+                            size: 20,
+                            color: _getEstadoColor(estado),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(estado),
+                        ],
+                      ),
+                    );
+                  }).toList(),
+                  onChanged: (value) {
+                    setState(() => selectedEstado = value);
+                  },
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancelar'),
+            ),
+            FilledButton(
+              onPressed: () async {
+                if (tituloController.text.isEmpty ||
+                    fechaRecertificacion == null ||
+                    selectedEstado == null) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                        content: Text('Complete todos los campos obligatorios')),
+                  );
+                  return;
+                }
+
+                try {
+                  final nuevaRecertificacion = RecertificacionModel(
+                    socioId: widget.socioId!,
+                    fechaRecertificacion: fechaRecertificacion!,
+                    titulo: tituloController.text.trim(),
+                    estado: selectedEstado!,
+                  );
+
+                  await ref
+                      .read(recertificacionesNotifierProvider.notifier)
+                      .agregarRecertificacion(nuevaRecertificacion);
+
+                  ref.invalidate(
+                      recertificacionesSocioProvider(widget.socioId!));
+
+                  if (mounted) {
+                    Navigator.pop(context);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                          content: Text('Recertificación agregada correctamente')),
+                    );
+                  }
+                } catch (e) {
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Error: $e')),
+                    );
+                  }
+                }
+              },
+              child: const Text('Guardar'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _showEditarRecertificacionDialog(RecertificacionModel recert) async {
+    final tituloController = TextEditingController(text: recert.titulo);
+    DateTime? fechaRecertificacion = recert.fechaRecertificacion;
+    String? selectedEstado = recert.estado;
+
+    await showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          title: const Text('Editar Recertificación'),
+          content: SizedBox(
+            width: 400,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextFormField(
+                  controller: tituloController,
+                  decoration: const InputDecoration(
+                    labelText: 'Título *',
+                    border: OutlineInputBorder(),
+                    prefixIcon: Icon(Icons.title),
+                  ),
+                  maxLines: 2,
+                  autofocus: true,
+                ),
+                const SizedBox(height: 16),
+                InkWell(
+                  onTap: () async {
+                    final date = await showDatePicker(
+                      context: context,
+                      initialDate: fechaRecertificacion ?? DateTime.now(),
+                      firstDate: DateTime(2000),
+                      lastDate: DateTime(2100),
+                    );
+                    if (date != null) {
+                      setState(() => fechaRecertificacion = date);
+                    }
+                  },
+                  child: InputDecorator(
+                    decoration: const InputDecoration(
+                      labelText: 'Fecha de Recertificación *',
+                      border: OutlineInputBorder(),
+                      prefixIcon: Icon(Icons.calendar_today),
+                    ),
+                    child: Text(
+                      fechaRecertificacion != null
+                          ? DateFormat('dd/MM/yyyy').format(fechaRecertificacion!)
+                          : 'Seleccionar fecha',
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                DropdownButtonFormField<String>(
+                  value: selectedEstado,
+                  decoration: const InputDecoration(
+                    labelText: 'Estado *',
+                    border: OutlineInputBorder(),
+                    prefixIcon: Icon(Icons.flag),
+                  ),
+                  items: EstadoRecertificacion.todos.map((estado) {
+                    return DropdownMenuItem(
+                      value: estado,
+                      child: Row(
+                        children: [
+                          Icon(
+                            _getEstadoIcon(estado),
+                            size: 20,
+                            color: _getEstadoColor(estado),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(estado),
+                        ],
+                      ),
+                    );
+                  }).toList(),
+                  onChanged: (value) {
+                    setState(() => selectedEstado = value);
+                  },
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancelar'),
+            ),
+            FilledButton(
+              onPressed: () async {
+                if (tituloController.text.isEmpty ||
+                    fechaRecertificacion == null ||
+                    selectedEstado == null) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                        content: Text('Complete todos los campos obligatorios')),
+                  );
+                  return;
+                }
+
+                try {
+                  final recertificacionActualizada = recert.copyWith(
+                    titulo: tituloController.text.trim(),
+                    fechaRecertificacion: fechaRecertificacion!,
+                    estado: selectedEstado!,
+                  );
+
+                  await ref
+                      .read(recertificacionesNotifierProvider.notifier)
+                      .actualizarRecertificacion(recertificacionActualizada);
+
+                  ref.invalidate(
+                      recertificacionesSocioProvider(widget.socioId!));
+
+                  if (mounted) {
+                    Navigator.pop(context);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                          content: Text('Recertificación actualizada correctamente')),
+                    );
+                  }
+                } catch (e) {
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Error: $e')),
+                    );
+                  }
+                }
+              },
+              child: const Text('Guardar'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _eliminarRecertificacion(RecertificacionModel recert) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Confirmar eliminación'),
+        content: Text('¿Eliminar la recertificación "${recert.titulo}"?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Eliminar'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true && recert.id != null) {
+      try {
+        await ref
+            .read(recertificacionesNotifierProvider.notifier)
+            .eliminarRecertificacion(recert.id!);
+        ref.invalidate(recertificacionesSocioProvider(widget.socioId!));
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Recertificación eliminada')),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error al eliminar: $e')),
+          );
+        }
+      }
+    }
+  }
+
   Widget _buildActionButtons() {
     return Container(
       padding: const EdgeInsets.all(16),
@@ -2196,7 +3029,32 @@ class _SocioFormPageState extends ConsumerState<SocioFormPage>
         mainAxisAlignment: MainAxisAlignment.end,
         children: [
           TextButton(
-            onPressed: () => context.go(widget.returnTo ?? '/socios'),
+            onPressed: () async {
+              if (!_formModified) {
+                context.go(widget.returnTo ?? '/socios');
+                return;
+              }
+              final confirmar = await showDialog<bool>(
+                context: context,
+                builder: (context) => AlertDialog(
+                  title: const Text('Confirmar'),
+                  content: const Text('¿Desea salir sin guardar los cambios?'),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(context, false),
+                      child: const Text('No'),
+                    ),
+                    FilledButton(
+                      onPressed: () => Navigator.pop(context, true),
+                      child: const Text('Sí, salir'),
+                    ),
+                  ],
+                ),
+              );
+              if (confirmar == true && mounted) {
+                context.go(widget.returnTo ?? '/socios');
+              }
+            },
             child: const Text('Cancelar'),
           ),
           const SizedBox(width: 16),

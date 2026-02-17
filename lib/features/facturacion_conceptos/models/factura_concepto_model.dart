@@ -25,19 +25,66 @@ class ItemFacturaConcepto {
 
 /// Modelo para crear una factura de conceptos
 class NuevaFacturaConcepto {
-  final int socioId;
-  final String socioNombre;
+  final int? socioId;
+  final int? profesionalId;
+  final int entidadId; // 0 = Socios, 1 = Profesionales
+  final String entidadNombre;
   final DateTime fecha;
   final DateTime? vencimiento;
   final List<ItemFacturaConcepto> items;
 
   NuevaFacturaConcepto({
-    required this.socioId,
-    required this.socioNombre,
+    this.socioId,
+    this.profesionalId,
+    required this.entidadId,
+    required this.entidadNombre,
     required this.fecha,
     this.vencimiento,
     required this.items,
-  });
+  }) : assert(
+          (entidadId == 0 && socioId != null) ||
+              (entidadId == 1 && profesionalId != null),
+          'socioId requerido para entidad 0, profesionalId para entidad 1',
+        );
+
+  // Constructor de conveniencia para socios (retrocompatibilidad)
+  factory NuevaFacturaConcepto.paraSocio({
+    required int socioId,
+    required String socioNombre,
+    required DateTime fecha,
+    DateTime? vencimiento,
+    required List<ItemFacturaConcepto> items,
+  }) {
+    return NuevaFacturaConcepto(
+      socioId: socioId,
+      entidadId: 0,
+      entidadNombre: socioNombre,
+      fecha: fecha,
+      vencimiento: vencimiento,
+      items: items,
+    );
+  }
+
+  // Constructor de conveniencia para profesionales
+  factory NuevaFacturaConcepto.paraProfesional({
+    required int profesionalId,
+    required String profesionalNombre,
+    required DateTime fecha,
+    DateTime? vencimiento,
+    required List<ItemFacturaConcepto> items,
+  }) {
+    return NuevaFacturaConcepto(
+      profesionalId: profesionalId,
+      entidadId: 1,
+      entidadNombre: profesionalNombre,
+      fecha: fecha,
+      vencimiento: vencimiento,
+      items: items,
+    );
+  }
+
+  // Getter para nombre (retrocompatibilidad)
+  String get socioNombre => entidadNombre;
 
   double get total => items.fold(0.0, (sum, item) => sum + item.subtotal);
 

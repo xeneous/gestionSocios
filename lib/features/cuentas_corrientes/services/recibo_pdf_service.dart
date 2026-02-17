@@ -25,29 +25,46 @@ class ReciboPdfService {
   Future<pw.Document> generarReciboPdf({
     required int numeroRecibo,
   }) async {
-    // 1. Obtener operación de cobranza desde tabla de trazabilidad
+    // 1. Obtener operación de cobranza (socio o profesional)
     final operacion = await _supabase
         .from('operaciones_contables')
         .select('*')
-        .eq('tipo_operacion', 'COBRANZA_SOCIO')
+        .inFilter('tipo_operacion', ['COBRANZA_SOCIO', 'COBRANZA_PROFESIONAL'])
         .eq('numero_comprobante', numeroRecibo)
         .single();
 
-    final socioId = operacion['entidad_id'] as int;
+    final entidadId = operacion['entidad_id'] as int;
+    final entidadTipo = operacion['entidad_tipo'] as String? ?? 'SOCIO';
     final fechaRecibo = DateTime.parse(operacion['fecha']);
     final totalCobrado = (operacion['total'] as num).toDouble();
 
-    // 2. Obtener datos del socio
-    final socioData = await _supabase
-        .from('socios')
-        .select('id, apellido, nombre, domicilio, telefono')
-        .eq('id', socioId)
-        .single();
+    // 2. Obtener datos de la entidad (socio o profesional)
+    final String nombreCompleto;
+    final String domicilio;
+    final String telefono;
+    final String etiquetaId;
 
-    final nombreCompleto =
-        '${socioData['apellido']}, ${socioData['nombre']}'.trim();
-    final domicilio = socioData['domicilio'] as String? ?? '';
-    final telefono = socioData['telefono'] as String? ?? '';
+    if (entidadTipo == 'PROFESIONAL') {
+      final data = await _supabase
+          .from('profesionales')
+          .select('id, apellido, nombre')
+          .eq('id', entidadId)
+          .single();
+      nombreCompleto = '${data['apellido']}, ${data['nombre']}'.trim();
+      domicilio = '';
+      telefono = '';
+      etiquetaId = 'Profesional Nº: $entidadId';
+    } else {
+      final data = await _supabase
+          .from('socios')
+          .select('id, apellido, nombre, domicilio, telefono')
+          .eq('id', entidadId)
+          .single();
+      nombreCompleto = '${data['apellido']}, ${data['nombre']}'.trim();
+      domicilio = data['domicilio'] as String? ?? '';
+      telefono = data['telefono'] as String? ?? '';
+      etiquetaId = 'Socio Nº: $entidadId';
+    }
 
     // 3. Obtener formas de pago con JOIN desde tabla de trazabilidad
     final formasPagoData =
@@ -181,7 +198,7 @@ class ReciboPdfService {
                     ),
                     pw.SizedBox(height: 8),
                     pw.Text(
-                      'Socio Nº: $socioId',
+                      etiquetaId,
                       style: const pw.TextStyle(fontSize: 12),
                     ),
                     pw.Text(

@@ -31,12 +31,16 @@ class CobranzasNotifier extends Notifier<AsyncValue<void>> {
   /// Genera un nuevo recibo de cobranza con su asiento contable
   /// Retorna un map con 'numero_recibo' y 'numero_asiento'
   Future<Map<String, int>> generarRecibo({
-    required int socioId,
+    int? socioId,
+    int? profesionalId,
     required Map<int, double> transaccionesAPagar,
     required Map<int, double> formasPago,
     int? operadorId,
     int? numeroRecibo,
   }) async {
+    assert(socioId != null || profesionalId != null,
+        'Debe proveer socioId o profesionalId');
+
     state = const AsyncValue.loading();
 
     try {
@@ -44,18 +48,28 @@ class CobranzasNotifier extends Notifier<AsyncValue<void>> {
       final asientosService = ref.read(asientosServiceProvider);
       final supabase = ref.read(supabaseProvider);
 
-      // 0. Obtener nombre del socio para el detalle del asiento
-      final socioData = await supabase
-          .from('socios')
-          .select('apellido, nombre')
-          .eq('id', socioId)
-          .single();
-
-      final nombreCompleto = '${socioData['apellido']}, ${socioData['nombre']}'.trim();
+      // 0. Obtener nombre de la entidad para el detalle del asiento
+      String nombreCompleto;
+      if (profesionalId != null) {
+        final data = await supabase
+            .from('profesionales')
+            .select('apellido, nombre')
+            .eq('id', profesionalId)
+            .single();
+        nombreCompleto = '${data['apellido']}, ${data['nombre']}'.trim();
+      } else {
+        final data = await supabase
+            .from('socios')
+            .select('apellido, nombre')
+            .eq('id', socioId!)
+            .single();
+        nombreCompleto = '${data['apellido']}, ${data['nombre']}'.trim();
+      }
 
       // 1. Generar el recibo (PostgreSQL)
       final nroRecibo = await cobranzasService.generarRecibo(
         socioId: socioId,
+        profesionalId: profesionalId,
         transaccionesAPagar: transaccionesAPagar,
         formasPago: formasPago,
         operadorId: operadorId,

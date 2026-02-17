@@ -957,6 +957,22 @@ class _ListadoResidentesPageState extends ConsumerState<ListadoResidentesPage> {
     }
     final firstRowIndex = _currentPage * _rowsPerPage;
 
+    // Helper para labels de columnas ordenables
+    Widget sortableLabel(String text, int columnIndex) {
+      final isActive = _sortColumnIndex == columnIndex;
+      return Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(text, style: const TextStyle(fontWeight: FontWeight.bold)),
+          if (!isActive)
+            const Padding(
+              padding: EdgeInsets.only(left: 4),
+              child: Icon(Icons.unfold_more, size: 16, color: Colors.grey),
+            ),
+        ],
+      );
+    }
+
     final source = _ResidentesDataSource(
       residentes: filtrados,
       categorias: categorias,
@@ -1002,36 +1018,28 @@ class _ListadoResidentesPageState extends ConsumerState<ListadoResidentesPage> {
         sortAscending: _sortAscending,
         columns: [
           DataColumn(
-              label: const Text('Socio',
-                  style: TextStyle(fontWeight: FontWeight.bold)),
+              label: sortableLabel('Socio', 0),
               onSort: (i, asc) => setState(() { _sortColumnIndex = i; _sortAscending = asc; })),
           DataColumn(
-              label: const Text('Apellido',
-                  style: TextStyle(fontWeight: FontWeight.bold)),
+              label: sortableLabel('Apellido', 1),
               onSort: (i, asc) => setState(() { _sortColumnIndex = i; _sortAscending = asc; })),
           DataColumn(
-              label: const Text('Nombre',
-                  style: TextStyle(fontWeight: FontWeight.bold)),
+              label: sortableLabel('Nombre', 2),
               onSort: (i, asc) => setState(() { _sortColumnIndex = i; _sortAscending = asc; })),
           DataColumn(
-              label: const Text('Categoría',
-                  style: TextStyle(fontWeight: FontWeight.bold)),
+              label: sortableLabel('Categoría', 3),
               onSort: (i, asc) => setState(() { _sortColumnIndex = i; _sortAscending = asc; })),
           DataColumn(
-              label: const Text('Lugar Residencia',
-                  style: TextStyle(fontWeight: FontWeight.bold)),
+              label: sortableLabel('Lugar Residencia', 4),
               onSort: (i, asc) => setState(() { _sortColumnIndex = i; _sortAscending = asc; })),
           DataColumn(
-              label: const Text('Inicio Res.',
-                  style: TextStyle(fontWeight: FontWeight.bold)),
+              label: sortableLabel('Inicio Res.', 5),
               onSort: (i, asc) => setState(() { _sortColumnIndex = i; _sortAscending = asc; })),
           DataColumn(
-              label: const Text('Fin Res.',
-                  style: TextStyle(fontWeight: FontWeight.bold)),
+              label: sortableLabel('Fin Res.', 6),
               onSort: (i, asc) => setState(() { _sortColumnIndex = i; _sortAscending = asc; })),
           DataColumn(
-              label: const Text('Grupo',
-                  style: TextStyle(fontWeight: FontWeight.bold)),
+              label: sortableLabel('Grupo', 7),
               onSort: (i, asc) => setState(() { _sortColumnIndex = i; _sortAscending = asc; })),
           const DataColumn(
               label: Text('Estado',

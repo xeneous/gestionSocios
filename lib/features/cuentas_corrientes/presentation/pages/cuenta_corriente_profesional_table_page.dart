@@ -7,34 +7,36 @@ import 'package:universal_html/html.dart' as html;
 import '../../providers/cuentas_corrientes_provider.dart';
 import '../../providers/cobranzas_provider.dart';
 import '../../models/cuenta_corriente_completa_model.dart';
-import '../../../socios/providers/socios_provider.dart';
+import '../../../profesionales/providers/profesionales_provider.dart';
 import '../../../auth/presentation/providers/user_role_provider.dart';
 
-/// Página de cuenta corriente con formato de tabla (similar al sistema de escritorio)
-class CuentaCorrienteSocioTablePage extends ConsumerStatefulWidget {
-  final int socioId;
+/// Página de cuenta corriente de profesional con formato de tabla
+class CuentaCorrienteProfesionalTablePage extends ConsumerStatefulWidget {
+  final int profesionalId;
 
-  const CuentaCorrienteSocioTablePage({
+  const CuentaCorrienteProfesionalTablePage({
     super.key,
-    required this.socioId,
+    required this.profesionalId,
   });
 
   @override
-  ConsumerState<CuentaCorrienteSocioTablePage> createState() =>
-      _CuentaCorrienteSocioTablePageState();
+  ConsumerState<CuentaCorrienteProfesionalTablePage> createState() =>
+      _CuentaCorrienteProfesionalTablePageState();
 }
 
-class _CuentaCorrienteSocioTablePageState
-    extends ConsumerState<CuentaCorrienteSocioTablePage> {
+class _CuentaCorrienteProfesionalTablePageState
+    extends ConsumerState<CuentaCorrienteProfesionalTablePage> {
   bool _soloPendientes = true;
 
   @override
   Widget build(BuildContext context) {
-    final socioAsync = ref.watch(socioByIdProvider(widget.socioId));
-    final saldoAsync = ref.watch(saldoSocioProvider(widget.socioId));
+    final profesionalAsync =
+        ref.watch(profesionalByIdProvider(widget.profesionalId));
+    final saldoAsync =
+        ref.watch(saldoProfesionalProvider(widget.profesionalId));
 
     final searchParams = CuentasCorrientesSearchParams(
-      socioId: widget.socioId,
+      profesionalId: widget.profesionalId,
       soloPendientes: _soloPendientes,
     );
     final movimientosAsync = ref.watch(
@@ -48,36 +50,30 @@ class _CuentaCorrienteSocioTablePageState
           tooltip: 'Ir a Inicio',
           onPressed: () => context.go('/'),
         ),
-        title: socioAsync.when(
-          data: (socio) =>
-              Text('Cuenta Corriente - ${socio?.apellido}, ${socio?.nombre}'),
+        title: profesionalAsync.when(
+          data: (p) => Text(
+              'Cuenta Corriente - ${p?.apellido ?? ''}, ${p?.nombre ?? ''}'),
           loading: () => const Text('Cuenta Corriente'),
           error: (_, __) => const Text('Cuenta Corriente'),
         ),
         actions: [
           IconButton(
+            icon: const Icon(Icons.payments),
+            onPressed: () => context
+                .go('/cobranzas-profesionales/${widget.profesionalId}'),
+            tooltip: 'Ir a Cobranzas',
+          ),
+          IconButton(
             icon: const Icon(Icons.file_download),
-            onPressed: () => _exportarExcel(movimientosAsync, socioAsync),
+            onPressed: () => _exportarExcel(movimientosAsync, profesionalAsync),
             tooltip: 'Exportar a Excel',
           ),
-          // TODO: Descomentar cuando se implemente nueva transacción
-          // IconButton(
-          //   icon: const Icon(Icons.add),
-          //   onPressed: () {
-          //     context.go('/cuentas-corrientes/nueva?socioId=${widget.socioId}');
-          //   },
-          //   tooltip: 'Nueva Transacción',
-          // ),
         ],
       ),
       body: Column(
         children: [
-          // Información del socio y saldos (compacto)
-          _buildInfoHeader(socioAsync, saldoAsync),
-
+          _buildInfoHeader(profesionalAsync, saldoAsync),
           const Divider(height: 1),
-
-          // Filtro
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: Row(
@@ -92,10 +88,7 @@ class _CuentaCorrienteSocioTablePageState
               ],
             ),
           ),
-
           const Divider(height: 1),
-
-          // Tabla de movimientos
           Expanded(
             child: _buildMovimientosTable(movimientosAsync),
           ),
@@ -105,42 +98,44 @@ class _CuentaCorrienteSocioTablePageState
   }
 
   Widget _buildInfoHeader(
-    AsyncValue socioAsync,
+    AsyncValue profesionalAsync,
     AsyncValue<Map<String, double>> saldoAsync,
   ) {
     return Container(
       padding: const EdgeInsets.all(16),
-      color: Colors.blue[50],
+      color: Colors.teal[50],
       child: Row(
         children: [
           Expanded(
-            child: socioAsync.when(
-              data: (socio) => Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    '${socio?.id} - ${socio?.apellido}, ${socio?.nombre}',
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
+            child: profesionalAsync.when(
+              data: (p) => p == null
+                  ? const Text('Profesional no encontrado')
+                  : Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '${p.id} - ${p.apellido}, ${p.nombre}',
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        if (p.numeroDocumento != null)
+                          Text(
+                            'DNI: ${p.numeroDocumento}',
+                            style: TextStyle(
+                                fontSize: 14, color: Colors.grey[700]),
+                          ),
+                      ],
                     ),
-                  ),
-                  if (socio?.numeroDocumento != null)
-                    Text(
-                      'DNI: ${socio.numeroDocumento}',
-                      style: TextStyle(fontSize: 14, color: Colors.grey[700]),
-                    ),
-                ],
-              ),
               loading: () => const Text('Cargando...'),
-              error: (_, __) => const Text('Error cargando socio'),
+              error: (_, __) => const Text('Error cargando profesional'),
             ),
           ),
           saldoAsync.when(
             data: (saldo) {
               final saldoTotal = saldo['saldo_total'] ?? 0.0;
               final isDeudor = saldoTotal > 0;
-
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
@@ -224,9 +219,6 @@ class _CuentaCorrienteSocioTablePageState
                         style: TextStyle(fontWeight: FontWeight.bold)),
                     numeric: true),
                 DataColumn(
-                    label: Text('Rendición',
-                        style: TextStyle(fontWeight: FontWeight.bold))),
-                DataColumn(
                     label: Text('Acciones',
                         style: TextStyle(fontWeight: FontWeight.bold))),
               ],
@@ -235,13 +227,7 @@ class _CuentaCorrienteSocioTablePageState
           ),
         );
       },
-      loading: () => const Center(
-        child: SizedBox(
-          width: 40,
-          height: 40,
-          child: CircularProgressIndicator(),
-        ),
-      ),
+      loading: () => const Center(child: CircularProgressIndicator()),
       error: (error, stack) => Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -260,22 +246,14 @@ class _CuentaCorrienteSocioTablePageState
     final rows = <DataRow>[];
     final userRole = ref.read(userRoleProvider);
 
-    // Iterar en orden cronológico (ya vienen ordenados por fecha ASC)
     for (final cuenta in movimientos) {
-      // Calcular debe/haber según el signo del tipo de comprobante
-      // signo = 1 para débito (debe), signo = -1 para crédito (haber)
-
-      // Si estamos mostrando solo pendientes, usar el saldo pendiente (importe - cancelado)
-      // en lugar del importe total
       final importeAMostrar = _soloPendientes
           ? (cuenta.header.importe ?? 0) - (cuenta.header.cancelado ?? 0)
           : cuenta.header.importe ?? 0;
 
-      final signo = cuenta.header.signo ?? 1;  // Default a débito si no hay signo
-
+      final signo = cuenta.header.signo ?? 1;
       final debe = signo == 1 ? importeAMostrar : 0.0;
       final haber = signo == -1 ? importeAMostrar : 0.0;
-
       saldoAcumulado += debe - haber;
 
       final isPendiente = !cuenta.header.estaCancelado;
@@ -293,12 +271,8 @@ class _CuentaCorrienteSocioTablePageState
                 '${cuenta.header.tipoComprobante} - ${cuenta.header.tipoComprobanteDescripcion ?? ''}',
               ),
             ),
-            DataCell(
-              Text(cuenta.header.puntoVenta ?? ''),
-            ),
-            DataCell(
-              Text(cuenta.header.documentoNumero ?? ''),
-            ),
+            DataCell(Text(cuenta.header.puntoVenta ?? '')),
+            DataCell(Text(cuenta.header.documentoNumero ?? '')),
             DataCell(
               Text(
                 debe > 0 ? debe.toStringAsFixed(2) : '0.00',
@@ -321,38 +295,14 @@ class _CuentaCorrienteSocioTablePageState
               ),
             ),
             DataCell(
-              Text(cuenta.header.rendicion ?? ''),
-            ),
-            DataCell(
               Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // TODO: Descomentar cuando se implemente registrar pago
-                  // if (isPendiente)
-                  //   IconButton(
-                  //     icon: const Icon(Icons.payment,
-                  //         size: 18, color: Colors.blue),
-                  //     onPressed: () => _showRegistrarPagoDialog(cuenta),
-                  //     tooltip: 'Registrar Pago',
-                  //     padding: EdgeInsets.zero,
-                  //     constraints: const BoxConstraints(),
-                  //   ),
                   IconButton(
                     icon: const Icon(Icons.visibility,
                         size: 18, color: Colors.grey),
                     onPressed: () => _showDetalleDialog(cuenta),
                     tooltip: 'Ver Detalle',
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
-                  ),
-                  IconButton(
-                    icon:
-                        const Icon(Icons.edit, size: 18, color: Colors.orange),
-                    onPressed: () {
-                      context.go(
-                          '/cuentas-corrientes/${cuenta.header.idtransaccion}');
-                    },
-                    tooltip: 'Editar',
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(),
                   ),
@@ -368,7 +318,8 @@ class _CuentaCorrienteSocioTablePageState
                     ),
                   if (userRole.esAdministrador)
                     IconButton(
-                      icon: const Icon(Icons.delete, size: 18, color: Colors.red),
+                      icon:
+                          const Icon(Icons.delete, size: 18, color: Colors.red),
                       onPressed: () => _confirmDelete(cuenta),
                       tooltip: 'Eliminar',
                       padding: EdgeInsets.zero,
@@ -389,7 +340,8 @@ class _CuentaCorrienteSocioTablePageState
     await showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text('Detalle - ${cuenta.header.tipoComprobanteDescripcion}'),
+        title: Text(
+            'Detalle - ${cuenta.header.tipoComprobanteDescripcion ?? cuenta.header.tipoComprobante}'),
         content: SizedBox(
           width: 500,
           child: Column(
@@ -416,7 +368,7 @@ class _CuentaCorrienteSocioTablePageState
                               '${item.concepto} - ${item.conceptoDescripcion ?? ''}'),
                         ),
                         Text(
-                          'x${item.cantidad.toStringAsFixed(0) ?? '1'} = \$${item.importeTotal.toStringAsFixed(2)}',
+                          'x${item.cantidad.toStringAsFixed(0)} = \$${item.importeTotal.toStringAsFixed(2)}',
                           style: const TextStyle(fontWeight: FontWeight.w500),
                         ),
                       ],
@@ -456,95 +408,6 @@ class _CuentaCorrienteSocioTablePageState
           TextButton(
             onPressed: () => Navigator.pop(context),
             child: const Text('Cerrar'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Future<void> _showRegistrarPagoDialog(CuentaCorrienteCompleta cuenta) async {
-    final montoController = TextEditingController();
-    final formKey = GlobalKey<FormState>();
-
-    await showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Registrar Pago'),
-        content: Form(
-          key: formKey,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                'Saldo pendiente: \$${cuenta.header.saldoPendiente.toStringAsFixed(2)}',
-                style: const TextStyle(fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: montoController,
-                decoration: const InputDecoration(
-                  labelText: 'Monto a pagar',
-                  prefixText: '\$',
-                  border: OutlineInputBorder(),
-                ),
-                keyboardType: TextInputType.number,
-                autofocus: true,
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Ingrese un monto';
-                  }
-                  final monto = double.tryParse(value);
-                  if (monto == null || monto <= 0) {
-                    return 'Monto inválido';
-                  }
-                  if (monto > cuenta.header.saldoPendiente) {
-                    return 'El monto supera el saldo pendiente';
-                  }
-                  return null;
-                },
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancelar'),
-          ),
-          FilledButton(
-            onPressed: () async {
-              if (!formKey.currentState!.validate()) return;
-
-              final monto = double.parse(montoController.text);
-
-              try {
-                await ref
-                    .read(cuentasCorrientesNotifierProvider.notifier)
-                    .registrarPago(
-                      cuenta.header.idtransaccion!,
-                      monto,
-                      widget.socioId,
-                    );
-
-                if (context.mounted) {
-                  Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                        content: Text('Pago registrado correctamente')),
-                  );
-                }
-              } catch (e) {
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('Error: $e'),
-                      backgroundColor: Colors.red,
-                    ),
-                  );
-                }
-              }
-            },
-            child: const Text('Registrar'),
           ),
         ],
       ),
@@ -605,8 +468,6 @@ class _CuentaCorrienteSocioTablePageState
     claveController.dispose();
     if (confirmed != true) return;
 
-    // La clave de reimprimir se puede cambiar en el código fuente
-    // Para producción, considerar moverla a la tabla de configuración de Supabase
     const adminClave = 'SAO2026';
     if (claveIngresada != adminClave) {
       if (mounted) {
@@ -756,7 +617,7 @@ class _CuentaCorrienteSocioTablePageState
             .read(cuentasCorrientesNotifierProvider.notifier)
             .deleteCuentaCorriente(
               cuenta.header.idtransaccion!,
-              widget.socioId,
+              0, // No hay socioId para profesionales
             );
 
         if (mounted) {
@@ -780,9 +641,8 @@ class _CuentaCorrienteSocioTablePageState
 
   Future<void> _exportarExcel(
     AsyncValue<List<CuentaCorrienteCompleta>> movimientosAsync,
-    AsyncValue socioAsync,
+    AsyncValue profesionalAsync,
   ) async {
-    // Verificar que tenemos datos
     if (!movimientosAsync.hasValue || movimientosAsync.value!.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('No hay datos para exportar')),
@@ -792,132 +652,118 @@ class _CuentaCorrienteSocioTablePageState
 
     try {
       final movimientos = movimientosAsync.value!;
-      final socio = socioAsync.hasValue ? socioAsync.value : null;
-      final nombreSocio = socio != null
-          ? '${socio.apellido}, ${socio.nombre}'
-          : 'Socio ${widget.socioId}';
+      final p = profesionalAsync.hasValue ? profesionalAsync.value : null;
+      final nombreProfesional = p != null
+          ? '${p.apellido}, ${p.nombre}'
+          : 'Profesional ${widget.profesionalId}';
 
-      // Crear el archivo Excel
       final excel = Excel.createExcel();
       final sheet = excel['Cuenta Corriente'];
-
-      // Eliminar la hoja por defecto
       excel.delete('Sheet1');
 
-      // Estilos para encabezados
       final headerStyle = CellStyle(
         bold: true,
-        backgroundColorHex: ExcelColor.fromHexString('#4472C4'),
+        backgroundColorHex: ExcelColor.fromHexString('#00897B'),
         fontColorHex: ExcelColor.white,
         horizontalAlign: HorizontalAlign.Center,
       );
+      final currencyStyle =
+          CellStyle(horizontalAlign: HorizontalAlign.Right);
 
-      final currencyStyle = CellStyle(
-        horizontalAlign: HorizontalAlign.Right,
-      );
+      sheet.cell(CellIndex.indexByString('A1')).value =
+          TextCellValue('Cuenta Corriente - $nombreProfesional');
+      sheet.cell(CellIndex.indexByString('A1')).cellStyle =
+          CellStyle(bold: true, fontSize: 14);
+      sheet.merge(
+          CellIndex.indexByString('A1'), CellIndex.indexByString('G1'));
 
-      // Título
-      sheet.cell(CellIndex.indexByString('A1')).value = TextCellValue(
-        'Cuenta Corriente - $nombreSocio',
-      );
-      sheet.cell(CellIndex.indexByString('A1')).cellStyle = CellStyle(
-        bold: true,
-        fontSize: 14,
-      );
-      sheet.merge(CellIndex.indexByString('A1'), CellIndex.indexByString('G1'));
-
-      // Subtítulo con filtro
-      final filtroTexto = _soloPendientes ? 'Solo Pendientes' : 'Todos los Movimientos';
+      final filtroTexto =
+          _soloPendientes ? 'Solo Pendientes' : 'Todos los Movimientos';
       sheet.cell(CellIndex.indexByString('A2')).value = TextCellValue(
-        'Filtro: $filtroTexto - Exportado: ${DateFormat('dd/MM/yyyy HH:mm').format(DateTime.now())}',
-      );
-      sheet.merge(CellIndex.indexByString('A2'), CellIndex.indexByString('G2'));
+          'Filtro: $filtroTexto - Exportado: ${DateFormat('dd/MM/yyyy HH:mm').format(DateTime.now())}');
+      sheet.merge(
+          CellIndex.indexByString('A2'), CellIndex.indexByString('G2'));
 
-      // Fila de encabezados (fila 4)
-      final headers = ['Fecha', 'Concepto', 'Serie', 'Documento', 'Debe', 'Haber', 'Saldo'];
+      final headers = [
+        'Fecha',
+        'Concepto',
+        'Serie',
+        'Documento',
+        'Debe',
+        'Haber',
+        'Saldo'
+      ];
       for (var i = 0; i < headers.length; i++) {
-        final cell = sheet.cell(CellIndex.indexByColumnRow(columnIndex: i, rowIndex: 3));
+        final cell = sheet.cell(
+            CellIndex.indexByColumnRow(columnIndex: i, rowIndex: 3));
         cell.value = TextCellValue(headers[i]);
         cell.cellStyle = headerStyle;
       }
 
-      // Calcular saldo acumulado y agregar datos
       double saldoAcumulado = 0;
       int rowIndex = 4;
 
       for (final cuenta in movimientos) {
-        final debe = cuenta.header.importe ?? 0;
-        final haber = cuenta.header.cancelado ?? 0;
+        final signo = cuenta.header.signo ?? 1;
+        final importe = cuenta.header.importe ?? 0;
+        final debe = signo == 1 ? importe : 0.0;
+        final haber = signo == -1 ? importe : 0.0;
         saldoAcumulado += debe - haber;
 
-        sheet.cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: rowIndex)).value =
-            TextCellValue(DateFormat('dd/MM/yyyy').format(cuenta.header.fecha));
+        sheet
+            .cell(CellIndex.indexByColumnRow(
+                columnIndex: 0, rowIndex: rowIndex))
+            .value = TextCellValue(
+                DateFormat('dd/MM/yyyy').format(cuenta.header.fecha));
+        sheet
+            .cell(CellIndex.indexByColumnRow(
+                columnIndex: 1, rowIndex: rowIndex))
+            .value = TextCellValue(cuenta.header.tipoComprobanteDescripcion ??
+            cuenta.header.tipoComprobante);
+        sheet
+            .cell(CellIndex.indexByColumnRow(
+                columnIndex: 2, rowIndex: rowIndex))
+            .value = TextCellValue(cuenta.header.puntoVenta ?? '');
+        sheet
+            .cell(CellIndex.indexByColumnRow(
+                columnIndex: 3, rowIndex: rowIndex))
+            .value = TextCellValue(cuenta.header.documentoNumero ?? '');
 
-        sheet.cell(CellIndex.indexByColumnRow(columnIndex: 1, rowIndex: rowIndex)).value =
-            TextCellValue(cuenta.header.tipoComprobanteDescripcion ?? cuenta.header.tipoComprobante);
-
-        sheet.cell(CellIndex.indexByColumnRow(columnIndex: 2, rowIndex: rowIndex)).value =
-            TextCellValue(cuenta.header.puntoVenta ?? '');
-
-        sheet.cell(CellIndex.indexByColumnRow(columnIndex: 3, rowIndex: rowIndex)).value =
-            TextCellValue(cuenta.header.documentoNumero ?? '');
-
-        // Debe
-        final cellDebe = sheet.cell(CellIndex.indexByColumnRow(columnIndex: 4, rowIndex: rowIndex));
+        final cellDebe = sheet.cell(
+            CellIndex.indexByColumnRow(columnIndex: 4, rowIndex: rowIndex));
         cellDebe.value = DoubleCellValue(debe);
         cellDebe.cellStyle = currencyStyle;
 
-        // Haber
-        final cellHaber = sheet.cell(CellIndex.indexByColumnRow(columnIndex: 5, rowIndex: rowIndex));
+        final cellHaber = sheet.cell(
+            CellIndex.indexByColumnRow(columnIndex: 5, rowIndex: rowIndex));
         cellHaber.value = DoubleCellValue(haber);
         cellHaber.cellStyle = currencyStyle;
 
-        // Saldo
-        final cellSaldo = sheet.cell(CellIndex.indexByColumnRow(columnIndex: 6, rowIndex: rowIndex));
+        final cellSaldo = sheet.cell(
+            CellIndex.indexByColumnRow(columnIndex: 6, rowIndex: rowIndex));
         cellSaldo.value = DoubleCellValue(saldoAcumulado);
         cellSaldo.cellStyle = currencyStyle;
 
         rowIndex++;
       }
 
-      // Fila de totales
-      rowIndex++;
-      sheet.cell(CellIndex.indexByColumnRow(columnIndex: 3, rowIndex: rowIndex)).value =
-          TextCellValue('TOTALES:');
-      sheet.cell(CellIndex.indexByColumnRow(columnIndex: 3, rowIndex: rowIndex)).cellStyle =
-          CellStyle(bold: true);
+      sheet.setColumnWidth(0, 12);
+      sheet.setColumnWidth(1, 25);
+      sheet.setColumnWidth(2, 10);
+      sheet.setColumnWidth(3, 12);
+      sheet.setColumnWidth(4, 12);
+      sheet.setColumnWidth(5, 12);
+      sheet.setColumnWidth(6, 12);
 
-      final totalDebe = movimientos.fold<double>(0, (sum, c) => sum + (c.header.importe ?? 0));
-      final totalHaber = movimientos.fold<double>(0, (sum, c) => sum + (c.header.cancelado ?? 0));
-
-      final cellTotalDebe = sheet.cell(CellIndex.indexByColumnRow(columnIndex: 4, rowIndex: rowIndex));
-      cellTotalDebe.value = DoubleCellValue(totalDebe);
-      cellTotalDebe.cellStyle = CellStyle(bold: true, horizontalAlign: HorizontalAlign.Right);
-
-      final cellTotalHaber = sheet.cell(CellIndex.indexByColumnRow(columnIndex: 5, rowIndex: rowIndex));
-      cellTotalHaber.value = DoubleCellValue(totalHaber);
-      cellTotalHaber.cellStyle = CellStyle(bold: true, horizontalAlign: HorizontalAlign.Right);
-
-      final cellTotalSaldo = sheet.cell(CellIndex.indexByColumnRow(columnIndex: 6, rowIndex: rowIndex));
-      cellTotalSaldo.value = DoubleCellValue(saldoAcumulado);
-      cellTotalSaldo.cellStyle = CellStyle(bold: true, horizontalAlign: HorizontalAlign.Right);
-
-      // Ajustar anchos de columna
-      sheet.setColumnWidth(0, 12);  // Fecha
-      sheet.setColumnWidth(1, 25);  // Concepto
-      sheet.setColumnWidth(2, 10);  // Serie
-      sheet.setColumnWidth(3, 12);  // Documento
-      sheet.setColumnWidth(4, 12);  // Debe
-      sheet.setColumnWidth(5, 12);  // Haber
-      sheet.setColumnWidth(6, 12);  // Saldo
-
-      // Generar el archivo y descargar
       final bytes = excel.save();
       if (bytes != null) {
-        final blob = html.Blob([bytes], 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        final blob = html.Blob([bytes],
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
         final url = html.Url.createObjectUrlFromBlob(blob);
         html.AnchorElement(href: url)
-          ..setAttribute('download', 'CuentaCorriente_${widget.socioId}_${DateFormat('yyyyMMdd').format(DateTime.now())}.xlsx')
+          ..setAttribute(
+              'download',
+              'CuentaCorriente_Prof${widget.profesionalId}_${DateFormat('yyyyMMdd').format(DateTime.now())}.xlsx')
           ..click();
         html.Url.revokeObjectUrl(url);
 

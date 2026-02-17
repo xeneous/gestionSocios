@@ -8,22 +8,29 @@ import '../../providers/cobranzas_provider.dart';
 import '../../models/cuenta_corriente_completa_model.dart';
 import '../../models/concepto_tesoreria_model.dart';
 import '../../../socios/providers/socios_provider.dart';
+import '../../../profesionales/providers/profesionales_provider.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 
 /// Página principal de cobranzas con selección múltiple
 class CobranzasPage extends ConsumerStatefulWidget {
-  final int socioId;
+  final int? socioId;
+  final int? profesionalId;
 
   const CobranzasPage({
     super.key,
-    required this.socioId,
-  });
+    this.socioId,
+    this.profesionalId,
+  }) : assert(socioId != null || profesionalId != null,
+            'Debe especificar socioId o profesionalId');
 
   @override
   ConsumerState<CobranzasPage> createState() => _CobranzasPageState();
 }
 
 class _CobranzasPageState extends ConsumerState<CobranzasPage> {
+  // Getter para saber si es profesional o socio
+  bool get esProfesional => widget.profesionalId != null;
+
   // Mapa de IDs de transacciones seleccionadas con sus importes a pagar
   final Map<int, double> _selectedPagos = {};
 
@@ -73,12 +80,20 @@ class _CobranzasPageState extends ConsumerState<CobranzasPage> {
     // Cargar próximo número de recibo la primera vez
     _cargarProximoNumeroRecibo();
 
-    final socioAsync = ref.watch(socioByIdProvider(widget.socioId));
-    final saldoAsync = ref.watch(saldoSocioProvider(widget.socioId));
+    final socioAsync = esProfesional
+        ? const AsyncValue<dynamic>.data(null)
+        : ref.watch(socioByIdProvider(widget.socioId!));
+    final profesionalAsync = esProfesional
+        ? ref.watch(profesionalByIdProvider(widget.profesionalId!))
+        : const AsyncValue<dynamic>.data(null);
+    final saldoAsync = esProfesional
+        ? ref.watch(saldoProfesionalProvider(widget.profesionalId!))
+        : ref.watch(saldoSocioProvider(widget.socioId!));
 
     // Solo mostramos movimientos pendientes para cobranzas
     final searchParams = CuentasCorrientesSearchParams(
-      socioId: widget.socioId,
+      socioId: esProfesional ? null : widget.socioId,
+      profesionalId: esProfesional ? widget.profesionalId : null,
       soloPendientes: true,
     );
     final movimientosAsync = ref.watch(
@@ -87,15 +102,24 @@ class _CobranzasPageState extends ConsumerState<CobranzasPage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: socioAsync.when(
-          data: (socio) =>
-              Text('Cobranzas - ${socio?.apellido}, ${socio?.nombre}'),
-          loading: () => const Text('Cobranzas'),
-          error: (_, __) => const Text('Cobranzas'),
-        ),
+        title: esProfesional
+            ? profesionalAsync.when(
+                data: (p) => Text(
+                    'Cobranzas - ${p?.apellido ?? ''}, ${p?.nombre ?? ''}'),
+                loading: () => const Text('Cobranzas'),
+                error: (_, __) => const Text('Cobranzas'),
+              )
+            : socioAsync.when(
+                data: (socio) =>
+                    Text('Cobranzas - ${socio?.apellido}, ${socio?.nombre}'),
+                loading: () => const Text('Cobranzas'),
+                error: (_, __) => const Text('Cobranzas'),
+              ),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
-          onPressed: () => context.go('/cobranzas'),
+          onPressed: () => esProfesional
+              ? context.go('/cobranzas-profesionales')
+              : context.go('/cobranzas'),
         ),
         actions: [
           if (_selectedPagos.isNotEmpty)
@@ -116,8 +140,8 @@ class _CobranzasPageState extends ConsumerState<CobranzasPage> {
       ),
       body: Column(
         children: [
-          // Información del socio y saldos
-          _buildInfoHeader(socioAsync, saldoAsync),
+          // Información del socio/profesional y saldos
+          _buildInfoHeader(socioAsync, profesionalAsync, saldoAsync),
           const Divider(height: 1),
 
           // Tabla de movimientos pendientes
@@ -140,6 +164,7 @@ class _CobranzasPageState extends ConsumerState<CobranzasPage> {
 
   Widget _buildInfoHeader(
     AsyncValue socioAsync,
+    AsyncValue profesionalAsync,
     AsyncValue<Map<String, double>> saldoAsync,
   ) {
     return Container(
@@ -150,27 +175,55 @@ class _CobranzasPageState extends ConsumerState<CobranzasPage> {
           const Icon(Icons.receipt_long, color: Colors.green, size: 32),
           const SizedBox(width: 16),
           Expanded(
-            child: socioAsync.when(
-              data: (socio) => Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    '${socio?.id} - ${socio?.apellido}, ${socio?.nombre}',
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
+            child: esProfesional
+                ? profesionalAsync.when(
+                    data: (p) => p == null
+                        ? const Text('Profesional no encontrado')
+                        : Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                '${p.id} - ${p.apellido}, ${p.nombre}',
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              if (p.numeroDocumento != null)
+                                Text(
+                                  'DNI: ${p.numeroDocumento}',
+                                  style: TextStyle(
+                                      fontSize: 14, color: Colors.grey[700]),
+                                ),
+                            ],
+                          ),
+                    loading: () => const CircularProgressIndicator(),
+                    error: (_, __) => const Text('Error cargando profesional'),
+                  )
+                : socioAsync.when(
+                    data: (socio) => socio == null
+                        ? const Text('Socio no encontrado')
+                        : Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                '${socio.id} - ${socio.apellido}, ${socio.nombre}',
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              if (socio.numeroDocumento != null)
+                                Text(
+                                  'DNI: ${socio.numeroDocumento}',
+                                  style: TextStyle(
+                                      fontSize: 14, color: Colors.grey[700]),
+                                ),
+                            ],
+                          ),
+                    loading: () => const CircularProgressIndicator(),
+                    error: (_, __) => const Text('Error cargando socio'),
                   ),
-                  if (socio?.numeroDocumento != null)
-                    Text(
-                      'DNI: ${socio.numeroDocumento}',
-                      style: TextStyle(fontSize: 14, color: Colors.grey[700]),
-                    ),
-                ],
-              ),
-              loading: () => const CircularProgressIndicator(),
-              error: (_, __) => const Text('Error cargando socio'),
-            ),
           ),
           saldoAsync.when(
             data: (saldo) {
@@ -719,7 +772,9 @@ class _CobranzasPageState extends ConsumerState<CobranzasPage> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Socio: ID ${widget.socioId}'),
+            Text(esProfesional
+                ? 'Profesional: ID ${widget.profesionalId}'
+                : 'Socio: ID ${widget.socioId}'),
             const SizedBox(height: 8),
             Text(
               'Total a cobrar: \$${_getTotalSeleccionado().toStringAsFixed(2)}',
@@ -783,7 +838,8 @@ class _CobranzasPageState extends ConsumerState<CobranzasPage> {
       final resultado = await ref
           .read(cobranzasNotifierProvider.notifier)
           .generarRecibo(
-            socioId: widget.socioId,
+            socioId: esProfesional ? null : widget.socioId,
+            profesionalId: esProfesional ? widget.profesionalId : null,
             transaccionesAPagar: _selectedPagos,
             formasPago: _formasPago,
             numeroRecibo: nroReciboIngresado,
@@ -862,28 +918,35 @@ class _CobranzasPageState extends ConsumerState<CobranzasPage> {
               onPressed: () async {
                 final messenger = ScaffoldMessenger.of(context);
                 try {
-                  // Generar PDF (obtiene datos desde la BD usando el número de recibo)
                   final pdfService = ref.read(reciboPdfServiceProvider);
                   final pdf = await pdfService.generarReciboPdf(
                     numeroRecibo: numeroRecibo,
                   );
 
-                  // Obtener nombre del socio para el nombre del archivo
-                  final socioData = await ref
-                      .read(supabaseProvider)
-                      .from('socios')
-                      .select('apellido, nombre')
-                      .eq('id', widget.socioId)
-                      .single();
+                  // Obtener nombre de la entidad (socio o profesional)
+                  String nombreEntidad;
+                  if (esProfesional) {
+                    final data = await ref
+                        .read(supabaseProvider)
+                        .from('profesionales')
+                        .select('apellido, nombre')
+                        .eq('id', widget.profesionalId!)
+                        .single();
+                    nombreEntidad = '${data['apellido']}, ${data['nombre']}';
+                  } else {
+                    final data = await ref
+                        .read(supabaseProvider)
+                        .from('socios')
+                        .select('apellido, nombre')
+                        .eq('id', widget.socioId!)
+                        .single();
+                    nombreEntidad = '${data['apellido']}, ${data['nombre']}';
+                  }
 
-                  final nombreSocio =
-                      '${socioData['apellido']}, ${socioData['nombre']}';
-
-                  // Compartir PDF (permite enviar por email, guardar, etc.)
                   await pdfService.compartirRecibo(
                     pdf: pdf,
                     numeroRecibo: numeroRecibo,
-                    nombreSocio: nombreSocio,
+                    nombreSocio: nombreEntidad,
                   );
                 } catch (e) {
                   messenger.showSnackBar(
