@@ -13,6 +13,7 @@ import '../../../cuentas_corrientes/models/concepto_tesoreria_model.dart';
 import '../../../asientos/presentation/widgets/cuentas_search_dialog.dart';
 import '../../../cuentas/models/cuenta_model.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
+import '../../../../core/utils/date_picker_utils.dart';
 
 /// Pantalla unificada para ingresar factura y pagarla en el mismo momento
 class PagoDirectoPage extends ConsumerStatefulWidget {
@@ -79,12 +80,7 @@ class _PagoDirectoPageState extends ConsumerState<PagoDirectoPage> {
   }
 
   Future<void> _selectFecha(bool isVencimiento) async {
-    final fecha = await showDatePicker(
-      context: context,
-      initialDate: isVencimiento ? (_fecha1Venc ?? DateTime.now()) : _fecha,
-      firstDate: DateTime(2000),
-      lastDate: DateTime(2100),
-    );
+    final fecha = await pickDate(context, isVencimiento ? (_fecha1Venc ?? DateTime.now()) : _fecha);
 
     if (fecha != null) {
       setState(() {
@@ -246,6 +242,19 @@ class _PagoDirectoPageState extends ConsumerState<PagoDirectoPage> {
 
       final numeroOP = resultadoOP['numero_orden_pago'];
       final idTransaccionOP = resultadoOP['id_transaccion'] as int;
+      final asientoError = resultadoOP['asiento_error'] as String?;
+
+      // Mostrar advertencia si el asiento falló
+      if (asientoError != null && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+                'Advertencia: OP generada pero falló el asiento contable: $asientoError'),
+            backgroundColor: Colors.orange,
+            duration: const Duration(seconds: 10),
+          ),
+        );
+      }
 
       // Mostrar diálogo de éxito
       if (mounted) {

@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import '../../providers/comprobantes_cli_provider.dart';
 import '../../../../core/presentation/widgets/app_drawer.dart';
+import '../../../../core/utils/date_picker_utils.dart';
 
 class ComprobantesCliListPage extends ConsumerStatefulWidget {
   final int? clienteId;
@@ -83,12 +84,7 @@ class _ComprobantesCliListPageState
 
   Future<void> _selectFechaDesde() async {
     final searchState = ref.read(venCliSearchStateProvider);
-    final fecha = await showDatePicker(
-      context: context,
-      initialDate: searchState.fechaDesde ?? DateTime.now(),
-      firstDate: DateTime(2000),
-      lastDate: DateTime.now().add(const Duration(days: 365)),
-    );
+    final fecha = await pickDate(context, searchState.fechaDesde ?? DateTime.now());
     if (fecha != null) {
       ref.read(venCliSearchStateProvider.notifier).updateFechaDesde(fecha);
     }
@@ -96,12 +92,7 @@ class _ComprobantesCliListPageState
 
   Future<void> _selectFechaHasta() async {
     final searchState = ref.read(venCliSearchStateProvider);
-    final fecha = await showDatePicker(
-      context: context,
-      initialDate: searchState.fechaHasta ?? DateTime.now(),
-      firstDate: DateTime(2000),
-      lastDate: DateTime.now().add(const Duration(days: 365)),
-    );
+    final fecha = await pickDate(context, searchState.fechaHasta ?? DateTime.now());
     if (fecha != null) {
       ref.read(venCliSearchStateProvider.notifier).updateFechaHasta(fecha);
     }

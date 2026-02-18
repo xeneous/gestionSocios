@@ -8,6 +8,7 @@ import '../../models/asiento_model.dart';
 import '../../../cuentas/providers/cuentas_provider.dart';
 import '../../../cuentas/models/cuenta_model.dart';
 import '../widgets/cuentas_search_dialog.dart';
+import '../../../../core/utils/date_picker_utils.dart';
 
 class AsientoFormPage extends ConsumerStatefulWidget {
   final int? asiento;
@@ -137,12 +138,7 @@ class _AsientoFormPageState extends ConsumerState<AsientoFormPage> {
   }
 
   Future<void> _selectDate(BuildContext context) async {
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: _selectedDate,
-      firstDate: DateTime(2020),
-      lastDate: DateTime(2030),
-    );
+    final picked = await pickDate(context, _selectedDate);
     
     if (picked != null) {
       setState(() {

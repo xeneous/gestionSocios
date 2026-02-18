@@ -8,6 +8,7 @@ import '../../../clientes/providers/clientes_provider.dart';
 import '../../../clientes/models/cliente_model.dart';
 import '../../../asientos/presentation/widgets/cuentas_search_dialog.dart';
 import '../../../cuentas/models/cuenta_model.dart';
+import '../../../../core/utils/date_picker_utils.dart';
 
 class ComprobanteCliFormPage extends ConsumerStatefulWidget {
   final int? idTransaccion;
@@ -210,12 +211,7 @@ class _ComprobanteCliFormPageState
         return;
     }
 
-    final fecha = await showDatePicker(
-      context: context,
-      initialDate: initialDate,
-      firstDate: DateTime(2000),
-      lastDate: DateTime(2100),
-    );
+    final fecha = await pickDate(context, initialDate);
 
     if (fecha != null) {
       setState(() {

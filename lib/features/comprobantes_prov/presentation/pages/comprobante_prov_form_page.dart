@@ -13,6 +13,7 @@ import '../../../cuentas/models/cuenta_model.dart';
 import '../../../cuentas_corrientes/providers/conceptos_tesoreria_provider.dart';
 import '../../../cuentas_corrientes/models/concepto_tesoreria_model.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
+import '../../../../core/utils/date_picker_utils.dart';
 
 class ComprobanteProvFormPage extends ConsumerStatefulWidget {
   final int? idTransaccion;
@@ -437,12 +438,7 @@ class _ComprobanteProvFormPageState
         return;
     }
 
-    final fecha = await showDatePicker(
-      context: context,
-      initialDate: initialDate,
-      firstDate: DateTime(2000),
-      lastDate: DateTime(2100),
-    );
+    final fecha = await pickDate(context, initialDate);
 
     if (fecha != null) {
       setState(() {

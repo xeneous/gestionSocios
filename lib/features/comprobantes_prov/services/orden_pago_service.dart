@@ -208,109 +208,118 @@ class OrdenPagoService {
     }
 
     // Generar asiento contable de egreso
-    await _generarAsientoOrdenPago(
-      proveedorId: proveedorId,
-      formasPago: formasPago,
-      totalAPagar: totalAPagar,
-      numeroOrdenPago: nuevoNumeroOP,
-      fecha: now,
-    );
+    // Si falla, la OP ya está guardada; se retorna el error sin abortar.
+    int? numeroAsiento;
+    String? asientoError;
+    try {
+      numeroAsiento = await _generarAsientoOrdenPago(
+        proveedorId: proveedorId,
+        formasPago: formasPago,
+        totalAPagar: totalAPagar,
+        numeroOrdenPago: nuevoNumeroOP,
+        fecha: now,
+      );
+    } catch (e) {
+      asientoError = e.toString().replaceFirst('Exception: ', '');
+    }
 
     return {
       'numero_orden_pago': nuevoNumeroOP,
       'id_transaccion': ordenPagoId,
       'total': totalAPagar,
+      'numero_asiento': numeroAsiento,
+      'asiento_error': asientoError,
     };
   }
 
-  /// Genera el asiento contable para una orden de pago
+  /// Genera el asiento contable para una orden de pago.
   ///
   /// Asiento tipo Egreso (2):
-  /// - DEBE: Cuenta Proveedores (desde parámetros)
-  /// - HABER: Cuenta(s) de forma de pago (desde conceptos_tesoreria)
-  Future<void> _generarAsientoOrdenPago({
+  /// - DEBE: Cuenta Proveedores (desde parámetros_contables)
+  /// - HABER: Cuenta(s) de cada forma de pago (desde conceptos_tesoreria)
+  ///
+  /// Retorna el número de asiento generado. Lanza excepción si falla.
+  Future<int> _generarAsientoOrdenPago({
     required int proveedorId,
     required Map<int, double> formasPago,
     required double totalAPagar,
     required int numeroOrdenPago,
     required DateTime fecha,
   }) async {
-    try {
-      // Obtener cuenta de proveedores desde parámetros
-      final paramResponse = await _supabase
-          .from('parametros_contables')
-          .select('valor')
-          .eq('clave', ParametroContable.cuentaProveedores)
-          .maybeSingle();
+    // Obtener cuenta de proveedores desde parámetros
+    final paramResponse = await _supabase
+        .from('parametros_contables')
+        .select('valor')
+        .eq('clave', ParametroContable.cuentaProveedores)
+        .maybeSingle();
 
-      if (paramResponse == null || paramResponse['valor'] == null) {
-        print('Advertencia: No se encontró cuenta de proveedores en parámetros');
-        return;
-      }
-
-      final cuentaProveedores = int.tryParse(paramResponse['valor'].toString());
-      if (cuentaProveedores == null) {
-        print('Advertencia: Cuenta de proveedores inválida');
-        return;
-      }
-
-      // Obtener nombre del proveedor
-      final proveedorResponse = await _supabase
-          .from('proveedores')
-          .select('razon_social')
-          .eq('id', proveedorId)
-          .maybeSingle();
-
-      final nombreProveedor = proveedorResponse?['razon_social'] ?? 'Proveedor $proveedorId';
-
-      // Construir items del asiento
-      final items = <AsientoItemData>[];
-
-      // DEBE: Cuenta de Proveedores por el total
-      items.add(AsientoItemData(
-        cuentaId: cuentaProveedores,
-        debe: totalAPagar,
-        haber: 0,
-      ));
-
-      // HABER: Una entrada por cada forma de pago
-      for (final entry in formasPago.entries) {
-        final conceptoId = entry.key;
-        final monto = entry.value;
-
-        // Obtener cuenta contable del concepto de tesorería
-        final concepto = await _supabase
-            .from('conceptos_tesoreria')
-            .select('imputacion_contable')
-            .eq('id', conceptoId)
-            .maybeSingle();
-
-        final cuentaPago = int.tryParse(concepto?['imputacion_contable']?.toString() ?? '0');
-        if (cuentaPago == null || cuentaPago == 0) {
-          print('Advertencia: Concepto de tesorería $conceptoId sin cuenta contable');
-          continue;
-        }
-
-        items.add(AsientoItemData(
-          cuentaId: cuentaPago,
-          debe: 0,
-          haber: monto,
-        ));
-      }
-
-      // Crear el asiento
-      await _asientosService.crearAsiento(
-        tipoAsiento: AsientosService.tipoEgreso,
-        fecha: fecha,
-        detalle: 'OP $numeroOrdenPago',
-        items: items,
-        numeroComprobante: numeroOrdenPago,
-        nombrePersona: nombreProveedor,
-      );
-    } catch (e) {
-      // Si falla el asiento, registrar pero no abortar la operación
-      print('Advertencia: No se pudo generar asiento contable: $e');
+    if (paramResponse == null || paramResponse['valor'] == null) {
+      throw Exception(
+          'No se encontró CUENTA_PROVEEDORES en parámetros_contables');
     }
+
+    final cuentaProveedores =
+        int.tryParse(paramResponse['valor'].toString());
+    if (cuentaProveedores == null) {
+      throw Exception(
+          'El valor de CUENTA_PROVEEDORES no es un número válido: ${paramResponse['valor']}');
+    }
+
+    // Obtener nombre del proveedor
+    final proveedorResponse = await _supabase
+        .from('proveedores')
+        .select('razon_social')
+        .eq('codigo', proveedorId)
+        .maybeSingle();
+
+    final nombreProveedor =
+        (proveedorResponse?['razon_social'] as String?)?.trim() ??
+            'Proveedor $proveedorId';
+
+    // Construir items del asiento
+    final items = <AsientoItemData>[];
+
+    // DEBE: Cuenta Proveedores — baja el pasivo
+    items.add(AsientoItemData(
+      cuentaId: cuentaProveedores,
+      debe: totalAPagar,
+      haber: 0,
+    ));
+
+    // HABER: una línea por cada forma de pago
+    for (final entry in formasPago.entries) {
+      final conceptoId = entry.key;
+      final monto = entry.value;
+
+      final concepto = await _supabase
+          .from('conceptos_tesoreria')
+          .select('imputacion_contable, descripcion')
+          .eq('id', conceptoId)
+          .maybeSingle();
+
+      final cuentaPago = int.tryParse(
+          concepto?['imputacion_contable']?.toString() ?? '0');
+      if (cuentaPago == null || cuentaPago == 0) {
+        final desc = concepto?['descripcion'] ?? 'ID $conceptoId';
+        throw Exception(
+            'La forma de pago "$desc" no tiene cuenta contable configurada '
+            '(imputacion_contable vacío en conceptos_tesoreria)');
+      }
+
+      items.add(AsientoItemData(
+        cuentaId: cuentaPago,
+        debe: 0,
+        haber: monto,
+      ));
+    }
+
+    return await _asientosService.crearAsiento(
+      tipoAsiento: AsientosService.tipoEgreso,
+      fecha: fecha,
+      detalle: 'OP $numeroOrdenPago - $nombreProveedor',
+      items: items,
+      numeroComprobante: numeroOrdenPago,
+    );
   }
 
   /// Obtiene el saldo total de un proveedor

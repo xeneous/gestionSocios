@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import '../../models/profesional_model.dart';
 import '../../providers/profesionales_provider.dart';
 import '../../../socios/providers/tarjetas_provider.dart';
+import '../../../../core/utils/date_picker_utils.dart';
 
 class ProfesionalFormPage extends ConsumerStatefulWidget {
   final int? profesionalId;
@@ -392,14 +393,7 @@ class _ProfesionalFormPageState extends ConsumerState<ProfesionalFormPage> {
                                     Expanded(
                                       child: InkWell(
                                         onTap: () async {
-                                          final date = await showDatePicker(
-                                            context: context,
-                                            initialDate:
-                                                _vencimientoTarjeta ?? DateTime.now(),
-                                            firstDate: DateTime.now(),
-                                            lastDate: DateTime.now()
-                                                .add(const Duration(days: 3650)),
-                                          );
+                                          final date = await pickDate(context, _vencimientoTarjeta ?? DateTime.now());
                                           if (date != null) {
                                             setState(
                                                 () => _vencimientoTarjeta = date);
@@ -429,14 +423,7 @@ class _ProfesionalFormPageState extends ConsumerState<ProfesionalFormPage> {
                                     Expanded(
                                       child: InkWell(
                                         onTap: () async {
-                                          final date = await showDatePicker(
-                                            context: context,
-                                            initialDate:
-                                                _debitarDesde ?? DateTime.now(),
-                                            firstDate: DateTime(2000),
-                                            lastDate: DateTime.now()
-                                                .add(const Duration(days: 365)),
-                                          );
+                                          final date = await pickDate(context, _debitarDesde ?? DateTime.now());
                                           if (date != null) {
                                             setState(() => _debitarDesde = date);
                                           }

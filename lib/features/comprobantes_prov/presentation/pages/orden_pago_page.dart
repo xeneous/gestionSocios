@@ -12,6 +12,7 @@ import '../../../cuentas_corrientes/models/concepto_tesoreria_model.dart';
 import '../../../asientos/presentation/widgets/cuentas_search_dialog.dart';
 import '../../../cuentas/models/cuenta_model.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
+import '../../../../core/utils/date_picker_utils.dart';
 
 /// Página principal de orden de pago a proveedores
 class OrdenPagoPage extends ConsumerStatefulWidget {
@@ -102,6 +103,14 @@ class _OrdenPagoPageState extends ConsumerState<OrdenPagoPage> {
           onPressed: () => context.go('/orden-pago'),
         ),
         actions: [
+          TextButton.icon(
+            onPressed: _mostrarDialogoNuevaFactura,
+            icon: const Icon(Icons.add, color: Colors.white),
+            label: const Text(
+              'Nueva Factura',
+              style: TextStyle(color: Colors.white),
+            ),
+          ),
           if (_selectedPagos.isNotEmpty)
             Container(
               margin: const EdgeInsets.only(right: 16),
@@ -138,12 +147,6 @@ class _OrdenPagoPageState extends ConsumerState<OrdenPagoPage> {
             child: _buildFormasPagoPanel(),
           ),
         ],
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _mostrarDialogoNuevaFactura,
-        icon: const Icon(Icons.add),
-        label: const Text('Nueva Factura'),
-        backgroundColor: Colors.orange,
       ),
     );
   }
@@ -783,7 +786,8 @@ class _OrdenPagoPageState extends ConsumerState<OrdenPagoPage> {
               );
 
       final numeroOP = resultado['numero_orden_pago']!;
-      final numeroAsiento = resultado['numero_asiento']!;
+      final numeroAsiento = resultado['numero_asiento'] as int?; // null si falló el asiento
+      final asientoError = resultado['asiento_error'] as String?;
 
       // Cerrar diálogo de carga
       if (mounted) Navigator.pop(context);
@@ -803,6 +807,19 @@ class _OrdenPagoPageState extends ConsumerState<OrdenPagoPage> {
       // Mostrar diálogo de éxito con opción de imprimir
       final idTransaccionOP = resultado['id_transaccion'] as int;
       if (!mounted) return;
+
+      // Si el asiento falló, mostrar advertencia antes del diálogo
+      if (asientoError != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+                'Advertencia: OP generada pero falló el asiento contable: $asientoError'),
+            backgroundColor: Colors.orange,
+            duration: const Duration(seconds: 10),
+          ),
+        );
+      }
+
       await showDialog(
         context: context,
         builder: (dialogContext) => AlertDialog(
@@ -826,13 +843,25 @@ class _OrdenPagoPageState extends ConsumerState<OrdenPagoPage> {
                 ),
               ),
               const SizedBox(height: 8),
-              Text(
-                'Asiento Nro. $numeroAsiento',
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w500,
+              if (numeroAsiento != null)
+                Text(
+                  'Asiento Nro. $numeroAsiento',
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w500,
+                  ),
+                )
+              else
+                Row(
+                  children: [
+                    Icon(Icons.warning_amber, color: Colors.orange[700], size: 18),
+                    const SizedBox(width: 6),
+                    const Text(
+                      'Sin asiento contable',
+                      style: TextStyle(color: Colors.orange),
+                    ),
+                  ],
                 ),
-              ),
               const SizedBox(height: 16),
               Text(
                 'Total: ${_currencyFormat.format(totalPagado)}',
@@ -962,12 +991,7 @@ class _NuevaFacturaRapidaDialogState
   }
 
   Future<void> _selectFecha(bool isVencimiento) async {
-    final fecha = await showDatePicker(
-      context: context,
-      initialDate: isVencimiento ? (_fecha1Venc ?? DateTime.now()) : _fecha,
-      firstDate: DateTime(2000),
-      lastDate: DateTime(2100),
-    );
+    final fecha = await pickDate(context, isVencimiento ? (_fecha1Venc ?? DateTime.now()) : _fecha);
 
     if (fecha != null) {
       setState(() {

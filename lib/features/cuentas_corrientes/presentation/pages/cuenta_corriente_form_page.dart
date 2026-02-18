@@ -11,6 +11,7 @@ import '../../providers/tipos_comprobante_provider.dart';
 import '../../../socios/models/socio_model.dart';
 import '../../../socios/providers/socios_provider.dart';
 import '../widgets/detalle_item_row.dart';
+import '../../../../core/utils/date_picker_utils.dart';
 
 class CuentaCorrienteFormPage extends ConsumerStatefulWidget {
   final int? idtransaccion;
@@ -352,13 +353,7 @@ class _CuentaCorrienteFormPageState
                             Expanded(
                               child: InkWell(
                                 onTap: () async {
-                                  final date = await showDatePicker(
-                                    context: context,
-                                    initialDate: _fecha,
-                                    firstDate: DateTime(2020),
-                                    lastDate: DateTime.now()
-                                        .add(const Duration(days: 365)),
-                                  );
+                                  final date = await pickDate(context, _fecha);
                                   if (date != null) {
                                     setState(() => _fecha = date);
                                   }
@@ -401,13 +396,7 @@ class _CuentaCorrienteFormPageState
                         // Vencimiento
                         InkWell(
                           onTap: () async {
-                            final date = await showDatePicker(
-                              context: context,
-                              initialDate: _vencimiento ?? DateTime.now(),
-                              firstDate: DateTime.now(),
-                              lastDate: DateTime.now()
-                                  .add(const Duration(days: 365)),
-                            );
+                            final date = await pickDate(context, _vencimiento ?? DateTime.now());
                             if (date != null) {
                               setState(() => _vencimiento = date);
                             }

@@ -8,6 +8,7 @@ import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../../../core/presentation/widgets/app_drawer.dart';
 import '../../../cuentas/providers/cuentas_provider.dart';
 import '../../../cuentas/models/cuenta_model.dart';
+import '../../../../core/utils/date_picker_utils.dart';
 
 /// Modelo para movimiento de cuenta
 class MovimientoCuenta {
@@ -160,24 +161,14 @@ class _MayorCuentasPageState extends ConsumerState<MayorCuentasPage> {
   }
 
   Future<void> _selectFechaDesde() async {
-    final fecha = await showDatePicker(
-      context: context,
-      initialDate: _fechaDesde,
-      firstDate: DateTime(2000),
-      lastDate: DateTime(2100),
-    );
+    final fecha = await pickDate(context, _fechaDesde);
     if (fecha != null) {
       setState(() => _fechaDesde = fecha);
     }
   }
 
   Future<void> _selectFechaHasta() async {
-    final fecha = await showDatePicker(
-      context: context,
-      initialDate: _fechaHasta,
-      firstDate: DateTime(2000),
-      lastDate: DateTime(2100),
-    );
+    final fecha = await pickDate(context, _fechaHasta);
     if (fecha != null) {
       setState(() => _fechaHasta = fecha);
     }

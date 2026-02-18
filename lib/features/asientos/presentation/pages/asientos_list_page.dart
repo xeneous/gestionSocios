@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import '../../models/asiento_model.dart';
 import '../../providers/asientos_provider.dart';
+import '../../../../core/utils/date_picker_utils.dart';
 import '../../../../core/presentation/widgets/app_drawer.dart';
 
 class AsientosListPage extends ConsumerStatefulWidget {
@@ -41,22 +42,12 @@ class _AsientosListPageState extends ConsumerState<AsientosListPage> {
       );
 
   Future<void> _pickFechaDesde() async {
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: _fechaDesde ?? DateTime.now(),
-      firstDate: DateTime(2000),
-      lastDate: DateTime(2100),
-    );
+    final picked = await pickDate(context, _fechaDesde ?? DateTime.now());
     if (picked != null) setState(() => _fechaDesde = picked);
   }
 
   Future<void> _pickFechaHasta() async {
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: _fechaHasta ?? DateTime.now(),
-      firstDate: DateTime(2000),
-      lastDate: DateTime(2100),
-    );
+    final picked = await pickDate(context, _fechaHasta ?? DateTime.now());
     if (picked != null) setState(() => _fechaHasta = picked);
   }
 

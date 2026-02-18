@@ -15,6 +15,7 @@ import '../../models/presentacion_config.dart';
 import '../../providers/debitos_automaticos_provider.dart';
 import '../../services/presentacion_tarjetas_service.dart';
 import '../../../socios/providers/tarjetas_provider.dart';
+import '../../../../core/utils/date_picker_utils.dart';
 
 class DebitosAutomaticosPage extends ConsumerStatefulWidget {
   const DebitosAutomaticosPage({super.key});
@@ -525,15 +526,7 @@ class _DebitosAutomaticosPageState
   Future<void> _seleccionarFecha(BuildContext context) async {
     final fechaActual = _fechaSeleccionada;
 
-    final fecha = await showDatePicker(
-      context: context,
-      initialDate: fechaActual,
-      firstDate: DateTime(2020),
-      lastDate: DateTime(2030),
-      helpText: 'Seleccionar período',
-      fieldLabelText: 'Fecha',
-      initialDatePickerMode: DatePickerMode.year,
-    );
+    final fecha = await pickDate(context, fechaActual);
 
     if (fecha != null) {
       setState(() {

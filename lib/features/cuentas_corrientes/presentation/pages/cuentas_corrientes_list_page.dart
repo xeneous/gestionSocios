@@ -8,6 +8,7 @@ import '../../providers/tipos_comprobante_provider.dart';
 import '../../models/cuenta_corriente_completa_model.dart';
 import '../../../auth/presentation/providers/user_role_provider.dart';
 import '../../../../core/presentation/widgets/app_drawer.dart';
+import '../../../../core/utils/date_picker_utils.dart';
 
 class CuentasCorrientesListPage extends ConsumerStatefulWidget {
   const CuentasCorrientesListPage({super.key});
@@ -185,12 +186,7 @@ class _CuentasCorrientesListPageState
                   Expanded(
                     child: InkWell(
                       onTap: () async {
-                        final date = await showDatePicker(
-                          context: context,
-                          initialDate: _fechaDesde ?? DateTime.now(),
-                          firstDate: DateTime(2020),
-                          lastDate: DateTime.now(),
-                        );
+                        final date = await pickDate(context, _fechaDesde ?? DateTime.now());
                         if (date != null) {
                           setState(() => _fechaDesde = date);
                         }
@@ -213,12 +209,7 @@ class _CuentasCorrientesListPageState
                   Expanded(
                     child: InkWell(
                       onTap: () async {
-                        final date = await showDatePicker(
-                          context: context,
-                          initialDate: _fechaHasta ?? DateTime.now(),
-                          firstDate: DateTime(2020),
-                          lastDate: DateTime.now().add(const Duration(days: 365)),
-                        );
+                        final date = await pickDate(context, _fechaHasta ?? DateTime.now());
                         if (date != null) {
                           setState(() => _fechaHasta = date);
                         }

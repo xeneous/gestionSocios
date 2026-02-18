@@ -30,6 +30,7 @@ import '../../models/recertificacion_model.dart';
 import '../../providers/archivos_socio_provider.dart';
 import '../../models/archivo_socio_model.dart';
 import '../../../cuota_social/presentation/dialogs/cargar_cuotas_dialog.dart';
+import '../../../../core/utils/date_picker_utils.dart';
 
 class SocioFormPage extends ConsumerStatefulWidget {
   final int? socioId;
@@ -854,12 +855,7 @@ class _SocioFormPageState extends ConsumerState<SocioFormPage>
         const SizedBox(height: 16),
         InkWell(
           onTap: () async {
-            final date = await showDatePicker(
-              context: context,
-              initialDate: _fechaNacimiento ?? DateTime.now(),
-              firstDate: DateTime(1900),
-              lastDate: DateTime.now(),
-            );
+            final date = await pickDate(context, _fechaNacimiento ?? DateTime.now());
             if (date != null) {
               _markFormModified();
               setState(() => _fechaNacimiento = date);
@@ -952,12 +948,7 @@ class _SocioFormPageState extends ConsumerState<SocioFormPage>
         const SizedBox(height: 16),
         InkWell(
           onTap: () async {
-            final date = await showDatePicker(
-              context: context,
-              initialDate: _grupoDesde ?? DateTime.now(),
-              firstDate: DateTime(1900),
-              lastDate: DateTime.now(),
-            );
+            final date = await pickDate(context, _grupoDesde ?? DateTime.now());
             if (date != null) {
               _markFormModified();
               setState(() => _grupoDesde = date);
@@ -1085,12 +1076,7 @@ class _SocioFormPageState extends ConsumerState<SocioFormPage>
           const SizedBox(height: 16),
           InkWell(
             onTap: () async {
-              final date = await showDatePicker(
-                context: context,
-                initialDate: _fechaInicioResidencia ?? DateTime.now(),
-                firstDate: DateTime(1900),
-                lastDate: DateTime.now(),
-              );
+              final date = await pickDate(context, _fechaInicioResidencia ?? DateTime.now());
               if (date != null) {
                 _markFormModified();
                 setState(() {
@@ -1267,15 +1253,10 @@ class _SocioFormPageState extends ConsumerState<SocioFormPage>
           // Fecha fin residencia
           InkWell(
             onTap: () async {
-              final date = await showDatePicker(
-                context: context,
-                initialDate: _fechaFinResidencia ??
+              final date = await pickDate(context, _fechaFinResidencia ??
                     (_fechaInicioResidencia != null
                         ? DateTime(_fechaInicioResidencia!.year + 3, _fechaInicioResidencia!.month, _fechaInicioResidencia!.day)
-                        : DateTime.now().add(const Duration(days: 365 * 3))),
-                firstDate: _fechaInicioResidencia ?? DateTime(1900),
-                lastDate: DateTime.now().add(const Duration(days: 365 * 10)),
-              );
+                        : DateTime.now().add(const Duration(days: 365 * 3))));
               if (date != null) {
                 _markFormModified();
                 setState(() => _fechaFinResidencia = date);
@@ -1299,12 +1280,7 @@ class _SocioFormPageState extends ConsumerState<SocioFormPage>
         const SizedBox(height: 16),
         InkWell(
           onTap: () async {
-            final date = await showDatePicker(
-              context: context,
-              initialDate: _fechaIngreso ?? DateTime.now(),
-              firstDate: DateTime(1900),
-              lastDate: DateTime.now(),
-            );
+            final date = await pickDate(context, _fechaIngreso ?? DateTime.now());
             if (date != null) {
               _markFormModified();
               setState(() => _fechaIngreso = date);
@@ -1633,12 +1609,7 @@ class _SocioFormPageState extends ConsumerState<SocioFormPage>
           const SizedBox(height: 16),
           InkWell(
             onTap: () async {
-              final date = await showDatePicker(
-                context: context,
-                initialDate: _vencimientoTarjeta ?? DateTime.now(),
-                firstDate: DateTime.now(),
-                lastDate: DateTime.now().add(const Duration(days: 3650)),
-              );
+              final date = await pickDate(context, _vencimientoTarjeta ?? DateTime.now());
               if (date != null) {
                 _markFormModified();
                 setState(() => _vencimientoTarjeta = date);
@@ -1660,12 +1631,7 @@ class _SocioFormPageState extends ConsumerState<SocioFormPage>
           const SizedBox(height: 16),
           InkWell(
             onTap: () async {
-              final date = await showDatePicker(
-                context: context,
-                initialDate: _debitarDesde ?? DateTime.now(),
-                firstDate: DateTime(1900),
-                lastDate: DateTime.now().add(const Duration(days: 365)),
-              );
+              final date = await pickDate(context, _debitarDesde ?? DateTime.now());
               if (date != null) {
                 _markFormModified();
                 setState(() => _debitarDesde = date);
@@ -2279,12 +2245,7 @@ class _SocioFormPageState extends ConsumerState<SocioFormPage>
                 const SizedBox(height: 16),
                 InkWell(
                   onTap: () async {
-                    final date = await showDatePicker(
-                      context: context,
-                      initialDate: fechaAlta ?? DateTime.now(),
-                      firstDate: DateTime(2000),
-                      lastDate: DateTime.now(),
-                    );
+                    final date = await pickDate(context, fechaAlta ?? DateTime.now());
                     if (date != null) {
                       setState(() => fechaAlta = date);
                     }
@@ -2721,12 +2682,7 @@ class _SocioFormPageState extends ConsumerState<SocioFormPage>
                 const SizedBox(height: 16),
                 InkWell(
                   onTap: () async {
-                    final date = await showDatePicker(
-                      context: context,
-                      initialDate: fechaRecertificacion ?? DateTime.now(),
-                      firstDate: DateTime(2000),
-                      lastDate: DateTime(2100),
-                    );
+                    final date = await pickDate(context, fechaRecertificacion ?? DateTime.now());
                     if (date != null) {
                       setState(() => fechaRecertificacion = date);
                     }
@@ -2863,12 +2819,7 @@ class _SocioFormPageState extends ConsumerState<SocioFormPage>
                 const SizedBox(height: 16),
                 InkWell(
                   onTap: () async {
-                    final date = await showDatePicker(
-                      context: context,
-                      initialDate: fechaRecertificacion ?? DateTime.now(),
-                      firstDate: DateTime(2000),
-                      lastDate: DateTime(2100),
-                    );
+                    final date = await pickDate(context, fechaRecertificacion ?? DateTime.now());
                     if (date != null) {
                       setState(() => fechaRecertificacion = date);
                     }

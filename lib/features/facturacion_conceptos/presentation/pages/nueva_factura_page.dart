@@ -12,6 +12,7 @@ import '../../../profesionales/providers/profesionales_provider.dart';
 import '../../../profesionales/models/profesional_model.dart';
 import '../../models/factura_concepto_model.dart';
 import '../../providers/facturacion_conceptos_provider.dart';
+import '../../../../core/utils/date_picker_utils.dart';
 
 class NuevaFacturaPage extends ConsumerStatefulWidget {
   final int? socioId;             // Si viene desde ficha del socio
@@ -760,12 +761,7 @@ class _NuevaFacturaPageState extends ConsumerState<NuevaFacturaPage> {
                 Expanded(
                   child: InkWell(
                     onTap: () async {
-                      final date = await showDatePicker(
-                        context: context,
-                        initialDate: _fecha,
-                        firstDate: DateTime(2020),
-                        lastDate: DateTime(2030),
-                      );
+                      final date = await pickDate(context, _fecha);
                       if (date != null) {
                         setState(() => _fecha = date);
                       }
@@ -784,13 +780,8 @@ class _NuevaFacturaPageState extends ConsumerState<NuevaFacturaPage> {
                 Expanded(
                   child: InkWell(
                     onTap: () async {
-                      final date = await showDatePicker(
-                        context: context,
-                        initialDate: _vencimiento ??
-                            _fecha.add(const Duration(days: 30)),
-                        firstDate: _fecha,
-                        lastDate: DateTime(2030),
-                      );
+                      final date = await pickDate(context, _vencimiento ??
+                            _fecha.add(const Duration(days: 30)));
                       if (date != null) {
                         setState(() => _vencimiento = date);
                       }
