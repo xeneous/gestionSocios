@@ -365,42 +365,8 @@ class _ComprobantesProvListPageState
       );
     }
 
-    // Calcular totales
-    double totalImportes = 0;
-    double totalSaldos = 0;
-    for (final comp in comprobantes) {
-      totalImportes += comp.totalImporte;
-      totalSaldos += comp.saldo;
-    }
-
     return Column(
       children: [
-        // Resumen
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          color: Colors.blue[50],
-          child: Row(
-            children: [
-              Text(
-                '${comprobantes.length} comprobante(s)',
-                style: const TextStyle(fontWeight: FontWeight.w500),
-              ),
-              const Spacer(),
-              Text(
-                'Total: ${_currencyFormat.format(totalImportes)}',
-                style: const TextStyle(fontWeight: FontWeight.w500),
-              ),
-              const SizedBox(width: 24),
-              Text(
-                'Saldo: ${_currencyFormat.format(totalSaldos)}',
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  color: totalSaldos > 0 ? Colors.red : Colors.green,
-                ),
-              ),
-            ],
-          ),
-        ),
         // Lista
         Expanded(
           child: ListView.builder(
