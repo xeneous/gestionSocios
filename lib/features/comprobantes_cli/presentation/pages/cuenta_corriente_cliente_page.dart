@@ -46,7 +46,7 @@ class _CuentaCorrienteClientePageState
           onPressed: () => context.go('/clientes'),
         ),
         title: clienteAsync.when(
-          data: (cli) => Text('Cta. Cte. - ${cli?.razonSocial ?? cli?.nombreCompleto ?? "Cliente"}'),
+          data: (cli) => Text('Cta. Cte. - ${cli?.razonSocial ?? cli?.nombreCompleto ?? "Sponsor"}'),
           loading: () => const Text('Cuenta Corriente'),
           error: (_, __) => const Text('Cuenta Corriente'),
         ),
@@ -153,7 +153,7 @@ class _CuentaCorrienteClientePageState
                 ],
               ),
               loading: () => const Text('Cargando...'),
-              error: (_, __) => const Text('Error cargando cliente'),
+              error: (_, __) => const Text('Error cargando sponsor'),
             ),
           ),
           Column(

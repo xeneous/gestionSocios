@@ -55,11 +55,13 @@ final asientosSearchProvider = FutureProvider.family<List<AsientoCompleto>, Asie
 
   // Obtener TODOS los items en una sola query (batch) en lugar de N queries
   final asientoNums = headers.map((h) => h.asiento).toSet().toList();
+  final anioMesValues = headers.map((h) => h.anioMes).toSet().toList();
 
   var itemsQuery = supabase
       .from('asientos_items')
       .select('*, cuentas(cuenta, descripcion)')
-      .inFilter('asiento', asientoNums);
+      .inFilter('asiento', asientoNums)
+      .inFilter('anio_mes', anioMesValues);
 
   // Si hay filtro de tipo, lo aplica para reducir resultados
   if (params.tipoAsiento != null) {

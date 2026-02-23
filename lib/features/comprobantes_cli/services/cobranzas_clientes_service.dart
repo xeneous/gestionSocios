@@ -81,7 +81,7 @@ class CobranzasClientesService {
     // Obtener próximo número de recibo
     // Buscar el máximo número de comprobante para tipo recibo (código 6 típicamente)
     // TODO: Verificar el código correcto de tipo recibo en tip_vent_mod_header
-    const tipoReciboCliente = 6; // Tipo recibo de cliente - ajustar según datos
+    const tipoReciboCliente = 0; // Tipo recibo de cliente
 
     final maxCompResult = await _supabase
         .from('ven_cli_header')
@@ -181,29 +181,47 @@ class CobranzasClientesService {
       itemNum++;
     }
 
-    // Registrar en valores_tesoreria si existe la tabla
-    try {
-      for (final entry in formasPago.entries) {
-        final conceptoId = entry.key;
-        final monto = entry.value;
+    // Registrar en valores_tesoreria y operaciones_contables
+    final idsValoresTesoreria = <int>[];
+    for (final entry in formasPago.entries) {
+      final conceptoId = entry.key;
+      final monto = entry.value;
 
-        await _supabase.from('valores_tesoreria').insert({
-          'id_concepto': conceptoId,
-          'fecha': now.toIso8601String().split('T')[0],
-          'importe': monto,
-          'numero_interno': nuevoNumeroRecibo,
-          'tipo_entidad': 'CLI',  // Cliente
-          'id_entidad': clienteId,
-        });
-      }
-    } catch (e) {
-      // Si falla valores_tesoreria, continuar (puede no existir)
-      print('Advertencia: No se pudo registrar en valores_tesoreria: $e');
+      final valorResult = await _supabase.from('valores_tesoreria').insert({
+        'idtransaccion_origen': reciboId,
+        'idconcepto_tesoreria': conceptoId,
+        'fecha_emision': now.toIso8601String().split('T')[0],
+        'importe': monto,
+        'numero_interno': nuevoNumeroRecibo,
+        'tipo_movimiento': 1, // 1 = Ingreso (cobranza)
+      }).select('id').single();
+
+      idsValoresTesoreria.add(valorResult['id'] as int);
+    }
+
+    // Crear registro en operaciones_contables
+    final opResult = await _supabase.from('operaciones_contables').insert({
+      'tipo_operacion': 'COBRANZA_SPONSOR',
+      'numero_comprobante': nuevoNumeroRecibo,
+      'fecha': now.toIso8601String().split('T')[0],
+      'entidad_tipo': 'SPONSOR',
+      'entidad_id': clienteId,
+      'total': totalAPagar,
+    }).select('id').single();
+    final operacionId = opResult['id'] as int;
+
+    // Vincular valores_tesoreria con la operación
+    for (final valorId in idsValoresTesoreria) {
+      await _supabase.from('operaciones_detalle_valores_tesoreria').insert({
+        'operacion_id': operacionId,
+        'valor_tesoreria_id': valorId,
+      });
     }
 
     return {
       'numero_recibo': nuevoNumeroRecibo,
       'id_transaccion': reciboId,
+      'operacion_id': operacionId,
       'total': totalAPagar,
     };
   }

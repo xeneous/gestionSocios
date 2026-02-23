@@ -96,7 +96,7 @@ class _QuickAccessSelectorDialogState extends State<QuickAccessSelectorDialog> {
     switch (category) {
       case 'Socios':
         return Colors.blue;
-      case 'Clientes':
+      case 'Sponsors':
         return Colors.green;
       case 'Proveedores':
         return Colors.orange;

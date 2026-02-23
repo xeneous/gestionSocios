@@ -47,6 +47,7 @@ import '../../features/parametros/presentation/pages/parametros_contables_page.d
 import '../../features/comprobantes_cli/presentation/pages/saldos_clientes_page.dart';
 import '../../features/comprobantes_prov/presentation/pages/saldos_proveedores_page.dart';
 import '../../features/asientos/presentation/pages/mayor_cuentas_page.dart';
+import '../../features/tesoreria/presentation/pages/tesoreria_diaria_page.dart';
 import '../../features/socios/presentation/pages/listado_residentes_page.dart';
 import '../../features/profesionales/presentation/pages/profesionales_list_page.dart';
 import '../../features/profesionales/presentation/pages/profesional_form_page.dart';
@@ -492,6 +493,12 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/parametros-contables',
         name: 'parametros-contables',
         builder: (context, state) => const ParametrosContablesPage(),
+      ),
+      // Tesorería Diaria
+      GoRoute(
+        path: '/tesoreria-diaria',
+        name: 'tesoreria-diaria',
+        builder: (context, state) => const TesoreriaDiariaPage(),
       ),
       // Listado de Residentes
       GoRoute(

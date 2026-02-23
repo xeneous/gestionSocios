@@ -47,6 +47,12 @@ class _ComprobanteCliFormPageState
 
   // Items
   List<VenCliItem> _items = [];
+  int? _cuentaCliente;
+
+  // Validación de sponsor
+  Cliente? _clienteSeleccionado;
+  bool _buscandoCliente = false;
+  bool _clienteValidado = false;
 
   final _dateFormat = DateFormat('dd/MM/yyyy');
   final _currencyFormat = NumberFormat.currency(locale: 'es_AR', symbol: '\$');
@@ -56,11 +62,14 @@ class _ComprobanteCliFormPageState
   @override
   void initState() {
     super.initState();
+    _clienteController.addListener(_onClienteCodigoChanged);
     if (isEditing) {
       _loadComprobante();
     } else {
       if (widget.clienteId != null) {
         _clienteController.text = widget.clienteId.toString();
+        Future.microtask(
+            () => _validarYCargarCliente(widget.clienteId.toString()));
       }
       _isLoadingData = false;
     }
@@ -68,20 +77,80 @@ class _ComprobanteCliFormPageState
 
   @override
   void dispose() {
+    _clienteController.removeListener(_onClienteCodigoChanged);
     _clienteController.dispose();
     _nroComprobanteController.dispose();
     _descripcionController.dispose();
     super.dispose();
   }
 
+  void _onClienteCodigoChanged() {
+    final codigoActual = _clienteController.text.trim();
+    if (_clienteSeleccionado != null &&
+        codigoActual != _clienteSeleccionado!.codigo.toString()) {
+      setState(() {
+        _clienteSeleccionado = null;
+        _clienteValidado = false;
+        _cuentaCliente = null;
+      });
+    }
+  }
+
+  Future<void> _validarYCargarCliente(String codigo) async {
+    final parsedCodigo = int.tryParse(codigo.trim());
+    if (parsedCodigo == null) {
+      if (mounted && codigo.trim().isNotEmpty) {
+        setState(() {
+          _clienteSeleccionado = null;
+          _clienteValidado = true;
+          _buscandoCliente = false;
+          _cuentaCliente = null;
+        });
+      }
+      return;
+    }
+
+    if (mounted) setState(() => _buscandoCliente = true);
+
+    try {
+      final cliente = await ref.read(clienteProvider(parsedCodigo).future);
+      if (mounted) {
+        setState(() {
+          _clienteSeleccionado = cliente;
+          _cuentaCliente = cliente?.cuenta;
+          _buscandoCliente = false;
+          _clienteValidado = true;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _clienteSeleccionado = null;
+          _buscandoCliente = false;
+          _clienteValidado = true;
+          _cuentaCliente = null;
+        });
+      }
+    }
+  }
+
   Future<void> _loadComprobante() async {
     try {
       final comprobante =
           await ref.read(comprobanteCliProvider(widget.idTransaccion!).future);
+
+      Cliente? cliente;
+      if (comprobante != null) {
+        cliente = await ref.read(clienteProvider(comprobante.cliente).future);
+      }
+
       if (comprobante != null && mounted) {
         setState(() {
           _comprobante = comprobante;
           _clienteController.text = comprobante.cliente.toString();
+          _clienteSeleccionado = cliente;
+          _clienteValidado = true;
+          _cuentaCliente = cliente?.cuenta;
           _nroComprobanteController.text = comprobante.nroComprobante ?? '';
           _descripcionController.text = comprobante.descripcionImporte ?? '';
           _fecha = comprobante.fecha;
@@ -128,7 +197,15 @@ class _ComprobanteCliFormPageState
     final clienteId = int.tryParse(_clienteController.text.trim());
     if (clienteId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Código de cliente inválido')),
+        const SnackBar(content: Text('Código de sponsor inválido')),
+      );
+      return;
+    }
+
+    if (_clienteSeleccionado == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text('Sponsor no encontrado. Verifique el código.')),
       );
       return;
     }
@@ -178,12 +255,30 @@ class _ComprobanteCliFormPageState
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
+        final errorStr = e.toString();
+        if (errorStr.contains('ASIENTO_WARNING:')) {
+          final warning = errorStr
+              .split('ASIENTO_WARNING:')
+              .last
+              .replaceFirst('Exception: ', '');
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'Comprobante guardado. Advertencia en asiento contable: $warning',
+              ),
+              backgroundColor: Colors.orange,
+              duration: const Duration(seconds: 8),
+            ),
+          );
+          context.go('/comprobantes-clientes');
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Error: $errorStr'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
       }
     } finally {
       if (mounted) {
@@ -237,6 +332,8 @@ class _ComprobanteCliFormPageState
     showDialog(
       context: context,
       builder: (context) => _ItemDialog(
+        tipoComprobante: _tipoComprobante,
+        cuentaCliente: _cuentaCliente,
         onSave: (item) {
           setState(() {
             _items.add(item);
@@ -251,6 +348,8 @@ class _ComprobanteCliFormPageState
       context: context,
       builder: (context) => _ItemDialog(
         item: _items[index],
+        tipoComprobante: _tipoComprobante,
+        cuentaCliente: _cuentaCliente,
         onSave: (item) {
           setState(() {
             _items[index] = item;
@@ -275,6 +374,9 @@ class _ComprobanteCliFormPageState
     if (result != null) {
       setState(() {
         _clienteController.text = result.codigo.toString();
+        _clienteSeleccionado = result;
+        _cuentaCliente = result.cuenta;
+        _clienteValidado = true;
       });
     }
   }
@@ -325,29 +427,101 @@ class _ComprobanteCliFormPageState
                             Row(
                               children: [
                                 Expanded(
-                                  child: TextFormField(
-                                    controller: _clienteController,
-                                    decoration: InputDecoration(
-                                      labelText: 'Código Cliente *',
-                                      border: const OutlineInputBorder(),
-                                      prefixIcon: const Icon(Icons.business),
-                                      suffixIcon: IconButton(
-                                        icon: const Icon(Icons.search),
-                                        tooltip: 'Buscar cliente/sponsor',
-                                        onPressed: _buscarCliente,
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      TextFormField(
+                                        controller: _clienteController,
+                                        decoration: InputDecoration(
+                                          labelText: 'Código Sponsor *',
+                                          border: const OutlineInputBorder(),
+                                          prefixIcon:
+                                              const Icon(Icons.business),
+                                          suffixIcon: Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              if (_buscandoCliente)
+                                                const Padding(
+                                                  padding: EdgeInsets.all(12),
+                                                  child: SizedBox(
+                                                    width: 16,
+                                                    height: 16,
+                                                    child:
+                                                        CircularProgressIndicator(
+                                                            strokeWidth: 2),
+                                                  ),
+                                                ),
+                                              IconButton(
+                                                icon: const Icon(Icons.search),
+                                                tooltip: 'Buscar sponsor',
+                                                onPressed: _buscarCliente,
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                        keyboardType: TextInputType.number,
+                                        onFieldSubmitted:
+                                            _validarYCargarCliente,
+                                        validator: (value) {
+                                          if (value == null ||
+                                              value.trim().isEmpty) {
+                                            return 'Ingrese el código del sponsor';
+                                          }
+                                          if (int.tryParse(value.trim()) ==
+                                              null) {
+                                            return 'Código inválido';
+                                          }
+                                          return null;
+                                        },
                                       ),
-                                    ),
-                                    keyboardType: TextInputType.number,
-                                    validator: (value) {
-                                      if (value == null ||
-                                          value.trim().isEmpty) {
-                                        return 'Ingrese el código del cliente';
-                                      }
-                                      if (int.tryParse(value.trim()) == null) {
-                                        return 'Código inválido';
-                                      }
-                                      return null;
-                                    },
+                                      if (_clienteSeleccionado != null)
+                                        Padding(
+                                          padding:
+                                              const EdgeInsets.only(top: 6),
+                                          child: Row(
+                                            children: [
+                                              const Icon(Icons.check_circle,
+                                                  color: Colors.green,
+                                                  size: 16),
+                                              const SizedBox(width: 6),
+                                              Expanded(
+                                                child: Text(
+                                                  _clienteSeleccionado!
+                                                      .nombreCompleto,
+                                                  style: const TextStyle(
+                                                    color: Colors.green,
+                                                    fontWeight: FontWeight.w500,
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        )
+                                      else if (_clienteValidado &&
+                                          _clienteController.text
+                                              .trim()
+                                              .isNotEmpty)
+                                        Padding(
+                                          padding:
+                                              const EdgeInsets.only(top: 6),
+                                          child: Row(
+                                            children: [
+                                              Icon(Icons.error_outline,
+                                                  color: Colors.red[700],
+                                                  size: 16),
+                                              const SizedBox(width: 6),
+                                              Text(
+                                                'Sponsor no encontrado',
+                                                style: TextStyle(
+                                                  color: Colors.red[700],
+                                                  fontWeight: FontWeight.w500,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                    ],
                                   ),
                                 ),
                                 const SizedBox(width: 16),
@@ -717,30 +891,38 @@ class _ComprobanteCliFormPageState
 }
 
 // Diálogo para agregar/editar items
-class _ItemDialog extends StatefulWidget {
+class _ItemDialog extends ConsumerStatefulWidget {
   final VenCliItem? item;
+  final int? tipoComprobante;
+  final int? cuentaCliente;
   final Function(VenCliItem) onSave;
 
-  const _ItemDialog({this.item, required this.onSave});
+  const _ItemDialog({
+    this.item,
+    this.tipoComprobante,
+    this.cuentaCliente,
+    required this.onSave,
+  });
 
   @override
-  State<_ItemDialog> createState() => _ItemDialogState();
+  ConsumerState<_ItemDialog> createState() => _ItemDialogState();
 }
 
-class _ItemDialogState extends State<_ItemDialog> {
+class _ItemDialogState extends ConsumerState<_ItemDialog> {
   final _formKey = GlobalKey<FormState>();
-  final _conceptoController = TextEditingController();
   final _cuentaController = TextEditingController();
   final _importeController = TextEditingController();
   final _baseContableController = TextEditingController();
   final _alicuotaController = TextEditingController();
   final _detalleController = TextEditingController();
 
+  String? _selectedConcepto;
+
   @override
   void initState() {
     super.initState();
     if (widget.item != null) {
-      _conceptoController.text = widget.item!.concepto;
+      _selectedConcepto = widget.item!.concepto.trim();
       _cuentaController.text = widget.item!.cuenta.toString();
       _importeController.text = widget.item!.importe.toString();
       _baseContableController.text = widget.item!.baseContable.toString();
@@ -749,12 +931,14 @@ class _ItemDialogState extends State<_ItemDialog> {
     } else {
       _baseContableController.text = '0';
       _alicuotaController.text = '0';
+      if (widget.cuentaCliente != null) {
+        _cuentaController.text = widget.cuentaCliente.toString();
+      }
     }
   }
 
   @override
   void dispose() {
-    _conceptoController.dispose();
     _cuentaController.dispose();
     _importeController.dispose();
     _baseContableController.dispose();
@@ -768,7 +952,6 @@ class _ItemDialogState extends State<_ItemDialog> {
       context: context,
       builder: (context) => const CuentasSearchDialog(),
     );
-
     if (result != null) {
       setState(() {
         _cuentaController.text = result.cuenta.toString();
@@ -776,8 +959,52 @@ class _ItemDialogState extends State<_ItemDialog> {
     }
   }
 
+  Widget _buildConceptoField(List<String> conceptos) {
+    if (conceptos.isNotEmpty) {
+      final valorValido =
+          _selectedConcepto != null && conceptos.contains(_selectedConcepto);
+
+      return DropdownButtonFormField<String>(
+        value: valorValido ? _selectedConcepto : null,
+        decoration: const InputDecoration(
+          labelText: 'Concepto *',
+          border: OutlineInputBorder(),
+          prefixIcon: Icon(Icons.category),
+        ),
+        items: conceptos
+            .map((c) => DropdownMenuItem(value: c, child: Text(c)))
+            .toList(),
+        onChanged: (value) => setState(() => _selectedConcepto = value),
+        validator: (value) =>
+            (value == null || value.trim().isEmpty) ? 'Requerido' : null,
+      );
+    }
+
+    // Fallback: campo de texto libre, con 'EXE' como sugerencia por defecto
+    _selectedConcepto ??= 'EXE';
+    return TextFormField(
+      initialValue: _selectedConcepto,
+      decoration: InputDecoration(
+        labelText: 'Concepto *',
+        border: const OutlineInputBorder(),
+        helperText: widget.tipoComprobante == null
+            ? 'Seleccione el tipo de comprobante primero'
+            : 'Sin conceptos configurados para este tipo',
+      ),
+      maxLength: 5,
+      textCapitalization: TextCapitalization.characters,
+      onChanged: (value) => _selectedConcepto = value.trim().toUpperCase(),
+      validator: (value) =>
+          (value == null || value.trim().isEmpty) ? 'Requerido' : null,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final conceptosAsync = widget.tipoComprobante != null
+        ? ref.watch(conceptosPorTipoCliProvider(widget.tipoComprobante!))
+        : const AsyncValue<List<String>>.data([]);
+
     return AlertDialog(
       title: Text(widget.item != null ? 'Editar Item' : 'Agregar Item'),
       content: SizedBox(
@@ -791,20 +1018,16 @@ class _ItemDialogState extends State<_ItemDialog> {
                 Row(
                   children: [
                     Expanded(
-                      child: TextFormField(
-                        controller: _conceptoController,
-                        decoration: const InputDecoration(
-                          labelText: 'Concepto *',
-                          border: OutlineInputBorder(),
+                      child: conceptosAsync.when(
+                        data: _buildConceptoField,
+                        loading: () => const TextField(
+                          enabled: false,
+                          decoration: InputDecoration(
+                            labelText: 'Cargando conceptos...',
+                            border: OutlineInputBorder(),
+                          ),
                         ),
-                        maxLength: 3,
-                        textCapitalization: TextCapitalization.characters,
-                        validator: (value) {
-                          if (value == null || value.trim().isEmpty) {
-                            return 'Requerido';
-                          }
-                          return null;
-                        },
+                        error: (_, __) => _buildConceptoField([]),
                       ),
                     ),
                     const SizedBox(width: 16),
@@ -912,12 +1135,13 @@ class _ItemDialogState extends State<_ItemDialog> {
                 comprobante: widget.item?.comprobante ?? 0,
                 anioMes: widget.item?.anioMes ?? 0,
                 item: widget.item?.item ?? 0,
-                concepto: _conceptoController.text.trim().toUpperCase(),
+                concepto: (_selectedConcepto ?? '').toUpperCase(),
                 cuenta: int.parse(_cuentaController.text.trim()),
                 importe: double.parse(_importeController.text.trim()),
                 baseContable:
                     double.tryParse(_baseContableController.text.trim()) ?? 0,
-                alicuota: double.tryParse(_alicuotaController.text.trim()) ?? 0,
+                alicuota:
+                    double.tryParse(_alicuotaController.text.trim()) ?? 0,
                 detalle: _detalleController.text.trim().isEmpty
                     ? null
                     : _detalleController.text.trim(),
@@ -990,7 +1214,7 @@ class _ClienteSearchDialogState extends ConsumerState<_ClienteSearchDialog> {
         children: [
           Icon(Icons.business, color: Colors.green),
           SizedBox(width: 8),
-          Text('Buscar Cliente/Sponsor'),
+          Text('Buscar Sponsor'),
         ],
       ),
       content: SizedBox(

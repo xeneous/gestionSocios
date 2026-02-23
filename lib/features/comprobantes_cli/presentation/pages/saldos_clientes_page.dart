@@ -54,7 +54,7 @@ class _SaldosClientesPageState extends ConsumerState<SaldosClientesPage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Saldos de Clientes/Sponsors'),
+        title: const Text('Saldos de Sponsors'),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
@@ -112,7 +112,7 @@ class _SaldosClientesPageState extends ConsumerState<SaldosClientesPage> {
                       children: [
                         Icon(Icons.check_circle, size: 64, color: Colors.green),
                         SizedBox(height: 16),
-                        Text('No hay clientes con saldo pendiente'),
+                        Text('No hay sponsors con saldo pendiente'),
                       ],
                     ),
                   );
@@ -135,7 +135,7 @@ class _SaldosClientesPageState extends ConsumerState<SaldosClientesPage> {
                       color: Colors.grey[100],
                       child: Row(
                         children: [
-                          Text('${filtrados.length} cliente(s)'),
+                          Text('${filtrados.length} sponsor(s)'),
                           const Spacer(),
                           Text(
                             'Total a Cobrar: ${_currencyFormat.format(totalDebitos - totalCreditos)}',

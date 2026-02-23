@@ -85,6 +85,21 @@ final tiposComprobanteVentaProvider =
   return service.getTiposComprobante();
 });
 
+// Provider para conceptos válidos de un tipo de comprobante (tip_comp_mod_items)
+final conceptosPorTipoCliProvider =
+    FutureProvider.family<List<String>, int>((ref, tipoComprobante) async {
+  final supabase = ref.watch(supabaseProvider);
+  final response = await supabase
+      .from('tip_comp_mod_items')
+      .select('concepto')
+      .eq('codigo', tipoComprobante)
+      .order('concepto');
+  return (response as List)
+      .map((r) => (r['concepto'] as String).trim())
+      .where((c) => c.isNotEmpty)
+      .toList();
+});
+
 // Notifier para operaciones CRUD
 class ComprobantesCliNotifier extends Notifier<AsyncValue<void>> {
   @override

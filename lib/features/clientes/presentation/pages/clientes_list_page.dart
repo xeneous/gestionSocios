@@ -73,7 +73,7 @@ class _ClientesListPageState extends ConsumerState<ClientesListPage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Clientes / Sponsors'),
+        title: const Text('Sponsors'),
         actions: [
           IconButton(
             icon: const Icon(Icons.home),
@@ -86,7 +86,7 @@ class _ClientesListPageState extends ConsumerState<ClientesListPage> {
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => context.go('/clientes/nuevo'),
         icon: const Icon(Icons.add_business),
-        label: const Text('Nuevo Cliente'),
+        label: const Text('Nuevo Sponsor'),
       ),
       body: Column(
         children: [
@@ -101,7 +101,7 @@ class _ClientesListPageState extends ConsumerState<ClientesListPage> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Text(
-                      'Búsqueda de Clientes',
+                      'Búsqueda de Sponsors',
                       style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                     ),
                     const SizedBox(height: 16),
@@ -157,7 +157,7 @@ class _ClientesListPageState extends ConsumerState<ClientesListPage> {
                             value: searchState.soloActivos,
                             title: Text(searchState.soloActivos
                                 ? 'Solo activos'
-                                : 'Todos los clientes'),
+                                : 'Todos los sponsors'),
                             subtitle: const Text('Click para cambiar filtro'),
                             onChanged: (value) {
                               ref.read(clientesSearchStateProvider.notifier)
@@ -195,7 +195,7 @@ class _ClientesListPageState extends ConsumerState<ClientesListPage> {
                         Icon(Icons.search, size: 64, color: Colors.grey),
                         SizedBox(height: 16),
                         Text(
-                          'Utilice los filtros para buscar clientes',
+                          'Utilice los filtros para buscar sponsors',
                           style: TextStyle(fontSize: 16, color: Colors.grey),
                         ),
                       ],
@@ -218,7 +218,7 @@ class _ClientesListPageState extends ConsumerState<ClientesListPage> {
           children: [
             Icon(Icons.business_outlined, size: 64, color: Colors.grey),
             SizedBox(height: 16),
-            Text('No se encontraron clientes'),
+            Text('No se encontraron sponsors'),
             SizedBox(height: 8),
             Text(
               'Intenta con otros criterios de búsqueda',
@@ -238,7 +238,7 @@ class _ClientesListPageState extends ConsumerState<ClientesListPage> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                '${clientes.length} cliente(s) encontrado(s)',
+                '${clientes.length} sponsor(s) encontrado(s)',
                 style: TextStyle(
                   color: Colors.grey[600],
                   fontWeight: FontWeight.w500,

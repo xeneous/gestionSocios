@@ -172,40 +172,40 @@ class AppDrawer extends ConsumerWidget {
               ],
             ),
 
-          // ==================== ZONA CLIENTES ====================
+          // ==================== ZONA SPONSORS ====================
           _buildSectionTile(
             context: context,
             ref: ref,
             icon: Icons.business,
-            title: 'CLIENTES',
+            title: 'SPONSORS',
             color: Colors.green,
             initiallyExpanded: _isClientesSection(currentRoute),
             children: [
               _buildMenuItem(
                 context: context,
                 icon: Icons.business,
-                title: 'Clientes / Sponsors',
+                title: 'Sponsors',
                 route: '/clientes',
                 currentRoute: currentRoute,
               ),
               _buildMenuItem(
                 context: context,
                 icon: Icons.receipt,
-                title: 'Comprobantes Ventas',
+                title: 'Comprobantes Sponsors',
                 route: '/comprobantes-clientes',
                 currentRoute: currentRoute,
               ),
               _buildMenuItem(
                 context: context,
                 icon: Icons.payments,
-                title: 'Cobranzas Clientes',
+                title: 'Cobranzas Sponsors',
                 route: '/cobranzas-clientes',
                 currentRoute: currentRoute,
               ),
               _buildMenuItem(
                 context: context,
                 icon: Icons.account_balance_wallet,
-                title: 'Saldos Clientes',
+                title: 'Saldos Sponsors',
                 route: '/saldos-clientes',
                 currentRoute: currentRoute,
               ),
@@ -287,6 +287,13 @@ class AppDrawer extends ConsumerWidget {
                 icon: Icons.list_alt,
                 title: 'Plan de Cuentas',
                 route: '/cuentas',
+                currentRoute: currentRoute,
+              ),
+              _buildMenuItem(
+                context: context,
+                icon: Icons.account_balance_wallet,
+                title: 'Tesorería Diaria',
+                route: '/tesoreria-diaria',
                 currentRoute: currentRoute,
               ),
               _buildMenuItem(
@@ -404,6 +411,7 @@ class AppDrawer extends ConsumerWidget {
     return route.startsWith('/asientos') ||
         route == '/mayor-cuentas' ||
         route.startsWith('/cuentas') ||
-        route == '/parametros-contables';
+        route == '/parametros-contables' ||
+        route == '/tesoreria-diaria';
   }
 }

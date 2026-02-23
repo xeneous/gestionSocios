@@ -186,25 +186,41 @@ class OrdenPagoService {
       itemNum++;
     }
 
-    // Registrar en valores_tesoreria como egreso
-    try {
-      for (final entry in formasPago.entries) {
-        final conceptoId = entry.key;
-        final monto = entry.value;
+    // Registrar en valores_tesoreria y operaciones_contables
+    final idsValoresTesoreria = <int>[];
+    for (final entry in formasPago.entries) {
+      final conceptoId = entry.key;
+      final monto = entry.value;
 
-        await _supabase.from('valores_tesoreria').insert({
-          'id_concepto': conceptoId,
-          'fecha': now.toIso8601String().split('T')[0],
-          'importe': -monto,  // Negativo porque es egreso
-          'numero_interno': nuevoNumeroOP,
-          'tipo_entidad': 'PRO',  // Proveedor
-          'id_entidad': proveedorId,
-        });
-      }
-    } catch (e) {
-      // Si falla valores_tesoreria, continuar (puede no existir o tener otra estructura)
-      // ignore: avoid_print
-      print('Advertencia: No se pudo registrar en valores_tesoreria: $e');
+      final valorResult = await _supabase.from('valores_tesoreria').insert({
+        'idtransaccion_origen': ordenPagoId,
+        'idconcepto_tesoreria': conceptoId,
+        'fecha_emision': now.toIso8601String().split('T')[0],
+        'importe': -monto, // Negativo porque es egreso
+        'numero_interno': nuevoNumeroOP,
+        'tipo_movimiento': 2, // 2 = Egreso (pago a proveedor)
+      }).select('id').single();
+
+      idsValoresTesoreria.add(valorResult['id'] as int);
+    }
+
+    // Crear registro en operaciones_contables
+    final opResult = await _supabase.from('operaciones_contables').insert({
+      'tipo_operacion': 'ORDEN_PAGO',
+      'numero_comprobante': nuevoNumeroOP,
+      'fecha': now.toIso8601String().split('T')[0],
+      'entidad_tipo': 'PROVEEDOR',
+      'entidad_id': proveedorId,
+      'total': totalAPagar,
+    }).select('id').single();
+    final operacionId = opResult['id'] as int;
+
+    // Vincular valores_tesoreria con la operación
+    for (final valorId in idsValoresTesoreria) {
+      await _supabase.from('operaciones_detalle_valores_tesoreria').insert({
+        'operacion_id': operacionId,
+        'valor_tesoreria_id': valorId,
+      });
     }
 
     // Generar asiento contable de egreso
@@ -219,6 +235,16 @@ class OrdenPagoService {
         numeroOrdenPago: nuevoNumeroOP,
         fecha: now,
       );
+
+      // Actualizar operaciones_contables con el asiento generado
+      if (numeroAsiento != null) {
+        final anioMes = now.year * 100 + now.month;
+        await _supabase.from('operaciones_contables').update({
+          'asiento_numero': numeroAsiento,
+          'asiento_anio_mes': anioMes,
+          'asiento_tipo': 2, // tipoEgreso
+        }).eq('id', operacionId);
+      }
     } catch (e) {
       asientoError = e.toString().replaceFirst('Exception: ', '');
     }
@@ -226,6 +252,7 @@ class OrdenPagoService {
     return {
       'numero_orden_pago': nuevoNumeroOP,
       'id_transaccion': ordenPagoId,
+      'operacion_id': operacionId,
       'total': totalAPagar,
       'numero_asiento': numeroAsiento,
       'asiento_error': asientoError,

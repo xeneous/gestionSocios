@@ -90,7 +90,7 @@ class _CobranzasSelectClientePageState
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Cobranzas Clientes - Seleccionar'),
+        title: const Text('Cobranzas Sponsors - Seleccionar'),
         actions: [
           IconButton(
             icon: const Icon(Icons.home),
@@ -238,7 +238,7 @@ class _CobranzasSelectClientePageState
           children: [
             Icon(Icons.person_off, size: 64, color: Colors.grey),
             SizedBox(height: 16),
-            Text('No se encontraron clientes'),
+            Text('No se encontraron sponsors'),
             SizedBox(height: 8),
             Text(
               'Intenta con otros criterios de búsqueda',

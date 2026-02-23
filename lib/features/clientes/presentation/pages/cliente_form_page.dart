@@ -174,7 +174,7 @@ class _ClienteFormPageState extends ConsumerState<ClienteFormPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(isEditing ? 'Editar Cliente' : 'Nuevo Cliente'),
+        title: Text(isEditing ? 'Editar Sponsor' : 'Nuevo Sponsor'),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () => context.go('/clientes'),

@@ -108,8 +108,8 @@ class _ComprobantesCliListPageState
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.clienteId != null
-            ? 'Comprobantes del Cliente'
-            : 'Comprobantes de Clientes'),
+            ? 'Comprobantes del Sponsor'
+            : 'Comprobantes de Sponsors'),
         actions: [
           IconButton(
             icon: const Icon(Icons.home),
@@ -158,7 +158,7 @@ class _ComprobantesCliListPageState
                           child: TextField(
                             controller: _clienteController,
                             decoration: const InputDecoration(
-                              labelText: 'Cód. Cliente',
+                              labelText: 'Cód. Sponsor',
                               border: OutlineInputBorder(),
                               prefixIcon: Icon(Icons.business),
                             ),

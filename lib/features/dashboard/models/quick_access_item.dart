@@ -20,7 +20,7 @@ class QuickAccessItem {
 
 /// Todos los accesos disponibles, agrupados por categoría
 const _socios = 'Socios';
-const _clientes = 'Clientes';
+const _clientes = 'Sponsors';
 const _proveedores = 'Proveedores';
 const _contabilidad = 'Contabilidad';
 
@@ -32,11 +32,11 @@ final allQuickAccessItems = <QuickAccessItem>[
   QuickAccessItem(id: 'cobranzas', label: 'Cobranzas Socios', icon: Icons.payments, route: '/cobranzas', color: Colors.blue, category: _socios),
   QuickAccessItem(id: 'ctas_ctes', label: 'Control Ctas Ctes', icon: Icons.account_balance_wallet, route: '/resumen-cuentas-corrientes', color: Colors.blue, category: _socios),
 
-  // Clientes
-  QuickAccessItem(id: 'clientes', label: 'Clientes / Sponsors', icon: Icons.business, route: '/clientes', color: Colors.green, category: _clientes),
-  QuickAccessItem(id: 'comp_ventas', label: 'Comprobantes Ventas', icon: Icons.receipt, route: '/comprobantes-clientes', color: Colors.green, category: _clientes),
-  QuickAccessItem(id: 'cobranzas_cli', label: 'Cobranzas Clientes', icon: Icons.payments, route: '/cobranzas-clientes', color: Colors.green, category: _clientes),
-  QuickAccessItem(id: 'saldos_cli', label: 'Saldos Clientes', icon: Icons.account_balance_wallet, route: '/saldos-clientes', color: Colors.green, category: _clientes),
+  // Sponsors
+  QuickAccessItem(id: 'clientes', label: 'Sponsors', icon: Icons.business, route: '/clientes', color: Colors.green, category: _clientes),
+  QuickAccessItem(id: 'comp_ventas', label: 'Comprobantes Sponsors', icon: Icons.receipt, route: '/comprobantes-clientes', color: Colors.green, category: _clientes),
+  QuickAccessItem(id: 'cobranzas_cli', label: 'Cobranzas Sponsors', icon: Icons.payments, route: '/cobranzas-clientes', color: Colors.green, category: _clientes),
+  QuickAccessItem(id: 'saldos_cli', label: 'Saldos Sponsors', icon: Icons.account_balance_wallet, route: '/saldos-clientes', color: Colors.green, category: _clientes),
 
   // Proveedores
   QuickAccessItem(id: 'proveedores', label: 'Proveedores', icon: Icons.store, route: '/proveedores', color: Colors.orange, category: _proveedores),

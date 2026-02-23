@@ -58,7 +58,7 @@ class _CobranzasClientePageState extends ConsumerState<CobranzasClientePage> {
     return Scaffold(
       appBar: AppBar(
         title: clienteAsync.when(
-          data: (cliente) => Text('Cobranzas - ${cliente?.razonSocial ?? "Cliente"}'),
+          data: (cliente) => Text('Cobranzas - ${cliente?.razonSocial ?? "Sponsor"}'),
           loading: () => const Text('Cobranzas'),
           error: (_, __) => const Text('Cobranzas'),
         ),
@@ -667,7 +667,7 @@ class _CobranzasClientePageState extends ConsumerState<CobranzasClientePage> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Cliente: ID ${widget.clienteId}'),
+            Text('Sponsor: ID ${widget.clienteId}'),
             const SizedBox(height: 8),
             Text(
               'Total a cobrar: ${_currencyFormat.format(_getTotalSeleccionado())}',
@@ -731,8 +731,10 @@ class _CobranzasClientePageState extends ConsumerState<CobranzasClientePage> {
             formasPago: _formasPago,
           );
 
-      final numeroRecibo = resultado['numero_recibo']!;
-      final numeroAsiento = resultado['numero_asiento']!;
+      final numeroRecibo = resultado['numero_recibo'] as int;
+      final idTransaccion = resultado['id_transaccion'] as int;
+      final numeroAsiento = resultado['numero_asiento'] as int?;
+      final asientoWarning = resultado['asiento_warning'] as String?;
 
       // Cerrar diálogo de carga
       if (mounted) Navigator.pop(context);
@@ -749,9 +751,21 @@ class _CobranzasClientePageState extends ConsumerState<CobranzasClientePage> {
 
       await Future.delayed(const Duration(milliseconds: 100));
 
+      // Mostrar advertencia de asiento si corresponde
+      if (asientoWarning != null && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Recibo guardado. Asiento no generado: $asientoWarning',
+            ),
+            backgroundColor: Colors.orange,
+            duration: const Duration(seconds: 8),
+          ),
+        );
+      }
+
       // Mostrar diálogo de éxito
       if (!mounted) return;
-      final idTransaccion = resultado['id_transaccion'] as int;
       await showDialog(
         context: context,
         builder: (context) => AlertDialog(
@@ -775,22 +789,23 @@ class _CobranzasClientePageState extends ConsumerState<CobranzasClientePage> {
                 ),
               ),
               const SizedBox(height: 8),
-              Text(
-                'Asiento Nro. $numeroAsiento',
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w500,
+              if (numeroAsiento != null)
+                Text(
+                  'Asiento Nro. $numeroAsiento',
+                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w500),
+                )
+              else
+                const Text(
+                  'Asiento: pendiente (ver advertencia)',
+                  style: TextStyle(fontSize: 14, color: Colors.orange),
                 ),
-              ),
               const SizedBox(height: 16),
               Text(
                 'Total: ${_currencyFormat.format(totalCobrado)}',
                 style: const TextStyle(fontSize: 16),
               ),
               const SizedBox(height: 8),
-              const Text(
-                'El recibo ha sido generado correctamente.',
-              ),
+              const Text('El recibo ha sido generado correctamente.'),
             ],
           ),
           actions: [

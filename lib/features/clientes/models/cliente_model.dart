@@ -18,6 +18,7 @@ class Cliente {
   final DateTime? fechaBaja;
   final DateTime? createdAt;
   final DateTime? updatedAt;
+  final int? cuenta;
 
   Cliente({
     this.codigo,
@@ -39,6 +40,7 @@ class Cliente {
     this.fechaBaja,
     this.createdAt,
     this.updatedAt,
+    this.cuenta,
   });
 
   String get nombreCompleto {
@@ -74,6 +76,7 @@ class Cliente {
       fechaBaja: json['fecha_baja'] != null ? DateTime.tryParse(json['fecha_baja'].toString()) : null,
       createdAt: json['created_at'] != null ? DateTime.tryParse(json['created_at'].toString()) : null,
       updatedAt: json['updated_at'] != null ? DateTime.tryParse(json['updated_at'].toString()) : null,
+      cuenta: json['cuenta'] as int?,
     );
   }
 
