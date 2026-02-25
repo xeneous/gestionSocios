@@ -169,8 +169,7 @@ class _ComprobanteProvFormPageState
     if (mounted) setState(() => _buscandoProveedor = true);
 
     try {
-      final proveedor =
-          await ref.read(proveedorProvider(parsedCodigo).future);
+      final proveedor = await ref.read(proveedorProvider(parsedCodigo).future);
       if (mounted) {
         setState(() {
           _proveedorSeleccionado = proveedor;
@@ -1343,7 +1342,7 @@ class _ItemDialogState extends ConsumerState<_ItemDialog> {
           _selectedConcepto != null && conceptos.contains(_selectedConcepto);
 
       return DropdownButtonFormField<String>(
-        value: valorValido ? _selectedConcepto : null,
+        initialValue: valorValido ? _selectedConcepto : null,
         decoration: const InputDecoration(
           labelText: 'Concepto *',
           border: OutlineInputBorder(),
@@ -1519,8 +1518,7 @@ class _ItemDialogState extends ConsumerState<_ItemDialog> {
                 importe: double.parse(_importeController.text.trim()),
                 baseContable:
                     double.tryParse(_baseContableController.text.trim()) ?? 0,
-                alicuota:
-                    double.tryParse(_alicuotaController.text.trim()) ?? 0,
+                alicuota: double.tryParse(_alicuotaController.text.trim()) ?? 0,
                 detalle: _detalleController.text.trim().isEmpty
                     ? null
                     : _detalleController.text.trim(),

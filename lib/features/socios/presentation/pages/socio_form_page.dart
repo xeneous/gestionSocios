@@ -107,11 +107,21 @@ class _SocioFormPageState extends ConsumerState<SocioFormPage>
 
     // Escuchar cambios en todos los TextEditingControllers
     final controllers = [
-      _apellidoController, _nombreController, _numeroDocumentoController,
-      _cuilController, _matriculaNacionalController, _matriculaProvincialController,
-      _lugarResidenciaController, _domicilioController, _localidadController,
-      _codigoPostalController, _telefonoController, _telefonoSecundarioController,
-      _celularController, _emailController, _emailAlternativoController,
+      _apellidoController,
+      _nombreController,
+      _numeroDocumentoController,
+      _cuilController,
+      _matriculaNacionalController,
+      _matriculaProvincialController,
+      _lugarResidenciaController,
+      _domicilioController,
+      _localidadController,
+      _codigoPostalController,
+      _telefonoController,
+      _telefonoSecundarioController,
+      _celularController,
+      _emailController,
+      _emailAlternativoController,
       _numeroTarjetaController,
     ];
     for (final c in controllers) {
@@ -222,10 +232,10 @@ class _SocioFormPageState extends ConsumerState<SocioFormPage>
   /// 0-12 meses → 1ra categoría, 13-24 → 2da, >24 → última.
   String? _calcularCategoriaSugerida(DateTime fechaInicio) {
     final categorias = ref.read(categoriasResidenteProvider).when(
-      data: (data) => data,
-      loading: () => <CategoriaResidente>[],
-      error: (_, __) => <CategoriaResidente>[],
-    );
+          data: (data) => data,
+          loading: () => <CategoriaResidente>[],
+          error: (_, __) => <CategoriaResidente>[],
+        );
     if (categorias.isEmpty) return null;
 
     // Último día del mes en curso
@@ -326,7 +336,8 @@ class _SocioFormPageState extends ConsumerState<SocioFormPage>
             .read(sociosNotifierProvider.notifier)
             .updateSocio(widget.socioId!, socio);
       } else {
-        nuevoSocioId = await ref.read(sociosNotifierProvider.notifier).createSocio(socio);
+        nuevoSocioId =
+            await ref.read(sociosNotifierProvider.notifier).createSocio(socio);
       }
 
       if (mounted) {
@@ -341,7 +352,8 @@ class _SocioFormPageState extends ConsumerState<SocioFormPage>
         // Si es un nuevo socio, mostrar diálogo de cargar cuotas
         if (isNewSocio && nuevoSocioId != null) {
           // Vitalicios que pagan seguro MP → tarifa de residente
-          final usarTarifaResidente = _residente || (_grupo == 'V' && _pagaSeguroMp);
+          final usarTarifaResidente =
+              _residente || (_grupo == 'V' && _pagaSeguroMp);
 
           final resultado = await showDialog<bool>(
             context: context,
@@ -349,7 +361,8 @@ class _SocioFormPageState extends ConsumerState<SocioFormPage>
             builder: (context) => CargarCuotasDialog(
               socioId: nuevoSocioId!,
               esResidente: usarTarifaResidente,
-              nombreSocio: '${_apellidoController.text}, ${_nombreController.text}',
+              nombreSocio:
+                  '${_apellidoController.text}, ${_nombreController.text}',
               categoriaResidente: _categoriaResidente,
             ),
           );
@@ -367,7 +380,8 @@ class _SocioFormPageState extends ConsumerState<SocioFormPage>
               context: context,
               builder: (context) => AlertDialog(
                 title: const Text('Cargar Cobranza'),
-                content: const Text('¿Desea cargar la cobranza para las cuotas sociales creadas?'),
+                content: const Text(
+                    '¿Desea cargar la cobranza para las cuotas sociales creadas?'),
                 actions: [
                   TextButton(
                     onPressed: () => Navigator.of(context).pop(false),
@@ -449,7 +463,9 @@ class _SocioFormPageState extends ConsumerState<SocioFormPage>
                         Tab(
                             icon: Icon(Icons.credit_card),
                             text: 'Débito Automático'),
-                        Tab(icon: Icon(Icons.verified), text: 'Recertificaciones'),
+                        Tab(
+                            icon: Icon(Icons.verified),
+                            text: 'Recertificaciones'),
                         Tab(icon: Icon(Icons.attach_file), text: 'Archivos'),
                         Tab(icon: Icon(Icons.note), text: 'Observaciones'),
                       ],
@@ -855,7 +871,8 @@ class _SocioFormPageState extends ConsumerState<SocioFormPage>
         const SizedBox(height: 16),
         InkWell(
           onTap: () async {
-            final date = await pickDate(context, _fechaNacimiento ?? DateTime.now());
+            final date =
+                await pickDate(context, _fechaNacimiento ?? DateTime.now());
             if (date != null) {
               _markFormModified();
               setState(() => _fechaNacimiento = date);
@@ -1015,10 +1032,12 @@ class _SocioFormPageState extends ConsumerState<SocioFormPage>
                             value: null,
                             child: Text('Sin especificar'),
                           ),
-                          ...gruposAnteriores.map((g) => DropdownMenuItem<String?>(
-                                value: g.codigo,
-                                child: Text('${g.codigo} - ${g.descripcion}'),
-                              )),
+                          ...gruposAnteriores
+                              .map((g) => DropdownMenuItem<String?>(
+                                    value: g.codigo,
+                                    child:
+                                        Text('${g.codigo} - ${g.descripcion}'),
+                                  )),
                         ],
                         onChanged: (value) {
                           _markFormModified();
@@ -1076,7 +1095,8 @@ class _SocioFormPageState extends ConsumerState<SocioFormPage>
           const SizedBox(height: 16),
           InkWell(
             onTap: () async {
-              final date = await pickDate(context, _fechaInicioResidencia ?? DateTime.now());
+              final date = await pickDate(
+                  context, _fechaInicioResidencia ?? DateTime.now());
               if (date != null) {
                 _markFormModified();
                 setState(() {
@@ -1101,89 +1121,96 @@ class _SocioFormPageState extends ConsumerState<SocioFormPage>
           const SizedBox(height: 16),
           // Dropdown de categoría de residente + sugerencia
           ref.watch(categoriasResidenteProvider).when(
-            data: (categorias) {
-              final sugerida = _fechaInicioResidencia != null
-                  ? _calcularCategoriaSugerida(_fechaInicioResidencia!)
-                  : null;
-              final coincide = sugerida == null || sugerida == _categoriaResidente;
-              return Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: DropdownButtonFormField<String?>(
-                      initialValue: _categoriaResidente,
-                      decoration: const InputDecoration(
-                        labelText: 'Categoría Residente *',
-                        border: OutlineInputBorder(),
-                        prefixIcon: Icon(Icons.school),
-                      ),
-                      items: categorias
-                          .map((cat) => DropdownMenuItem<String?>(
-                                value: cat.codigo,
-                                child: Text('${cat.codigo} - ${cat.descripcion}'),
-                              ))
-                          .toList(),
-                      onChanged: (value) {
-                        _markFormModified();
-                        setState(() => _categoriaResidente = value);
-                      },
-                      validator: (value) {
-                        if (_residente && (value == null || value.isEmpty)) {
-                          return 'Seleccione categoría';
-                        }
-                        return null;
-                      },
-                    ),
-                  ),
-                  if (sugerida != null) ...[
-                    const SizedBox(width: 12),
-                    Padding(
-                      padding: const EdgeInsets.only(top: 8),
-                      child: Tooltip(
-                        message: coincide
-                            ? 'Categoría correcta según fecha de inicio'
-                            : 'Según la fecha de inicio debería ser $sugerida',
-                        child: Chip(
-                          avatar: Icon(
-                            coincide ? Icons.check_circle : Icons.warning,
-                            size: 18,
-                            color: coincide ? Colors.green : Colors.orange,
+                data: (categorias) {
+                  final sugerida = _fechaInicioResidencia != null
+                      ? _calcularCategoriaSugerida(_fechaInicioResidencia!)
+                      : null;
+                  final coincide =
+                      sugerida == null || sugerida == _categoriaResidente;
+                  return Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: DropdownButtonFormField<String?>(
+                          initialValue: _categoriaResidente,
+                          decoration: const InputDecoration(
+                            labelText: 'Categoría Residente *',
+                            border: OutlineInputBorder(),
+                            prefixIcon: Icon(Icons.school),
                           ),
-                          label: Text(
-                            coincide ? sugerida : 'Sug: $sugerida',
-                            style: TextStyle(
-                              color: coincide ? Colors.green.shade700 : Colors.orange.shade800,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          backgroundColor: coincide
-                              ? Colors.green.shade50
-                              : Colors.orange.shade50,
-                          side: BorderSide(
-                            color: coincide ? Colors.green.shade200 : Colors.orange.shade300,
-                          ),
+                          items: categorias
+                              .map((cat) => DropdownMenuItem<String?>(
+                                    value: cat.codigo,
+                                    child: Text(
+                                        '${cat.codigo} - ${cat.descripcion}'),
+                                  ))
+                              .toList(),
+                          onChanged: (value) {
+                            _markFormModified();
+                            setState(() => _categoriaResidente = value);
+                          },
+                          validator: (value) {
+                            if (_residente &&
+                                (value == null || value.isEmpty)) {
+                              return 'Seleccione categoría';
+                            }
+                            return null;
+                          },
                         ),
                       ),
-                    ),
-                  ],
-                ],
-              );
-            },
-            loading: () => const TextField(
-              enabled: false,
-              decoration: InputDecoration(
-                labelText: 'Cargando categorías...',
-                border: OutlineInputBorder(),
+                      if (sugerida != null) ...[
+                        const SizedBox(width: 12),
+                        Padding(
+                          padding: const EdgeInsets.only(top: 8),
+                          child: Tooltip(
+                            message: coincide
+                                ? 'Categoría correcta según fecha de inicio'
+                                : 'Según la fecha de inicio debería ser $sugerida',
+                            child: Chip(
+                              avatar: Icon(
+                                coincide ? Icons.check_circle : Icons.warning,
+                                size: 18,
+                                color: coincide ? Colors.green : Colors.orange,
+                              ),
+                              label: Text(
+                                coincide ? sugerida : 'Sug: $sugerida',
+                                style: TextStyle(
+                                  color: coincide
+                                      ? Colors.green.shade700
+                                      : Colors.orange.shade800,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              backgroundColor: coincide
+                                  ? Colors.green.shade50
+                                  : Colors.orange.shade50,
+                              side: BorderSide(
+                                color: coincide
+                                    ? Colors.green.shade200
+                                    : Colors.orange.shade300,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
+                  );
+                },
+                loading: () => const TextField(
+                  enabled: false,
+                  decoration: InputDecoration(
+                    labelText: 'Cargando categorías...',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                error: (_, __) => const TextField(
+                  enabled: false,
+                  decoration: InputDecoration(
+                    labelText: 'Error cargando categorías',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
               ),
-            ),
-            error: (_, __) => const TextField(
-              enabled: false,
-              decoration: InputDecoration(
-                labelText: 'Error cargando categorías',
-                border: OutlineInputBorder(),
-              ),
-            ),
-          ),
           const SizedBox(height: 16),
           // Lugar de residencia con autocompletado
           Consumer(
@@ -1195,7 +1222,8 @@ class _SocioFormPageState extends ConsumerState<SocioFormPage>
                 error: (_, __) => <String>[],
               );
               return Autocomplete<String>(
-                initialValue: TextEditingValue(text: _lugarResidenciaController.text),
+                initialValue:
+                    TextEditingValue(text: _lugarResidenciaController.text),
                 optionsBuilder: (textEditingValue) {
                   final input = textEditingValue.text.toLowerCase().trim();
                   if (input.isEmpty) return const Iterable<String>.empty();
@@ -1229,7 +1257,8 @@ class _SocioFormPageState extends ConsumerState<SocioFormPage>
                     _lugarResidenciaController.text = selection;
                   }
                 },
-                fieldViewBuilder: (context, textController, focusNode, onFieldSubmitted) {
+                fieldViewBuilder:
+                    (context, textController, focusNode, onFieldSubmitted) {
                   // Sincronizar con nuestro controller
                   textController.addListener(() {
                     _lugarResidenciaController.text = textController.text;
@@ -1253,10 +1282,15 @@ class _SocioFormPageState extends ConsumerState<SocioFormPage>
           // Fecha fin residencia
           InkWell(
             onTap: () async {
-              final date = await pickDate(context, _fechaFinResidencia ??
-                    (_fechaInicioResidencia != null
-                        ? DateTime(_fechaInicioResidencia!.year + 3, _fechaInicioResidencia!.month, _fechaInicioResidencia!.day)
-                        : DateTime.now().add(const Duration(days: 365 * 3))));
+              final date = await pickDate(
+                  context,
+                  _fechaFinResidencia ??
+                      (_fechaInicioResidencia != null
+                          ? DateTime(
+                              _fechaInicioResidencia!.year + 3,
+                              _fechaInicioResidencia!.month,
+                              _fechaInicioResidencia!.day)
+                          : DateTime.now().add(const Duration(days: 365 * 3))));
               if (date != null) {
                 _markFormModified();
                 setState(() => _fechaFinResidencia = date);
@@ -1280,7 +1314,8 @@ class _SocioFormPageState extends ConsumerState<SocioFormPage>
         const SizedBox(height: 16),
         InkWell(
           onTap: () async {
-            final date = await pickDate(context, _fechaIngreso ?? DateTime.now());
+            final date =
+                await pickDate(context, _fechaIngreso ?? DateTime.now());
             if (date != null) {
               _markFormModified();
               setState(() => _fechaIngreso = date);
@@ -1609,7 +1644,8 @@ class _SocioFormPageState extends ConsumerState<SocioFormPage>
           const SizedBox(height: 16),
           InkWell(
             onTap: () async {
-              final date = await pickDate(context, _vencimientoTarjeta ?? DateTime.now());
+              final date = await pickDate(
+                  context, _vencimientoTarjeta ?? DateTime.now());
               if (date != null) {
                 _markFormModified();
                 setState(() => _vencimientoTarjeta = date);
@@ -1631,7 +1667,8 @@ class _SocioFormPageState extends ConsumerState<SocioFormPage>
           const SizedBox(height: 16),
           InkWell(
             onTap: () async {
-              final date = await pickDate(context, _debitarDesde ?? DateTime.now());
+              final date =
+                  await pickDate(context, _debitarDesde ?? DateTime.now());
               if (date != null) {
                 _markFormModified();
                 setState(() => _debitarDesde = date);
@@ -1723,12 +1760,14 @@ class _SocioFormPageState extends ConsumerState<SocioFormPage>
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               IconButton(
-                                icon: const Icon(Icons.cancel, color: Colors.orange),
+                                icon: const Icon(Icons.cancel,
+                                    color: Colors.orange),
                                 tooltip: 'Dar de baja',
                                 onPressed: () => _darDeBajaConcepto(concepto),
                               ),
                               IconButton(
-                                icon: const Icon(Icons.delete, color: Colors.red),
+                                icon:
+                                    const Icon(Icons.delete, color: Colors.red),
                                 tooltip: 'Eliminar',
                                 onPressed: () => _eliminarConcepto(concepto),
                               ),
@@ -1849,15 +1888,13 @@ class _SocioFormPageState extends ConsumerState<SocioFormPage>
                                 icon: const Icon(Icons.download,
                                     color: Colors.teal),
                                 tooltip: 'Descargar',
-                                onPressed: () =>
-                                    _descargarArchivo(archivo),
+                                onPressed: () => _descargarArchivo(archivo),
                               ),
                               IconButton(
-                                icon: const Icon(Icons.delete,
-                                    color: Colors.red),
+                                icon:
+                                    const Icon(Icons.delete, color: Colors.red),
                                 tooltip: 'Eliminar',
-                                onPressed: () =>
-                                    _eliminarArchivo(archivo),
+                                onPressed: () => _eliminarArchivo(archivo),
                               ),
                             ],
                           ),
@@ -2245,7 +2282,8 @@ class _SocioFormPageState extends ConsumerState<SocioFormPage>
                 const SizedBox(height: 16),
                 InkWell(
                   onTap: () async {
-                    final date = await pickDate(context, fechaAlta ?? DateTime.now());
+                    final date =
+                        await pickDate(context, fechaAlta ?? DateTime.now());
                     if (date != null) {
                       setState(() => fechaAlta = date);
                     }
@@ -2564,11 +2602,11 @@ class _SocioFormPageState extends ConsumerState<SocioFormPage>
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Icon(Icons.verified,
-                            size: 24,
-                            color: _getEstadoColor(recert.estado)),
+                            size: 24, color: _getEstadoColor(recert.estado)),
                         const SizedBox(height: 4),
                         Text(
-                          DateFormat('dd/MM').format(recert.fechaRecertificacion),
+                          DateFormat('dd/MM')
+                              .format(recert.fechaRecertificacion),
                           style: const TextStyle(fontSize: 10),
                         ),
                       ],
@@ -2609,7 +2647,8 @@ class _SocioFormPageState extends ConsumerState<SocioFormPage>
                         IconButton(
                           icon: const Icon(Icons.edit, color: Colors.blue),
                           tooltip: 'Editar',
-                          onPressed: () => _showEditarRecertificacionDialog(recert),
+                          onPressed: () =>
+                              _showEditarRecertificacionDialog(recert),
                         ),
                         if (ref.read(userRoleProvider).esAdministrador)
                           IconButton(
@@ -2682,7 +2721,8 @@ class _SocioFormPageState extends ConsumerState<SocioFormPage>
                 const SizedBox(height: 16),
                 InkWell(
                   onTap: () async {
-                    final date = await pickDate(context, fechaRecertificacion ?? DateTime.now());
+                    final date = await pickDate(
+                        context, fechaRecertificacion ?? DateTime.now());
                     if (date != null) {
                       setState(() => fechaRecertificacion = date);
                     }
@@ -2695,7 +2735,8 @@ class _SocioFormPageState extends ConsumerState<SocioFormPage>
                     ),
                     child: Text(
                       fechaRecertificacion != null
-                          ? DateFormat('dd/MM/yyyy').format(fechaRecertificacion!)
+                          ? DateFormat('dd/MM/yyyy')
+                              .format(fechaRecertificacion!)
                           : 'Seleccionar fecha',
                       style: TextStyle(
                         color: fechaRecertificacion != null
@@ -2707,7 +2748,7 @@ class _SocioFormPageState extends ConsumerState<SocioFormPage>
                 ),
                 const SizedBox(height: 16),
                 DropdownButtonFormField<String>(
-                  value: selectedEstado,
+                  initialValue: selectedEstado,
                   decoration: const InputDecoration(
                     labelText: 'Estado *',
                     border: OutlineInputBorder(),
@@ -2748,7 +2789,8 @@ class _SocioFormPageState extends ConsumerState<SocioFormPage>
                     selectedEstado == null) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
-                        content: Text('Complete todos los campos obligatorios')),
+                        content:
+                            Text('Complete todos los campos obligatorios')),
                   );
                   return;
                 }
@@ -2772,7 +2814,8 @@ class _SocioFormPageState extends ConsumerState<SocioFormPage>
                     Navigator.pop(context);
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
-                          content: Text('Recertificación agregada correctamente')),
+                          content:
+                              Text('Recertificación agregada correctamente')),
                     );
                   }
                 } catch (e) {
@@ -2791,7 +2834,8 @@ class _SocioFormPageState extends ConsumerState<SocioFormPage>
     );
   }
 
-  Future<void> _showEditarRecertificacionDialog(RecertificacionModel recert) async {
+  Future<void> _showEditarRecertificacionDialog(
+      RecertificacionModel recert) async {
     final tituloController = TextEditingController(text: recert.titulo);
     DateTime? fechaRecertificacion = recert.fechaRecertificacion;
     String? selectedEstado = recert.estado;
@@ -2819,7 +2863,8 @@ class _SocioFormPageState extends ConsumerState<SocioFormPage>
                 const SizedBox(height: 16),
                 InkWell(
                   onTap: () async {
-                    final date = await pickDate(context, fechaRecertificacion ?? DateTime.now());
+                    final date = await pickDate(
+                        context, fechaRecertificacion ?? DateTime.now());
                     if (date != null) {
                       setState(() => fechaRecertificacion = date);
                     }
@@ -2832,14 +2877,15 @@ class _SocioFormPageState extends ConsumerState<SocioFormPage>
                     ),
                     child: Text(
                       fechaRecertificacion != null
-                          ? DateFormat('dd/MM/yyyy').format(fechaRecertificacion!)
+                          ? DateFormat('dd/MM/yyyy')
+                              .format(fechaRecertificacion!)
                           : 'Seleccionar fecha',
                     ),
                   ),
                 ),
                 const SizedBox(height: 16),
                 DropdownButtonFormField<String>(
-                  value: selectedEstado,
+                  initialValue: selectedEstado,
                   decoration: const InputDecoration(
                     labelText: 'Estado *',
                     border: OutlineInputBorder(),
@@ -2880,7 +2926,8 @@ class _SocioFormPageState extends ConsumerState<SocioFormPage>
                     selectedEstado == null) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
-                        content: Text('Complete todos los campos obligatorios')),
+                        content:
+                            Text('Complete todos los campos obligatorios')),
                   );
                   return;
                 }
@@ -2903,7 +2950,8 @@ class _SocioFormPageState extends ConsumerState<SocioFormPage>
                     Navigator.pop(context);
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
-                          content: Text('Recertificación actualizada correctamente')),
+                          content: Text(
+                              'Recertificación actualizada correctamente')),
                     );
                   }
                 } catch (e) {

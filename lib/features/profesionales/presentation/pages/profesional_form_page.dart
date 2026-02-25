@@ -116,9 +116,10 @@ class _ProfesionalFormPageState extends ConsumerState<ProfesionalFormPage> {
             : null,
         adheridoDebito: _adheridoDebito,
         tarjetaId: _adheridoDebito ? _tarjetaId : null,
-        numeroTarjeta: _adheridoDebito && _numeroTarjetaController.text.isNotEmpty
-            ? _numeroTarjetaController.text.trim()
-            : null,
+        numeroTarjeta:
+            _adheridoDebito && _numeroTarjetaController.text.isNotEmpty
+                ? _numeroTarjetaController.text.trim()
+                : null,
         vencimientoTarjeta: _adheridoDebito ? _vencimientoTarjeta : null,
         debitarDesde: _adheridoDebito ? _debitarDesde : null,
       );
@@ -184,14 +185,14 @@ class _ProfesionalFormPageState extends ConsumerState<ProfesionalFormPage> {
             IconButton(
               icon: const Icon(Icons.receipt),
               tooltip: 'Facturar Conceptos',
-              onPressed: () => context.go(
-                  '/facturacion-profesionales/${widget.profesionalId}'),
+              onPressed: () => context
+                  .go('/facturacion-profesionales/${widget.profesionalId}'),
             ),
             IconButton(
               icon: const Icon(Icons.payments),
               tooltip: 'Cobranzas',
-              onPressed: () => context.go(
-                  '/cobranzas-profesionales/${widget.profesionalId}'),
+              onPressed: () => context
+                  .go('/cobranzas-profesionales/${widget.profesionalId}'),
             ),
           ],
         ],
@@ -230,9 +231,11 @@ class _ProfesionalFormPageState extends ConsumerState<ProfesionalFormPage> {
                                         border: OutlineInputBorder(),
                                         prefixIcon: Icon(Icons.person),
                                       ),
-                                      textCapitalization: TextCapitalization.words,
+                                      textCapitalization:
+                                          TextCapitalization.words,
                                       validator: (value) {
-                                        if (value == null || value.trim().isEmpty) {
+                                        if (value == null ||
+                                            value.trim().isEmpty) {
                                           return 'El apellido es requerido';
                                         }
                                         return null;
@@ -248,9 +251,11 @@ class _ProfesionalFormPageState extends ConsumerState<ProfesionalFormPage> {
                                         border: OutlineInputBorder(),
                                         prefixIcon: Icon(Icons.person_outline),
                                       ),
-                                      textCapitalization: TextCapitalization.words,
+                                      textCapitalization:
+                                          TextCapitalization.words,
                                       validator: (value) {
-                                        if (value == null || value.trim().isEmpty) {
+                                        if (value == null ||
+                                            value.trim().isEmpty) {
                                           return 'El nombre es requerido';
                                         }
                                         return null;
@@ -338,7 +343,8 @@ class _ProfesionalFormPageState extends ConsumerState<ProfesionalFormPage> {
                           child: Column(
                             children: [
                               SwitchListTile(
-                                title: const Text('Adherido a Débito Automático'),
+                                title:
+                                    const Text('Adherido a Débito Automático'),
                                 subtitle: Text(_adheridoDebito
                                     ? 'El profesional está adherido al débito automático'
                                     : 'El profesional no está adherido'),
@@ -351,8 +357,9 @@ class _ProfesionalFormPageState extends ConsumerState<ProfesionalFormPage> {
                                 const Divider(),
                                 const SizedBox(height: 16),
                                 tarjetasAsync.when(
-                                  data: (tarjetas) => DropdownButtonFormField<int>(
-                                    value: _tarjetaId,
+                                  data: (tarjetas) =>
+                                      DropdownButtonFormField<int>(
+                                    initialValue: _tarjetaId,
                                     decoration: const InputDecoration(
                                       labelText: 'Tarjeta',
                                       border: OutlineInputBorder(),
@@ -368,7 +375,8 @@ class _ProfesionalFormPageState extends ConsumerState<ProfesionalFormPage> {
                                       setState(() => _tarjetaId = value);
                                     },
                                   ),
-                                  loading: () => const LinearProgressIndicator(),
+                                  loading: () =>
+                                      const LinearProgressIndicator(),
                                   error: (error, _) =>
                                       Text('Error cargando tarjetas: $error'),
                                 ),
@@ -393,22 +401,26 @@ class _ProfesionalFormPageState extends ConsumerState<ProfesionalFormPage> {
                                     Expanded(
                                       child: InkWell(
                                         onTap: () async {
-                                          final date = await pickDate(context, _vencimientoTarjeta ?? DateTime.now());
+                                          final date = await pickDate(
+                                              context,
+                                              _vencimientoTarjeta ??
+                                                  DateTime.now());
                                           if (date != null) {
-                                            setState(
-                                                () => _vencimientoTarjeta = date);
+                                            setState(() =>
+                                                _vencimientoTarjeta = date);
                                           }
                                         },
                                         child: InputDecorator(
                                           decoration: const InputDecoration(
                                             labelText: 'Vencimiento Tarjeta',
                                             border: OutlineInputBorder(),
-                                            prefixIcon: Icon(Icons.calendar_today),
+                                            prefixIcon:
+                                                Icon(Icons.calendar_today),
                                           ),
                                           child: Text(
                                             _vencimientoTarjeta != null
-                                                ? DateFormat('MM/yy')
-                                                    .format(_vencimientoTarjeta!)
+                                                ? DateFormat('MM/yy').format(
+                                                    _vencimientoTarjeta!)
                                                 : 'Seleccionar fecha',
                                             style: TextStyle(
                                               color: _vencimientoTarjeta != null
@@ -423,9 +435,11 @@ class _ProfesionalFormPageState extends ConsumerState<ProfesionalFormPage> {
                                     Expanded(
                                       child: InkWell(
                                         onTap: () async {
-                                          final date = await pickDate(context, _debitarDesde ?? DateTime.now());
+                                          final date = await pickDate(context,
+                                              _debitarDesde ?? DateTime.now());
                                           if (date != null) {
-                                            setState(() => _debitarDesde = date);
+                                            setState(
+                                                () => _debitarDesde = date);
                                           }
                                         },
                                         child: InputDecorator(

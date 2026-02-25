@@ -52,7 +52,11 @@ class _AsientosListPageState extends ConsumerState<AsientosListPage> {
   }
 
   void _search() {
-    if (_fechaDesde == null && _fechaHasta == null && _asientoDesde == null && _asientoHasta == null && _filterTipo == null) {
+    if (_fechaDesde == null &&
+        _fechaHasta == null &&
+        _asientoDesde == null &&
+        _asientoHasta == null &&
+        _filterTipo == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Ingrese al menos un filtro para buscar'),
@@ -181,7 +185,7 @@ class _AsientosListPageState extends ConsumerState<AsientosListPage> {
                     Expanded(
                       flex: 3,
                       child: DropdownButtonFormField<int?>(
-                        value: _filterTipo,
+                        initialValue: _filterTipo,
                         decoration: const InputDecoration(
                           labelText: 'Tipo de asiento',
                           border: OutlineInputBorder(),
@@ -191,12 +195,16 @@ class _AsientosListPageState extends ConsumerState<AsientosListPage> {
                         items: const [
                           DropdownMenuItem(value: null, child: Text('Todos')),
                           DropdownMenuItem(value: 0, child: Text('0 - Diario')),
-                          DropdownMenuItem(value: 1, child: Text('1 - Caja Ingresos')),
-                          DropdownMenuItem(value: 2, child: Text('2 - Caja Egresos')),
-                          DropdownMenuItem(value: 3, child: Text('3 - Compras')),
+                          DropdownMenuItem(
+                              value: 1, child: Text('1 - Caja Ingresos')),
+                          DropdownMenuItem(
+                              value: 2, child: Text('2 - Caja Egresos')),
+                          DropdownMenuItem(
+                              value: 3, child: Text('3 - Compras')),
                           DropdownMenuItem(value: 4, child: Text('4 - Ventas')),
                         ],
-                        onChanged: (value) => setState(() => _filterTipo = value),
+                        onChanged: (value) =>
+                            setState(() => _filterTipo = value),
                       ),
                     ),
                   ],
@@ -378,8 +386,7 @@ class _AsientosListPageState extends ConsumerState<AsientosListPage> {
                               tooltip: 'Editar',
                             ),
                             IconButton(
-                              icon:
-                                  const Icon(Icons.delete, color: Colors.red),
+                              icon: const Icon(Icons.delete, color: Colors.red),
                               onPressed: () =>
                                   _confirmDelete(context, ref, asiento),
                               tooltip: 'Eliminar',
