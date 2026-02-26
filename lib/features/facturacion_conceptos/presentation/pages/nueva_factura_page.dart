@@ -51,6 +51,7 @@ class _NuevaFacturaPageState extends ConsumerState<NuevaFacturaPage> {
   final _cantidadController = TextEditingController(text: '1');
   final _precioController = TextEditingController();
 
+  bool _soloActivos = true;
   bool _guardando = false;
 
   @override
@@ -120,7 +121,7 @@ class _NuevaFacturaPageState extends ConsumerState<NuevaFacturaPage> {
         final params = ProfesionalesSearchParams(
           profesionalId: idText.isNotEmpty ? int.tryParse(idText) : null,
           apellido: apellido.isNotEmpty ? apellido : null,
-          soloActivos: true,
+          soloActivos: _soloActivos,
         );
         final profesionales =
             await ref.read(profesionalesSearchProvider(params).future);
@@ -134,7 +135,7 @@ class _NuevaFacturaPageState extends ConsumerState<NuevaFacturaPage> {
         final params = SociosSearchParams(
           socioId: idText.isNotEmpty ? int.tryParse(idText) : null,
           apellido: apellido.isNotEmpty ? apellido : null,
-          soloActivos: true,
+          soloActivos: _soloActivos,
         );
         final socios = await ref.read(sociosSearchProvider(params).future);
         if (mounted) {
@@ -668,6 +669,17 @@ class _NuevaFacturaPageState extends ConsumerState<NuevaFacturaPage> {
                         : const Icon(Icons.search),
                     label: const Text('Buscar'),
                   ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Checkbox(
+                    value: _soloActivos,
+                    onChanged: (v) => setState(() => _soloActivos = v ?? true),
+                    visualDensity: VisualDensity.compact,
+                  ),
+                  const Text('Solo activos (A, T, H, V)'),
                 ],
               ),
 

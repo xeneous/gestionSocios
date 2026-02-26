@@ -565,7 +565,19 @@ class _SocioSearchDialog extends ConsumerStatefulWidget {
 
 class _SocioSearchDialogState extends ConsumerState<_SocioSearchDialog> {
   final _searchController = TextEditingController();
-  SociosSearchParams _params = SociosSearchParams();
+  bool _soloActivos = true;
+  SociosSearchParams _params = SociosSearchParams(soloActivos: true);
+
+  void _buscar() {
+    setState(() {
+      _params = SociosSearchParams(
+        apellido: _searchController.text.trim().isNotEmpty
+            ? _searchController.text.trim()
+            : null,
+        soloActivos: _soloActivos,
+      );
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -575,37 +587,74 @@ class _SocioSearchDialogState extends ConsumerState<_SocioSearchDialog> {
       title: const Text('Buscar Socio'),
       content: SizedBox(
         width: 500,
-        height: 400,
+        height: 420,
         child: Column(
           children: [
-            TextField(
-              controller: _searchController,
-              decoration: const InputDecoration(
-                labelText: 'Apellido',
-                border: OutlineInputBorder(),
-              ),
-              onSubmitted: (_) {
-                setState(() {
-                  _params = SociosSearchParams(
-                    apellido: _searchController.text,
-                  );
-                });
-              },
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _searchController,
+                    autofocus: true,
+                    decoration: const InputDecoration(
+                      labelText: 'Apellido',
+                      border: OutlineInputBorder(),
+                    ),
+                    onSubmitted: (_) => _buscar(),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                IconButton.filled(
+                  onPressed: _buscar,
+                  icon: const Icon(Icons.search),
+                  tooltip: 'Buscar',
+                ),
+              ],
             ),
-            const SizedBox(height: 16),
+            Row(
+              children: [
+                Checkbox(
+                  value: _soloActivos,
+                  onChanged: (v) {
+                    setState(() => _soloActivos = v ?? true);
+                    _buscar();
+                  },
+                  visualDensity: VisualDensity.compact,
+                ),
+                const Text('Solo activos (A, T, H, V)'),
+              ],
+            ),
+            const Divider(height: 8),
             Expanded(
               child: sociosAsync.when(
-                data: (socios) => ListView.builder(
-                  itemCount: socios.length,
-                  itemBuilder: (context, index) {
-                    final socio = socios[index];
-                    return ListTile(
-                      title: Text(socio.nombreCompleto),
-                      subtitle: Text('ID: ${socio.id}'),
-                      onTap: () => Navigator.pop(context, socio),
-                    );
-                  },
-                ),
+                data: (socios) => socios.isEmpty
+                    ? const Center(child: Text('Sin resultados'))
+                    : ListView.builder(
+                        itemCount: socios.length,
+                        itemBuilder: (context, index) {
+                          final socio = socios[index];
+                          return ListTile(
+                            leading: CircleAvatar(
+                              backgroundColor:
+                                  ['A', 'H', 'T', 'V'].contains(socio.grupo)
+                                      ? Colors.green
+                                      : Colors.grey,
+                              radius: 16,
+                              child: Text(
+                                socio.apellido.isNotEmpty
+                                    ? socio.apellido[0].toUpperCase()
+                                    : '?',
+                                style: const TextStyle(
+                                    color: Colors.white, fontSize: 12),
+                              ),
+                            ),
+                            title: Text(socio.nombreCompleto),
+                            subtitle:
+                                Text('ID: ${socio.id} | Grupo: ${socio.grupo ?? "N/A"}'),
+                            onTap: () => Navigator.pop(context, socio),
+                          );
+                        },
+                      ),
                 loading: () => const Center(child: CircularProgressIndicator()),
                 error: (e, _) => Center(child: Text('Error: $e')),
               ),
