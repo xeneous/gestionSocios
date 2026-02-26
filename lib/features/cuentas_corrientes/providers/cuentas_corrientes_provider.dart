@@ -65,7 +65,7 @@ final cuentasCorrientesSearchProvider = FutureProvider.family<
     // NOTA: Sin !inner porque PostgREST no resuelve bien los INNER JOINs
     var query = supabase.from('cuentas_corrientes').select('''
           *,
-          socios(apellido, nombre),
+          socios(apellido, nombre, categoria_residente),
           entidades(descripcion),
           tipos_comprobante_socios(descripcion, signo)
         ''');
@@ -107,6 +107,8 @@ final cuentasCorrientesSearchProvider = FutureProvider.family<
       if (json['socios'] != null) {
         header.socioNombre =
             '${json['socios']['apellido']}, ${json['socios']['nombre']}';
+        header.categoriaResidente =
+            json['socios']['categoria_residente'] as String?;
       }
       if (json['entidades'] != null) {
         header.entidadDescripcion = json['entidades']['descripcion'];

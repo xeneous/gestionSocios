@@ -53,6 +53,7 @@ import '../../features/profesionales/presentation/pages/profesionales_list_page.
 import '../../features/profesionales/presentation/pages/profesional_form_page.dart';
 import '../../features/profesionales/presentation/pages/cobranzas_select_profesional_page.dart';
 import '../../features/cuentas_corrientes/presentation/pages/cuenta_corriente_profesional_table_page.dart';
+import '../../features/rechazos_da/presentation/pages/rechazos_da_page.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   final authState = ref.watch(authStateProvider);
@@ -273,6 +274,12 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/debitos-automaticos',
         name: 'debitos-automaticos',
         builder: (context, state) => const DebitosAutomaticosPage(),
+      ),
+      // Rechazos Débito Automático
+      GoRoute(
+        path: '/rechazos-da',
+        name: 'rechazos-da',
+        builder: (context, state) => const RechazosDaPage(),
       ),
       // Seguimiento de Deudas
       GoRoute(

@@ -21,6 +21,7 @@ class CuentaCorriente {
   String? entidadDescripcion;
   String? tipoComprobanteDescripcion;
   int? signo;  // 1 para débito, -1 para crédito (desde tipos_comprobante_socios)
+  String? categoriaResidente; // R1, R2, RS - solo si el socio es residente
 
   CuentaCorriente({
     this.idtransaccion,

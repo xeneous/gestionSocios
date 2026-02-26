@@ -365,7 +365,29 @@ class _CuentasCorrientesListPageState
         subtitle: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Socio: ${cuenta.header.socioNombre ?? 'Desconocido'}'),
+            Row(
+              children: [
+                Text('Socio: ${cuenta.header.socioNombre ?? 'Desconocido'}'),
+                if (cuenta.header.categoriaResidente != null) ...[
+                  const SizedBox(width: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                    decoration: BoxDecoration(
+                      color: Colors.teal.shade100,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(
+                      cuenta.header.categoriaResidente!,
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.teal.shade800,
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
             Text('Fecha: ${DateFormat('dd/MM/yyyy').format(cuenta.header.fecha)}'),
             if (cuenta.header.vencimiento != null)
               Text(
