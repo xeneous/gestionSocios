@@ -129,6 +129,7 @@ class DebitosAutomaticosService {
     required int anioMes,
     required DateTime fechaPresentacion,
     required String nombreTarjeta,
+    required int tarjetaId,
     int? operadorId,
   }) async {
     if (items.isEmpty) {
@@ -202,6 +203,18 @@ class DebitosAutomaticosService {
       // La función retorna JSONB: {operacion_id, numero_asiento}
       final resultado = response as Map<String, dynamic>;
       print('DEBUG: resultado = $resultado');
+
+      // Registrar en historial de detalle_presentaciones_tarjetas
+      await _supabase.from('detalle_presentaciones_tarjetas').insert(
+        items.map((item) => {
+          'tarjeta_id': tarjetaId,
+          'periodo': anioMes,
+          'socio_id': item.socioId,
+          'entidad_id': 0,
+          'importe': item.importe,
+          'numero_tarjeta': item.numeroTarjeta,
+        }).toList(),
+      );
 
       return {
         'operacion_id': resultado['operacion_id'] as int,

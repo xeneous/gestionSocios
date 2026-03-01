@@ -59,7 +59,11 @@ BEGIN
         INNER JOIN grupos_agrupados ga ON ga.codigo = s.grupo
         LEFT JOIN cuentas_corrientes cc ON cc.socio_id = s.id
         WHERE s.activo = TRUE
-          AND (p_solo_activos = FALSE OR ga.activo = TRUE)
+          AND (
+            p_solo_activos = FALSE
+            OR (p_solo_residentes = FALSE AND ga.activo = TRUE)
+            OR (p_solo_residentes = TRUE AND (s.fecha_fin_residencia IS NULL OR s.fecha_fin_residencia >= CURRENT_DATE))
+          )
           AND (p_tarjeta_id IS NULL OR s.tarjeta_id = p_tarjeta_id)
           AND (p_solo_residentes = FALSE OR s.residente = TRUE)
         GROUP BY s.id, s.apellido, s.nombre, s.grupo, s.telefono, s.email, s.tarjeta_id, s.residente
@@ -96,7 +100,11 @@ BEGIN
         INNER JOIN grupos_agrupados ga ON ga.codigo = s.grupo
         LEFT JOIN cuentas_corrientes cc ON cc.socio_id = s.id
         WHERE s.activo = TRUE
-          AND (p_solo_activos = FALSE OR ga.activo = TRUE)
+          AND (
+            p_solo_activos = FALSE
+            OR (p_solo_residentes = FALSE AND ga.activo = TRUE)
+            OR (p_solo_residentes = TRUE AND (s.fecha_fin_residencia IS NULL OR s.fecha_fin_residencia >= CURRENT_DATE))
+          )
           AND (p_tarjeta_id IS NULL OR s.tarjeta_id = p_tarjeta_id)
           AND (p_solo_residentes = FALSE OR s.residente = TRUE)
         GROUP BY s.id, s.apellido, s.nombre, s.grupo, s.telefono, s.email, s.tarjeta_id, s.residente

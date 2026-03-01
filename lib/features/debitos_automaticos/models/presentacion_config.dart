@@ -12,8 +12,9 @@ class PresentacionConfig {
   static const String mastercardConstante = '00199901';
   static const int mastercardLongitudLinea = 129;
   
-  // IDs de tarjetas (ajustar según tu BD)
+  // IDs de tarjetas (deben coincidir con los IDs de la tabla `tarjetas` en Supabase)
   static const int visaTarjetaId = 1;
+  static const int mastercardTarjetaId = 2;
   
   PresentacionConfig._();
 }

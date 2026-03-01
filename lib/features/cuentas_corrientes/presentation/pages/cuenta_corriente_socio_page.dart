@@ -6,6 +6,7 @@ import '../../providers/cuentas_corrientes_provider.dart';
 import '../../models/cuenta_corriente_completa_model.dart';
 import '../../../socios/providers/socios_provider.dart';
 import '../../../auth/presentation/providers/user_role_provider.dart';
+import '../../../cuota_social/presentation/dialogs/cargar_cuotas_dialog.dart';
 
 /// Página para mostrar los movimientos de cuenta corriente de un socio específico
 class CuentaCorrienteSocioPage extends ConsumerStatefulWidget {
@@ -49,6 +50,41 @@ class _CuentaCorrienteSocioPageState
           loading: () => const Text('Cuenta Corriente'),
           error: (_, __) => const Text('Cuenta Corriente'),
         ),
+        actions: [
+          socioAsync.when(
+            data: (socio) => IconButton(
+              icon: const Icon(Icons.receipt_long),
+              tooltip: 'Cargar cuotas sociales',
+              onPressed: socio == null ? null : () async {
+                final usarTarifaResidente =
+                    socio.residente || (socio.grupo == 'V' && socio.pagaSeguroMp);
+                final resultado = await showDialog<bool>(
+                  context: context,
+                  barrierDismissible: false,
+                  builder: (_) => CargarCuotasDialog(
+                    socioId: socio.id,
+                    esResidente: usarTarifaResidente,
+                    nombreSocio: '${socio.apellido}, ${socio.nombre}',
+                    categoriaResidente: socio.categoriaResidente,
+                  ),
+                );
+                if (resultado == true && mounted) {
+                  // Refrescar CC y saldo
+                  ref.invalidate(cuentasCorrientesSearchProvider);
+                  ref.invalidate(saldoSocioProvider(widget.socioId));
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Cuotas sociales creadas correctamente'),
+                      backgroundColor: Colors.green,
+                    ),
+                  );
+                }
+              },
+            ),
+            loading: () => const SizedBox.shrink(),
+            error: (_, __) => const SizedBox.shrink(),
+          ),
+        ],
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () {

@@ -1,4 +1,5 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../../features/debitos_automaticos/models/presentacion_config.dart';
 import '../models/rechazo_da_item.dart';
 
 class RechazosDaService {
@@ -89,6 +90,17 @@ class RechazosDaService {
         'importe': rechazo.importe,
         'cancelado': 0.0,
         'vencimiento': fechaStr,
+      });
+
+      await _supabase.from('rechazos_tarjetas').insert({
+        'tarjeta_id': PresentacionConfig.visaTarjetaId,
+        'periodo': int.parse(rechazo.documentoNumero),
+        'socio_id': rechazo.socioId,
+        'entidad_id': rechazo.entidadId,
+        'importe': rechazo.importe,
+        'numero_tarjeta': rechazo.tarjeta,
+        'motivo': rechazo.motivoCompleto,
+        'fecha_rechazo': fechaStr,
       });
 
       insertados++;

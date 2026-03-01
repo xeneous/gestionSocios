@@ -10,6 +10,7 @@ import '../../models/concepto_tesoreria_model.dart';
 import '../../../socios/providers/socios_provider.dart';
 import '../../../profesionales/providers/profesionales_provider.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
+import '../../../cuota_social/presentation/dialogs/cargar_cuotas_dialog.dart';
 
 /// Página principal de cobranzas con selección múltiple
 class CobranzasPage extends ConsumerStatefulWidget {
@@ -122,6 +123,40 @@ class _CobranzasPageState extends ConsumerState<CobranzasPage> {
               : context.go('/cobranzas'),
         ),
         actions: [
+          // Botón cargar cuotas (solo socios)
+          if (!esProfesional)
+            socioAsync.when(
+              data: (socio) => IconButton(
+                icon: const Icon(Icons.receipt_long),
+                tooltip: 'Cargar cuotas sociales',
+                onPressed: socio == null ? null : () async {
+                  final usarTarifaResidente =
+                      socio.residente || (socio.grupo == 'V' && socio.pagaSeguroMp);
+                  final resultado = await showDialog<bool>(
+                    context: context,
+                    barrierDismissible: false,
+                    builder: (_) => CargarCuotasDialog(
+                      socioId: socio.id,
+                      esResidente: usarTarifaResidente,
+                      nombreSocio: '${socio.apellido}, ${socio.nombre}',
+                      categoriaResidente: socio.categoriaResidente,
+                    ),
+                  );
+                  if (resultado == true && mounted) {
+                    ref.invalidate(cuentasCorrientesSearchProvider);
+                    ref.invalidate(saldoSocioProvider(widget.socioId!));
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Cuotas sociales creadas correctamente'),
+                        backgroundColor: Colors.green,
+                      ),
+                    );
+                  }
+                },
+              ),
+              loading: () => const SizedBox.shrink(),
+              error: (_, __) => const SizedBox.shrink(),
+            ),
           if (_selectedPagos.isNotEmpty)
             Container(
               margin: const EdgeInsets.only(right: 16),

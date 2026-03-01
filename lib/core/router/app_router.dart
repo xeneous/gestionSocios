@@ -54,6 +54,7 @@ import '../../features/profesionales/presentation/pages/profesional_form_page.da
 import '../../features/profesionales/presentation/pages/cobranzas_select_profesional_page.dart';
 import '../../features/cuentas_corrientes/presentation/pages/cuenta_corriente_profesional_table_page.dart';
 import '../../features/rechazos_da/presentation/pages/rechazos_da_page.dart';
+import '../../features/rechazos_mastercard/presentation/pages/rechazos_mastercard_page.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   final authState = ref.watch(authStateProvider);
@@ -280,6 +281,12 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/rechazos-da',
         name: 'rechazos-da',
         builder: (context, state) => const RechazosDaPage(),
+      ),
+      // Rechazos Mastercard
+      GoRoute(
+        path: '/rechazos-mastercard',
+        name: 'rechazos-mastercard',
+        builder: (context, state) => const RechazosMastercardPage(),
       ),
       // Seguimiento de Deudas
       GoRoute(

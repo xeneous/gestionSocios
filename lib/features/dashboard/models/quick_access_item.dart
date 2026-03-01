@@ -32,6 +32,7 @@ final allQuickAccessItems = <QuickAccessItem>[
   QuickAccessItem(id: 'cobranzas', label: 'Cobranzas Socios', icon: Icons.payments, route: '/cobranzas', color: Colors.blue, category: _socios),
   QuickAccessItem(id: 'ctas_ctes', label: 'Control Ctas Ctes', icon: Icons.account_balance_wallet, route: '/resumen-cuentas-corrientes', color: Colors.blue, category: _socios),
   QuickAccessItem(id: 'rechazos_da', label: 'Rechazos DA', icon: Icons.cancel_presentation, route: '/rechazos-da', color: Colors.red, category: _socios),
+  QuickAccessItem(id: 'rechazos_mc', label: 'Rechazos MC', icon: Icons.credit_card_off, route: '/rechazos-mastercard', color: Colors.deepOrange, category: _socios),
 
   // Sponsors
   QuickAccessItem(id: 'clientes', label: 'Sponsors', icon: Icons.business, route: '/clientes', color: Colors.green, category: _clientes),

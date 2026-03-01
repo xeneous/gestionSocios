@@ -25,15 +25,15 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   Future<void> _signIn() async {
     if (_formKey.currentState!.validate()) {
       setState(() => _isLoading = true);
-      
+
       await ref.read(authNotifierProvider.notifier).signIn(
-        _emailController.text.trim(),
-        _passwordController.text,
-      );
-      
+            _emailController.text.trim(),
+            _passwordController.text,
+          );
+
       if (mounted) {
         setState(() => _isLoading = false);
-        
+
         final authState = ref.read(authNotifierProvider);
         authState.when(
           data: (_) {},
@@ -69,13 +69,13 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     Text(
-                      'SAO 2026',
+                      'Acceso al sistema',
                       style: Theme.of(context).textTheme.headlineMedium,
                       textAlign: TextAlign.center,
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      'Sistema Contable',
+                      'Identifíquese',
                       style: Theme.of(context).textTheme.bodyLarge,
                       textAlign: TextAlign.center,
                     ),

@@ -646,7 +646,11 @@ class _DebitosAutomaticosPageState
         );
 
         if (registrar == true && mounted) {
-          await _registrarPresentacion(movimientos, esVisa);
+          final tarjetaId = _tarjetaSeleccionada ??
+              (esVisa
+                  ? PresentacionConfig.visaTarjetaId
+                  : PresentacionConfig.mastercardTarjetaId);
+          await _registrarPresentacion(movimientos, esVisa, tarjetaId);
         }
 
         // Resetear vista
@@ -898,6 +902,7 @@ class _DebitosAutomaticosPageState
   Future<void> _registrarPresentacion(
     List<DebitoAutomaticoItem> movimientos,
     bool esVisa,
+    int tarjetaId,
   ) async {
     try {
       // Mostrar indicador de carga
@@ -931,7 +936,8 @@ class _DebitosAutomaticosPageState
         anioMes: anioMes,
         fechaPresentacion: _fechaSeleccionada,
         nombreTarjeta: nombreTarjeta,
-        operadorId: null, // TODO: Obtener del auth provider si es necesario
+        tarjetaId: tarjetaId,
+        operadorId: null,
       );
 
       // Cerrar indicador de carga
