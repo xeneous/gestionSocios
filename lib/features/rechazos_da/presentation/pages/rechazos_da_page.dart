@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:universal_html/html.dart' as html;
+import '../../../../core/utils/web_utils.dart';
 
 import '../../models/rechazo_da_item.dart';
 import '../../providers/rechazos_da_provider.dart';
@@ -24,6 +26,16 @@ class RechazosDaPage extends ConsumerWidget {
               tooltip: 'Nuevo archivo',
               onPressed: notifier.reiniciar,
             ),
+          IconButton(
+            icon: const Icon(Icons.home),
+            tooltip: 'Inicio',
+            onPressed: () => context.go('/'),
+          ),
+          IconButton(
+            icon: const Icon(Icons.open_in_new),
+            tooltip: 'Abrir en nueva pestaña',
+            onPressed: () => abrirEnNuevaPestana('/rechazos-da'),
+          ),
         ],
       ),
       body: switch (state.estado) {
@@ -383,6 +395,12 @@ class _PanelCompletado extends StatelessWidget {
                 icon: const Icon(Icons.upload_file),
                 label: const Text('Procesar otro archivo'),
                 onPressed: notifier.reiniciar,
+              ),
+              const SizedBox(height: 12),
+              OutlinedButton.icon(
+                icon: const Icon(Icons.home),
+                label: const Text('Volver al inicio'),
+                onPressed: () => context.go('/'),
               ),
             ],
           ),

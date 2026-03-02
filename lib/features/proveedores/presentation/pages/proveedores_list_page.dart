@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../providers/proveedores_provider.dart';
 import '../../../../core/presentation/widgets/app_drawer.dart';
+import '../../../../core/utils/web_utils.dart';
 
 class ProveedoresListPage extends ConsumerStatefulWidget {
   const ProveedoresListPage({super.key});
@@ -75,6 +76,11 @@ class _ProveedoresListPageState extends ConsumerState<ProveedoresListPage> {
       appBar: AppBar(
         title: const Text('Proveedores'),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.open_in_new),
+            tooltip: 'Abrir en nueva pestaña',
+            onPressed: () => abrirEnNuevaPestana('/proveedores'),
+          ),
           IconButton(
             icon: const Icon(Icons.home),
             onPressed: () => context.go('/'),

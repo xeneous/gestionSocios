@@ -8,6 +8,7 @@ import '../../providers/tipos_comprobante_provider.dart';
 import '../../models/cuenta_corriente_completa_model.dart';
 import '../../../auth/presentation/providers/user_role_provider.dart';
 import '../../../../core/presentation/widgets/app_drawer.dart';
+import '../../../../core/utils/web_utils.dart';
 import '../../../../core/utils/date_picker_utils.dart';
 
 class CuentasCorrientesListPage extends ConsumerStatefulWidget {
@@ -67,6 +68,11 @@ class _CuentasCorrientesListPageState
       appBar: AppBar(
         title: const Text('Cuentas Corrientes'),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.open_in_new),
+            tooltip: 'Abrir en nueva pestaña',
+            onPressed: () => abrirEnNuevaPestana('/cuentas-corrientes'),
+          ),
           IconButton(
             icon: const Icon(Icons.home),
             onPressed: () => context.go('/'),

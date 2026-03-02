@@ -6,12 +6,11 @@ class FacturadorService {
 
   FacturadorService(this._supabase);
 
-  /// Obtiene la vista previa de facturación para socios A y T
+  /// Obtiene la vista previa de facturación para socios A, T y V (con seguro MP)
   Future<ResumenFacturacion> obtenerVistaPrevia({
     required List<PeriodoFacturacion> periodos,
   }) async {
-    // 1. Obtener todos los socios con grupo A, T o V (con paginación)
-    //    Los V solo se facturan si tienen paga_seguro_mp = true
+    // 1. Obtener todos los socios elegibles (A, T, V) con paginación
     final socios = <Map<String, dynamic>>[];
     const pageSize = 1000;
     int offset = 0;
@@ -20,63 +19,61 @@ class FacturadorService {
     while (hasMore) {
       final sociosResponse = await _supabase
           .from('socios')
-          .select('id, apellido, nombre, grupo, residente, paga_seguro_mp, descuento_primer_anio, fecha_fin_descuento')
+          .select('id, apellido, nombre, grupo, residente, paga_seguro_mp, categoria_residente')
           .inFilter('grupo', ['A', 'T', 'V'])
+          .eq('activo', true)
           .order('apellido')
           .range(offset, offset + pageSize - 1);
 
       final rows = sociosResponse as List<dynamic>;
       socios.addAll(rows.cast<Map<String, dynamic>>());
-
       hasMore = rows.length == pageSize;
       offset += pageSize;
     }
 
     if (socios.isEmpty) {
-      return ResumenFacturacion(
-        items: [],
-        totalSocios: 0,
-        totalCuotas: 0,
-        totalImporte: 0.0,
-      );
+      return ResumenFacturacion(items: [], totalSocios: 0, totalCuotas: 0, totalImporte: 0.0);
     }
 
-    // 2. Obtener valores de cuota social para todos los períodos (EN BATCH)
+    // 2. Cargar categorías de residente en batch (tabla chica)
+    final categoriasResponse = await _supabase
+        .from('categorias_residente')
+        .select('codigo, porcentaje_descuento');
+    final categoriasMap = <String, double>{};
+    for (final cat in categoriasResponse as List) {
+      categoriasMap[cat['codigo'] as String] =
+          (cat['porcentaje_descuento'] as num).toDouble();
+    }
+
+    // 3. Obtener valores de cuota social para todos los períodos (batch)
     final valoresMap = await _obtenerValoresCuotaSocialBatch(periodos);
 
-    // 3. Obtener TODAS las cuotas existentes (con paginación para evitar límite de 1000)
+    // 4. Obtener cuotas existentes (paginado)
     final socioIds = socios.map((s) => s['id'] as int).toList();
     final anioMeses = periodos.map((p) => p.anioMes.toString()).toList();
-
     final cuotasExistentesSet = <String>{};
 
-    // Paginar en lotes de 1000 para evitar el límite de Supabase
     const cuotasPageSize = 1000;
     int cuotasOffset = 0;
     bool cuotasHasMore = true;
 
     while (cuotasHasMore) {
-      final cuotasExistentesResponse = await _supabase
+      final cuotasResponse = await _supabase
           .from('cuentas_corrientes')
           .select('socio_id, documento_numero')
           .inFilter('socio_id', socioIds)
-          .eq('tipo_comprobante', 'CS')
+          .inFilter('tipo_comprobante', ['CS', 'CRP', 'CRB'])
           .inFilter('documento_numero', anioMeses)
           .range(cuotasOffset, cuotasOffset + cuotasPageSize - 1);
 
-      final rows = cuotasExistentesResponse as List;
-
-      for (final row in rows) {
-        final socioId = row['socio_id'] as int;
-        final docNum = row['documento_numero'] as String;
-        cuotasExistentesSet.add('$socioId-$docNum');
+      for (final row in cuotasResponse as List) {
+        cuotasExistentesSet.add('${row['socio_id']}-${row['documento_numero']}');
       }
-
-      cuotasHasMore = rows.length == cuotasPageSize;
+      cuotasHasMore = (cuotasResponse).length == cuotasPageSize;
       cuotasOffset += cuotasPageSize;
     }
 
-    // 4. Para cada socio, detectar meses faltantes
+    // 5. Calcular items
     final items = <ItemFacturacionPrevia>[];
     int totalCuotas = 0;
     double totalImporte = 0.0;
@@ -87,51 +84,42 @@ class FacturadorService {
       final residente = socio['residente'] as bool? ?? false;
       final pagaSeguroMp = socio['paga_seguro_mp'] as bool? ?? false;
 
-      // Vitalicios: solo facturar si pagan seguro MP
       if (grupo == 'V' && !pagaSeguroMp) continue;
 
-      // Vitalicios con seguro MP usan tarifa de residente
       final usarTarifaResidente = residente || (grupo == 'V' && pagaSeguroMp);
 
-      final descuentoPrimerAnio = socio['descuento_primer_anio'] as bool? ?? false;
-      final fechaFinDescuentoStr = socio['fecha_fin_descuento'] as String?;
-      final fechaFinDescuento = (descuentoPrimerAnio && usarTarifaResidente && fechaFinDescuentoStr != null)
-          ? DateTime.tryParse(fechaFinDescuentoStr)
-          : null;
-      final nombreCompleto =
-          '${socio['apellido']} ${socio['nombre']}'.trim();
+      // Porcentaje de descuento según categoría de residente
+      final categoriaResidente = socio['categoria_residente'] as String?;
+      final porcentajeDescuento = (usarTarifaResidente && categoriaResidente != null)
+          ? (categoriasMap[categoriaResidente] ?? 0.0)
+          : 0.0;
 
-      // Filtrar solo los meses faltantes (búsqueda en Set = O(1))
       final mesesFaltantes = periodos.where((p) {
-        final key = '$socioId-${p.anioMes}';
-        return !cuotasExistentesSet.contains(key);
+        return !cuotasExistentesSet.contains('$socioId-${p.anioMes}');
       }).toList();
 
       if (mesesFaltantes.isEmpty) continue;
 
-      // Calcular importe total para este socio
       double importeSocio = 0.0;
       for (final periodo in mesesFaltantes) {
         final valor = valoresMap[periodo.anioMes];
         if (valor != null) {
-          double importePeriodo = usarTarifaResidente ? valor['residente']! : valor['noResidente']!;
-          // Aplicar descuento 50% solo si usa tarifa residente y el período está dentro del rango
-          if (usarTarifaResidente && fechaFinDescuento != null) {
-            final fechaPeriodo = DateTime(periodo.anio, periodo.mes, 1);
-            if (fechaPeriodo.isBefore(fechaFinDescuento)) {
-              importePeriodo = importePeriodo / 2;
-            }
+          double base = usarTarifaResidente ? valor['residente']! : valor['noResidente']!;
+          if (porcentajeDescuento >= 100) {
+            base = 0;
+          } else if (porcentajeDescuento > 0) {
+            base = base * (100 - porcentajeDescuento) / 100;
           }
-          importeSocio += importePeriodo;
+          importeSocio += base;
         }
       }
 
       items.add(ItemFacturacionPrevia(
         socioId: socioId,
-        socioNombre: nombreCompleto,
+        socioNombre: '${socio['apellido']} ${socio['nombre']}'.trim(),
         socioGrupo: grupo,
         residente: usarTarifaResidente,
-        fechaFinDescuento: fechaFinDescuento,
+        porcentajeDescuento: porcentajeDescuento,
         mesesFaltantes: mesesFaltantes,
         importeTotal: importeSocio,
       ));
@@ -146,6 +134,12 @@ class FacturadorService {
       totalCuotas: totalCuotas,
       totalImporte: totalImporte,
     );
+  }
+
+  String _getConcepto(double porcentajeDescuento) {
+    if (porcentajeDescuento >= 100) return 'CRB';
+    if (porcentajeDescuento > 0) return 'CRP';
+    return 'CS';
   }
 
   /// Genera las cuotas sociales masivamente usando TRANSACCIONES BATCH
@@ -166,39 +160,39 @@ class FacturadorService {
 
     for (final item in resumen.items) {
       for (final periodo in item.mesesFaltantes) {
-        double importe = item.residente
+        double base = item.residente
             ? valoresMap[periodo.anioMes]!['residente']!
             : valoresMap[periodo.anioMes]!['noResidente']!;
 
-        // Aplicar descuento 50% solo si el período específico lo tiene
-        final tieneDescuento = item.periodoTieneDescuento(periodo);
-        if (tieneDescuento) {
-          importe = importe / 2;
+        // Aplicar descuento unificado según porcentajeDescuento
+        double importe;
+        if (item.porcentajeDescuento >= 100) {
+          importe = 0;
+        } else if (item.porcentajeDescuento > 0) {
+          importe = base * (100 - item.porcentajeDescuento) / 100;
+        } else {
+          importe = base;
         }
 
-        // CRP = Cuota Residente Promoción (50%), CS = Cuota Social normal
-        final concepto = tieneDescuento ? 'CRP' : 'CS';
-
+        final concepto = _getConcepto(item.porcentajeDescuento);
         final fecha = DateTime(periodo.anio, periodo.mes, 1);
         final ultimoDia = DateTime(periodo.anio, periodo.mes + 1, 0);
 
-        // Header
         headers.add({
           'socio_id': item.socioId,
           'entidad_id': 0,
           'fecha': fecha.toIso8601String(),
-          'tipo_comprobante': 'CS',
+          'tipo_comprobante': concepto, // CS, CRP o CRB según descuento
           'documento_numero': periodo.anioMes.toString(),
           'importe': importe,
           'cancelado': 0,
           'vencimiento': ultimoDia.toIso8601String(),
         });
 
-        // Detalle (lo insertaremos después con los IDs)
         detallesPorHeader.add([
           {
             'item': 1,
-            'concepto': concepto,
+            'concepto': 'CS',
             'cantidad': 1,
             'importe': importe,
           }

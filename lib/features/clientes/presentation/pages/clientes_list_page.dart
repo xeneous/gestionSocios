@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../providers/clientes_provider.dart';
 import '../../../../core/presentation/widgets/app_drawer.dart';
+import '../../../../core/utils/web_utils.dart';
 
 class ClientesListPage extends ConsumerStatefulWidget {
   const ClientesListPage({super.key});
@@ -75,6 +76,11 @@ class _ClientesListPageState extends ConsumerState<ClientesListPage> {
       appBar: AppBar(
         title: const Text('Sponsors'),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.open_in_new),
+            tooltip: 'Abrir en nueva pestaña',
+            onPressed: () => abrirEnNuevaPestana('/clientes'),
+          ),
           IconButton(
             icon: const Icon(Icons.home),
             onPressed: () => context.go('/'),

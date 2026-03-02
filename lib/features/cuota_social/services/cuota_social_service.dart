@@ -78,10 +78,15 @@ class CuotaSocialService {
         );
 
         // Aplicar descuento según categoría de residente
-        bool tieneDescuento = false;
-        if (esResidente && porcentajeDescuento > 0) {
-          valor = valor * (100 - porcentajeDescuento) / 100;
-          tieneDescuento = porcentajeDescuento > 0;
+        bool tieneDescuento = esResidente && porcentajeDescuento > 0;
+        bool esBonificada = false;
+        if (tieneDescuento) {
+          if (porcentajeDescuento >= 100) {
+            valor = 0;
+            esBonificada = true;
+          } else {
+            valor = valor * (100 - porcentajeDescuento) / 100;
+          }
         }
 
         items.add(CuotaSocialItem(
@@ -89,6 +94,7 @@ class CuotaSocialService {
           valor: valor,
           incluir: true,
           esPromocion: tieneDescuento,
+          esBonificada: esBonificada,
         ));
       } catch (e) {
         // Si no hay valor configurado para ese período, usar el último disponible
@@ -109,41 +115,30 @@ class CuotaSocialService {
     required int socioId,
     required List<CuotaSocialItem> items,
   }) async {
-    print('DEBUG crearCuotasSociales: ====================');
-    print('DEBUG: socioId = $socioId');
-    print('DEBUG: items total = ${items.length}');
-
-    final itemsACrear = items.where((item) => item.incluir && item.valor > 0);
-    print('DEBUG: items a crear = ${itemsACrear.length}');
+    // Incluir CRB ($0) para que el residente vea la bonificación en su CC
+    final itemsACrear = items.where((item) => item.incluir && (item.valor > 0 || item.esBonificada));
 
     if (itemsACrear.isEmpty) {
-      print('DEBUG: No hay items para crear, retornando');
       return;
     }
 
     // Crear cada transacción con su detalle
-    int contador = 0;
     for (final item in itemsACrear) {
-      contador++;
-      print('DEBUG: Procesando item $contador - anioMes: ${item.anioMes}, valor: ${item.valor}');
-
       final fecha = ValorCuotaSocial.anioMesToDate(item.anioMes);
       final primerDia = DateTime(fecha.year, fecha.month, 1);
       final ultimoDia = DateTime(fecha.year, fecha.month + 1, 0);
 
-      // Crear header de la transacción
+      // Crear header de la transacción (CS, CRP o CRB según descuento)
       final transaccion = {
         'socio_id': socioId,
         'entidad_id': 0, // 0 = Socios
         'fecha': primerDia.toIso8601String(),
-        'tipo_comprobante': 'CS',
+        'tipo_comprobante': item.concepto,
         'documento_numero': item.anioMes.toString(),
         'importe': item.valor,
         'cancelado': 0,
         'vencimiento': ultimoDia.toIso8601String(),
       };
-
-      print('DEBUG: Insertando transacción: $transaccion');
 
       try {
         final response = await _supabase
@@ -153,29 +148,22 @@ class CuotaSocialService {
             .single();
 
         final idtransaccion = response['idtransaccion'] as int;
-        print('DEBUG: Cuota creada con idtransaccion = $idtransaccion');
 
-        // Crear detalle de la transacción (CRP si es promoción, CS si es normal)
         final detalle = {
           'idtransaccion': idtransaccion,
           'item': 1,
-          'concepto': item.concepto,
+          'concepto': 'CS',
           'cantidad': 1,
           'importe': item.valor,
         };
 
-        print('DEBUG: Insertando detalle: $detalle');
         await _supabase.from('detalle_cuentas_corrientes').insert(detalle);
-        print('DEBUG: Detalle creado exitosamente');
       } catch (e, st) {
         print('ERROR al crear cuota: $e');
         print('ERROR stacktrace: $st');
         rethrow;
       }
     }
-
-    print('DEBUG: Total cuotas creadas: $contador');
-    print('DEBUG: ====================');
   }
 
   /// Verifica si ya existe una cuota social para un socio y período
@@ -187,7 +175,7 @@ class CuotaSocialService {
         .from('cuentas_corrientes')
         .select('idtransaccion')
         .eq('socio_id', socioId)
-        .eq('tipo_comprobante', 'CS')
+        .inFilter('tipo_comprobante', ['CS', 'CRP', 'CRB'])
         .eq('documento_numero', anioMes.toString())
         .maybeSingle();
 
@@ -200,7 +188,7 @@ class CuotaSocialService {
         .from('cuentas_corrientes')
         .select()
         .eq('socio_id', socioId)
-        .eq('tipo_comprobante', 'CS')
+        .inFilter('tipo_comprobante', ['CS', 'CRP', 'CRB'])
         .order('documento_numero', ascending: false);
 
     return List<Map<String, dynamic>>.from(response);

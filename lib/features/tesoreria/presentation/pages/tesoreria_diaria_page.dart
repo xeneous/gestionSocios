@@ -6,6 +6,7 @@ import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../../cuentas_corrientes/models/concepto_tesoreria_model.dart';
 import '../../../cuentas_corrientes/providers/conceptos_tesoreria_provider.dart';
 import '../../../../core/presentation/widgets/app_drawer.dart';
+import '../../../../core/utils/web_utils.dart';
 
 // ============================================================================
 // MODELO
@@ -196,6 +197,11 @@ class _TesoreriaDiariaPageState extends ConsumerState<TesoreriaDiariaPage> {
         title: const Text('Tesorería Diaria'),
         actions: [
           IconButton(
+            icon: const Icon(Icons.open_in_new),
+            tooltip: 'Abrir en nueva pestaña',
+            onPressed: () => abrirEnNuevaPestana('/tesoreria'),
+          ),
+          IconButton(
             icon: const Icon(Icons.refresh),
             tooltip: 'Actualizar',
             onPressed: () => ref.invalidate(tesoreriaDiariaProvider(_params)),
@@ -354,6 +360,7 @@ class _TesoreriaDiariaPageState extends ConsumerState<TesoreriaDiariaPage> {
           initialDate: fecha,
           firstDate: DateTime(2020),
           lastDate: DateTime(2030),
+          locale: const Locale('es', 'AR'),
         );
         if (picked != null) onChanged(picked);
       },

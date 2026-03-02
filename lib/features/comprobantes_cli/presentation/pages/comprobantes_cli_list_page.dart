@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import '../../providers/comprobantes_cli_provider.dart';
 import '../../../../core/presentation/widgets/app_drawer.dart';
+import '../../../../core/utils/web_utils.dart';
 import '../../../../core/utils/date_picker_utils.dart';
 
 class ComprobantesCliListPage extends ConsumerStatefulWidget {
@@ -111,6 +112,11 @@ class _ComprobantesCliListPageState
             ? 'Comprobantes del Sponsor'
             : 'Comprobantes de Sponsors'),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.open_in_new),
+            tooltip: 'Abrir en nueva pestaña',
+            onPressed: () => abrirEnNuevaPestana('/comprobantes-cli'),
+          ),
           IconButton(
             icon: const Icon(Icons.home),
             onPressed: () => context.go('/'),

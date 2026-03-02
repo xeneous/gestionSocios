@@ -6,6 +6,7 @@ import '../../models/asiento_model.dart';
 import '../../providers/asientos_provider.dart';
 import '../../../../core/utils/date_picker_utils.dart';
 import '../../../../core/presentation/widgets/app_drawer.dart';
+import '../../../../core/utils/web_utils.dart';
 
 class AsientosListPage extends ConsumerStatefulWidget {
   const AsientosListPage({super.key});
@@ -92,6 +93,11 @@ class _AsientosListPageState extends ConsumerState<AsientosListPage> {
       appBar: AppBar(
         title: const Text('Asientos Contables'),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.open_in_new),
+            tooltip: 'Abrir en nueva pestaña',
+            onPressed: () => abrirEnNuevaPestana('/asientos'),
+          ),
           IconButton(
             icon: const Icon(Icons.home),
             onPressed: () => context.go('/'),

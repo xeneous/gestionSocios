@@ -62,6 +62,7 @@ class CuentasCorrientesService {
           email: row['email'] as String?,
           tarjetaId: row['tarjeta_id'] as int?,
           residente: row['residente'] as bool? ?? false,
+          categoriaResidente: row['categoria_residente'] as String?,
         );
       }).toList();
 

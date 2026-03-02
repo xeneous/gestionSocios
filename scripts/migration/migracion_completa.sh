@@ -80,10 +80,22 @@ if ! node migrate_socios_only.js; then
 fi
 
 # ----------------------------------------------------------------------------
+# 2.1b - Actualizar campos de residencia desde socios_bak
+# ----------------------------------------------------------------------------
+# echo ""
+# echo -e "${GREEN}[1b/7] Actualizando residencia de socios desde socios_bak...${NC}"
+# echo "============================================================================"
+# if ! node update_socios_residencia.js; then
+    # echo ""
+    # echo -e "${RED}ERROR: Fallo la actualización de residencia de socios${NC}"
+    # exit 1
+# fi
+
+# ----------------------------------------------------------------------------
 # 2.2 - Migrar Cuentas Contables (ANTES de conceptos por FK)
 # ----------------------------------------------------------------------------
 echo ""
-echo -e "${GREEN}[2/6] Migrando cuentas contables...${NC}"
+echo -e "${GREEN}[2/7] Migrando cuentas contables...${NC}"
 echo "============================================================================"
 if ! node migrate_cuentas.js; then
     echo ""
@@ -95,7 +107,7 @@ fi
 # 2.3 - Migrar Conceptos y Observaciones
 # ----------------------------------------------------------------------------
 echo ""
-echo -e "${GREEN}[3/6] Migrando conceptos y observaciones...${NC}"
+echo -e "${GREEN}[3/7] Migrando conceptos y observaciones...${NC}"
 echo "============================================================================"
 if ! node migrate_conceptos_observaciones.js; then
     echo ""
@@ -107,7 +119,7 @@ fi
 # 2.4 - Migrar Cuentas Corrientes
 # ----------------------------------------------------------------------------
 echo ""
-echo -e "${GREEN}[4/6] Migrando cuentas corrientes...${NC}"
+echo -e "${GREEN}[4/7] Migrando cuentas corrientes...${NC}"
 echo "============================================================================"
 if ! node migrate_cuentas_corrientes.js; then
     echo ""
@@ -119,7 +131,7 @@ fi
 # 2.5 - Migrar Valores de Tesoreria
 # ----------------------------------------------------------------------------
 echo ""
-echo -e "${GREEN}[5/6] Migrando valores de tesoreria...${NC}"
+echo -e "${GREEN}[5/7] Migrando valores de tesoreria...${NC}"
 echo "============================================================================"
 if ! node migrate_valores_tesoreria.js; then
     echo ""
@@ -131,11 +143,23 @@ fi
 # 2.6 - Migrar Asientos de Diario
 # ----------------------------------------------------------------------------
 echo ""
-echo -e "${GREEN}[6/6] Migrando asientos de diario...${NC}"
+echo -e "${GREEN}[6/7] Migrando asientos de diario...${NC}"
 echo "============================================================================"
 if ! node migrate_asientos_diario.js; then
     echo ""
     echo -e "${RED}ERROR: Fallo la migracion de asientos de diario${NC}"
+    exit 1
+fi
+
+# ----------------------------------------------------------------------------
+# 2.7 - Migrar Presentaciones de Tarjetas (historico DA)
+# ----------------------------------------------------------------------------
+echo ""
+echo -e "${GREEN}[7/7] Migrando presentaciones de tarjetas...${NC}"
+echo "============================================================================"
+if ! node migrate_presentaciones_tarjetas.js; then
+    echo ""
+    echo -e "${RED}ERROR: Fallo la migracion de presentaciones de tarjetas${NC}"
     exit 1
 fi
 

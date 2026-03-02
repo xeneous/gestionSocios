@@ -399,20 +399,22 @@ class _FacturadorGlobalPageState extends ConsumerState<FacturadorGlobalPage> {
                                     child: Row(
                                       children: [
                                         Expanded(child: Text(item.socioNombre)),
-                                        if (item.tieneDescuento50)
+                                        if (item.tieneDescuento)
                                           Container(
                                             margin: const EdgeInsets.only(left: 4),
                                             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                             decoration: BoxDecoration(
-                                              color: Colors.orange[100],
+                                              color: item.esBonificada ? Colors.green[100] : Colors.orange[100],
                                               borderRadius: BorderRadius.circular(4),
                                             ),
-                                            child: const Text(
-                                              '50%',
+                                            child: Text(
+                                              item.esBonificada
+                                                  ? 'CRB'
+                                                  : '${item.porcentajeDescuento.toStringAsFixed(0)}%',
                                               style: TextStyle(
                                                 fontSize: 10,
                                                 fontWeight: FontWeight.bold,
-                                                color: Colors.orange,
+                                                color: item.esBonificada ? Colors.green[700] : Colors.orange,
                                               ),
                                             ),
                                           ),

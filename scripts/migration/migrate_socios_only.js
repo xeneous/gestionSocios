@@ -90,7 +90,8 @@ async function migrateSociosOnly() {
             SELECT
                 socio, Apellido, nombre, tipodocto, numedocto, cuil,
                 Nacionalidad, Sexo, Nacido as fechanac,
-                Grupo, gDesde, Residente, fresidente, nroMatricula, Matricula,
+                Grupo, gDesde, Residente, fresidente,
+                tipoMatricula, nroMatricula, nroMatricula2,
                 FechaIngreso, Domicilio, localidad, provincia, cpostal, pais,
                 telefono, Fax, Email, EmailAlt1,
                 Tarjeta, numero, Adherido, Vencimiento, DebitarDesde
@@ -116,37 +117,62 @@ async function migrateSociosOnly() {
         for (let i = 0; i < result.recordset.length; i += batchSize) {
             const batch = result.recordset.slice(i, i + batchSize);
 
-            const sociosToInsert = batch.map(s => ({
-                id: s.socio,
-                apellido: s.Apellido?.trim() || '',
-                nombre: s.nombre?.trim() || '',
-                tipo_documento: tipoDocumentoMap[s.tipodocto] || 'DNI',
-                numero_documento: s.numedocto?.toString().trim(),
-                cuil: s.cuil?.trim(),
-                sexo: s.Sexo ? (sexoMap[typeof s.Sexo === 'string' ? s.Sexo.trim() : s.Sexo] || 0) : 0,
-                fecha_nacimiento: s.fechanac,
-                grupo: s.Grupo?.trim(),
-                grupo_desde: s.gDesde,
-                residente: s.Residente === 1 || s.Residente === true || s.Residente === '1' || (s.Residente && s.Residente !== 0 && s.Residente !== '0'),
-                fecha_fin_residencia: s.fresidente,
-                matricula_nacional: s.nroMatricula?.toString().trim(),
-                matricula_provincial: s.Matricula?.toString().trim(),
-                fecha_ingreso: s.FechaIngreso,
-                domicilio: s.Domicilio?.trim(),
-                localidad: s.localidad?.trim(),
-                provincia_id: provinciaMap[s.provincia] || null,
-                codigo_postal: s.cpostal?.toString().trim(),
-                pais_id: paisMap[s.pais] || null,
-                telefono: s.telefono?.trim(),
-                telefono_secundario: s.Fax?.trim(),
-                email: s.Email?.trim(),
-                email_alternativo: s.EmailAlt1?.trim(),
-                adherido_debito: s.Adherido === 1 || s.Adherido === true,
-                tarjeta_id: s.Tarjeta || 0,
-                numero_tarjeta: s.numero?.toString().trim(),
-                vencimiento_tarjeta: s.Vencimiento,
-                debitar_desde: s.DebitarDesde
-            }));
+            const sociosToInsert = batch.map(s => {
+                // --- Lógica de matrícula ---
+                // tipoMatricula=1: nroMatricula → nacional, nroMatricula2 → provincial
+                // tipoMatricula=2: nroMatricula → provincial, nroMatricula2 → nacional
+                const matPrincipal = (s.nroMatricula && s.nroMatricula !== 0 && s.nroMatricula !== '0')
+                    ? s.nroMatricula.toString().trim() : null;
+                const matSecundaria = (s.nroMatricula2 && s.nroMatricula2 !== 0 && s.nroMatricula2 !== '0')
+                    ? s.nroMatricula2.toString().trim() : null;
+
+                let matriculaNacional = null;
+                let matriculaProvincial = null;
+
+                if (s.tipoMatricula === 2) {
+                    // nroMatricula → provincial
+                    matriculaProvincial = matPrincipal;
+                    // nroMatricula2 → nacional (solo si ambas existen)
+                    if (matPrincipal && matSecundaria) matriculaNacional = matSecundaria;
+                } else {
+                    // tipoMatricula=1 (o null): nroMatricula → nacional
+                    matriculaNacional = matPrincipal;
+                    // nroMatricula2 → provincial (solo si ambas existen)
+                    if (matPrincipal && matSecundaria) matriculaProvincial = matSecundaria;
+                }
+
+                return {
+                    id: s.socio,
+                    apellido: s.Apellido?.trim() || '',
+                    nombre: s.nombre?.trim() || '',
+                    tipo_documento: tipoDocumentoMap[s.tipodocto] || 'DNI',
+                    numero_documento: s.numedocto?.toString().trim(),
+                    cuil: s.cuil?.trim(),
+                    sexo: s.Sexo ? (sexoMap[typeof s.Sexo === 'string' ? s.Sexo.trim() : s.Sexo] || 0) : 0,
+                    fecha_nacimiento: s.fechanac,
+                    grupo: s.Grupo?.trim(),
+                    grupo_desde: s.gDesde,
+                    residente: s.Residente === 1 || s.Residente === true || s.Residente === '1' || (s.Residente && s.Residente !== 0 && s.Residente !== '0'),
+                    fecha_fin_residencia: s.fresidente,
+                    matricula_nacional: matriculaNacional,
+                    matricula_provincial: matriculaProvincial,
+                    fecha_ingreso: s.FechaIngreso,
+                    domicilio: s.Domicilio?.trim(),
+                    localidad: s.localidad?.trim(),
+                    provincia_id: provinciaMap[s.provincia] || null,
+                    codigo_postal: s.cpostal?.toString().trim(),
+                    pais_id: paisMap[s.pais] || null,
+                    telefono: s.telefono?.trim(),
+                    telefono_secundario: s.Fax?.trim(),
+                    email: s.Email?.trim(),
+                    email_alternativo: s.EmailAlt1?.trim(),
+                    adherido_debito: s.Adherido === 1 || s.Adherido === true || s.Adherido === 'S' || s.Adherido === '1',
+                    tarjeta_id: s.Tarjeta || null,
+                    numero_tarjeta: s.numero?.toString().trim() || null,
+                    vencimiento_tarjeta: s.Vencimiento,
+                    debitar_desde: s.DebitarDesde
+                };
+            });
 
             const { error } = await supabase
                 .from('socios')

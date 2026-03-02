@@ -268,6 +268,18 @@ class ResumenCuentasCorrientesPage extends ConsumerWidget {
                     ),
                     DataColumn(
                       label: Text(
+                        'Grupo',
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                    DataColumn(
+                      label: Text(
+                        'Res.',
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                    DataColumn(
+                      label: Text(
                         'Apellido',
                         style: TextStyle(fontWeight: FontWeight.bold),
                       ),
@@ -275,12 +287,6 @@ class ResumenCuentasCorrientesPage extends ConsumerWidget {
                     DataColumn(
                       label: Text(
                         'Nombre',
-                        style: TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                    ),
-                    DataColumn(
-                      label: Text(
-                        'Grupo',
                         style: TextStyle(fontWeight: FontWeight.bold),
                       ),
                     ),
@@ -329,9 +335,10 @@ class ResumenCuentasCorrientesPage extends ConsumerWidget {
                       onSelectChanged: (_) => context.push('/socios/${socio.socioId}/cuenta-corriente'),
                       cells: [
                         DataCell(Text(socio.socioId.toString())),
+                        DataCell(Text(socio.grupo ?? '-')),
+                        DataCell(Text(socio.categoriaResidente ?? '-')),
                         DataCell(Text(socio.apellido)),
                         DataCell(Text(socio.nombre)),
-                        DataCell(Text(socio.grupo ?? '-')),
                         DataCell(
                           Text(
                             currencyFormat.format(socio.saldo),
@@ -381,6 +388,12 @@ class ResumenCuentasCorrientesPage extends ConsumerWidget {
                           Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
+                              IconButton(
+                                icon: const Icon(Icons.person),
+                                tooltip: 'Ver ficha del socio',
+                                color: Colors.teal,
+                                onPressed: () => context.push('/socios/${socio.socioId}'),
+                              ),
                               IconButton(
                                 icon: const Icon(Icons.account_balance_wallet),
                                 tooltip: 'Ver cuenta corriente',
@@ -584,8 +597,6 @@ class ResumenCuentasCorrientesPage extends ConsumerWidget {
         tarjetaId: tarjetaId,
         soloResidentes: soloResidentes,
       );
-
-      print('DEBUG: Socios obtenidos para exportar: ${socios.length}');
 
       if (context.mounted) {
         Navigator.pop(context); // Cerrar diálogo de carga

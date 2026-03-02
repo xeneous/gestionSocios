@@ -27,7 +27,7 @@ class RechazosMastercardService {
           final response = await _supabase
               .from('cuentas_corrientes')
               .select('idtransaccion')
-              .eq('tipo_comprobante', 'DA ')
+              .eq('tipo_comprobante', 'DA')
               .eq('entidad_id', item.entidadId)
               .eq(idField, item.socioId)
               .eq('documento_numero', item.documentoNumero)
@@ -110,17 +110,27 @@ class RechazosMastercardService {
       final esSocio = item.entidadId == 0;
       final fechaStr = item.fechaPresentacion.toIso8601String().split('T')[0];
 
-      await _supabase.from('cuentas_corrientes').insert({
-        if (esSocio) 'socio_id': item.socioId,
-        if (!esSocio) 'profesional_id': item.socioId,
-        'entidad_id': item.entidadId,
-        'fecha': fechaStr,
-        'tipo_comprobante': 'RDA',
-        'documento_numero': item.documentoNumero,
-        'importe': item.importe,
-        'cancelado': 0.0,
-        'vencimiento': fechaStr,
-      });
+      final rdaResp = await _supabase
+          .from('cuentas_corrientes')
+          .insert({
+            if (esSocio) 'socio_id': item.socioId,
+            if (!esSocio) 'profesional_id': item.socioId,
+            'entidad_id': item.entidadId,
+            'fecha': fechaStr,
+            'tipo_comprobante': 'RDA',
+            'documento_numero': item.documentoNumero,
+            'importe': item.importe,
+            'cancelado': 0.0,
+            'vencimiento': fechaStr,
+          })
+          .select('idtransaccion')
+          .single();
+
+      await _copiarDetalleDA(
+        idtransaccionDA: resultado.idtransaccionDA!,
+        idtransaccionRDA: rdaResp['idtransaccion'] as int,
+        importeFallback: item.importe,
+      );
 
       await _supabase.from('rechazos_tarjetas').insert({
         'tarjeta_id': PresentacionConfig.mastercardTarjetaId,
@@ -137,5 +147,38 @@ class RechazosMastercardService {
     }
 
     return insertados;
+  }
+
+  /// Copia las líneas de detalle_cuentas_corrientes del DA original al nuevo RDA.
+  /// Si el DA no tiene detalle, inserta una línea por defecto con concepto 'CS'.
+  Future<void> _copiarDetalleDA({
+    required int idtransaccionDA,
+    required int idtransaccionRDA,
+    required double importeFallback,
+  }) async {
+    final detalles = await _supabase
+        .from('detalle_cuentas_corrientes')
+        .select('item, concepto, cantidad, importe')
+        .eq('idtransaccion', idtransaccionDA);
+
+    if ((detalles as List).isNotEmpty) {
+      for (final d in detalles) {
+        await _supabase.from('detalle_cuentas_corrientes').insert({
+          'idtransaccion': idtransaccionRDA,
+          'item': d['item'],
+          'concepto': d['concepto'],
+          'cantidad': d['cantidad'],
+          'importe': d['importe'],
+        });
+      }
+    } else {
+      await _supabase.from('detalle_cuentas_corrientes').insert({
+        'idtransaccion': idtransaccionRDA,
+        'item': 1,
+        'concepto': 'CS',
+        'cantidad': 1,
+        'importe': importeFallback,
+      });
+    }
   }
 }

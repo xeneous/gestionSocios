@@ -140,12 +140,6 @@ class _SocioFormPageState extends ConsumerState<SocioFormPage>
           .read(sociosNotifierProvider.notifier)
           .getSocioById(widget.socioId!);
 
-      print('DEBUG: Socio loaded: ${socio != null}');
-      if (socio != null) {
-        print(
-            'DEBUG: Socio data - Apellido: ${socio.apellido}, Nombre: ${socio.nombre}');
-      }
-
       if (socio != null && mounted) {
         setState(() {
           // Datos Personales
@@ -192,7 +186,6 @@ class _SocioFormPageState extends ConsumerState<SocioFormPage>
         });
       }
     } catch (e) {
-      print('DEBUG ERROR loading socio: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Error al cargar socio: $e')),
@@ -906,7 +899,6 @@ class _SocioFormPageState extends ConsumerState<SocioFormPage>
         const SizedBox(height: 16),
         gruposAsync.when(
           data: (grupos) {
-            print('DEBUG: Grupos loaded successfully: ${grupos.length} items');
             // Validar que el valor actual existe en la lista
             final validValue =
                 _grupo != null && grupos.any((g) => g.codigo == _grupo)
@@ -951,14 +943,12 @@ class _SocioFormPageState extends ConsumerState<SocioFormPage>
             );
           },
           loading: () {
-            print('DEBUG: Grupos still loading...');
             return const SizedBox(
               height: 60,
               child: Center(child: CircularProgressIndicator()),
             );
           },
           error: (error, _) {
-            print('DEBUG ERROR loading grupos: $error');
             return Text('Error cargando grupos: $error');
           },
         ),

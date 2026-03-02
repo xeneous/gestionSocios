@@ -59,9 +59,15 @@ async function limpiarTablasDirecto() {
         { nombre: 'asientos_header', columna: 'id' },
         { nombre: 'operaciones_detalle_valores_tesoreria', columna: 'id' },
         { nombre: 'valores_tesoreria', columna: 'id' },
+        // Trazabilidad: hijos primero (operaciones_detalle_cc referencia a cc Y a operaciones_contables)
         { nombre: 'operaciones_detalle_cuentas_corrientes', columna: 'id' },
         { nombre: 'detalle_cuentas_corrientes', columna: 'idtransaccion' },
         { nombre: 'cuentas_corrientes', columna: 'idtransaccion' },
+        // Resto de trazabilidad (van después de CC para evitar FK issues)
+        { nombre: 'detalle_presentaciones_tarjetas', columna: 'id' },
+        { nombre: 'rechazos_tarjetas', columna: 'id' },
+        { nombre: 'presentaciones_tarjetas', columna: 'id' },
+        { nombre: 'operaciones_contables', columna: 'id' },
         { nombre: 'conceptos_socios', columna: 'id' },
         { nombre: 'observaciones_socios', columna: 'id' },
     ];

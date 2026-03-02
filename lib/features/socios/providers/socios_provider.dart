@@ -31,11 +31,17 @@ final sociosSearchProvider =
   }
 
   // Filtrar por grupos activos o todos
-  // Si soloActivos = true, filtrar solo socios de grupos activos
-  // Se aplica siempre que soloActivos sea true, sin importar si hay otros filtros
   if (params.soloActivos == true) {
-    // Solo socios de grupos activos: A, H, T, V
-    query = query.inFilter('grupo', ['A', 'H', 'T', 'V']);
+    final gruposResponse = await supabase
+        .from('grupos_agrupados')
+        .select('codigo')
+        .eq('activo', true);
+    final codigosActivos = (gruposResponse as List)
+        .map((g) => g['codigo'] as String)
+        .toList();
+    if (codigosActivos.isNotEmpty) {
+      query = query.inFilter('grupo', codigosActivos);
+    }
   }
 
   final response = await query
@@ -97,23 +103,9 @@ class SociosNotifier extends Notifier<AsyncValue<void>> {
     try {
       final supabase = ref.read(supabaseProvider);
 
-      // DEBUG: Loguear información del cliente Supabase
-      print('DEBUG createSocio: ====================');
-      print('DEBUG: Headers Authorization: ${supabase.headers['Authorization']}');
-      print('DEBUG: Headers apikey: ${supabase.headers['apikey']}');
-      final session = supabase.auth.currentSession;
-      if (session != null) {
-        print('DEBUG: Tiene sesión activa');
-      } else {
-        print('DEBUG: NO tiene sesión activa (usando solo apikey)');
-      }
-
       // Remover el campo 'id' del JSON para que PostgreSQL lo genere automáticamente
       final json = socio.toJson();
       json.remove('id');
-
-      print('DEBUG: Insertando socio...');
-      print('DEBUG: ====================');
 
       final response = await supabase
           .from('socios')
@@ -121,12 +113,9 @@ class SociosNotifier extends Notifier<AsyncValue<void>> {
           .select('id')
           .single();
 
-      print('DEBUG: Socio creado exitosamente con id: ${response['id']}');
       state = const AsyncValue.data(null);
       return response['id'] as int;
     } catch (e, st) {
-      print('ERROR createSocio: $e');
-      print('ERROR stacktrace: $st');
       state = AsyncValue.error(e, st);
       rethrow;
     }
@@ -197,7 +186,16 @@ class SociosNotifier extends Notifier<AsyncValue<void>> {
     }
 
     if (params.soloActivos == true) {
-      query = query.inFilter('grupo', ['A', 'H', 'T', 'V']);
+      final gruposResponse = await supabase
+          .from('grupos_agrupados')
+          .select('codigo')
+          .eq('activo', true);
+      final codigosActivos = (gruposResponse as List)
+          .map((g) => g['codigo'] as String)
+          .toList();
+      if (codigosActivos.isNotEmpty) {
+        query = query.inFilter('grupo', codigosActivos);
+      }
     }
 
     final response = await query

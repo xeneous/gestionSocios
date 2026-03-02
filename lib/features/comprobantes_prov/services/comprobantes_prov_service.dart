@@ -118,13 +118,8 @@ class ComprobantesProvService {
     final headerData = header.toJson();
     headerData['comprobante'] = nuevoComprobante;
 
-    // DEBUG: Verificar estado
-    print('🔍 DEBUG - Estado antes de insertar: ${headerData['estado']}');
-    print('🔍 DEBUG - Header completo: $headerData');
-    
     // FORZAR estado si viene null o vacío
     if (headerData['estado'] == null || headerData['estado'].toString().isEmpty) {
-      print('⚠️ Estado era null/vacío, forzando a P');
       headerData['estado'] = 'P';
     }
 

@@ -135,12 +135,26 @@ REM ----------------------------------------------------------------------------
 REM 2.6 - Migrar Asientos de Diario
 REM ----------------------------------------------------------------------------
 echo.
-echo [6/6] Migrando asientos de diario...
+echo [6/7] Migrando asientos de diario...
 echo ============================================================================
 node migrate_asientos_diario.js
 if errorlevel 1 (
     echo.
     echo ERROR: Fallo la migracion de asientos de diario
+    pause
+    exit /b 1
+)
+
+REM ----------------------------------------------------------------------------
+REM 2.7 - Migrar Presentaciones de Tarjetas (historico DA)
+REM ----------------------------------------------------------------------------
+echo.
+echo [7/7] Migrando presentaciones de tarjetas...
+echo ============================================================================
+node migrate_presentaciones_tarjetas.js
+if errorlevel 1 (
+    echo.
+    echo ERROR: Fallo la migracion de presentaciones de tarjetas
     pause
     exit /b 1
 )

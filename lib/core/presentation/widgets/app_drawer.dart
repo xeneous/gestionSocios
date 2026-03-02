@@ -169,6 +169,20 @@ class AppDrawer extends ConsumerWidget {
                   route: '/debitos-automaticos',
                   currentRoute: currentRoute,
                 ),
+                _buildMenuItem(
+                  context: context,
+                  icon: Icons.receipt_long,
+                  title: 'Presentaciones DA',
+                  route: '/presentaciones-tarjetas',
+                  currentRoute: currentRoute,
+                ),
+                _buildMenuItem(
+                  context: context,
+                  icon: Icons.history,
+                  title: 'Historial Rechazos',
+                  route: '/historial-rechazos',
+                  currentRoute: currentRoute,
+                ),
               ],
             ),
 
@@ -305,6 +319,47 @@ class AppDrawer extends ConsumerWidget {
               ),
             ],
           ),
+
+          // ==================== ZONA ADMINISTRACIÓN (solo admin) ====================
+          if (userRole.esAdministrador)
+            _buildSectionTile(
+              context: context,
+              ref: ref,
+              icon: Icons.admin_panel_settings,
+              title: 'ADMINISTRACIÓN',
+              color: Colors.red,
+              initiallyExpanded: _isAdminSection(currentRoute),
+              children: [
+                _buildMenuItem(
+                  context: context,
+                  icon: Icons.price_change,
+                  title: 'Valores Cuota Social',
+                  route: '/valores-cuota',
+                  currentRoute: currentRoute,
+                ),
+                _buildMenuItem(
+                  context: context,
+                  icon: Icons.category,
+                  title: 'Conceptos Socios',
+                  route: '/conceptos',
+                  currentRoute: currentRoute,
+                ),
+                _buildMenuItem(
+                  context: context,
+                  icon: Icons.category_outlined,
+                  title: 'Conceptos Tesorería',
+                  route: '/conceptos-tesoreria',
+                  currentRoute: currentRoute,
+                ),
+                _buildMenuItem(
+                  context: context,
+                  icon: Icons.manage_accounts,
+                  title: 'Usuarios',
+                  route: '/usuarios',
+                  currentRoute: currentRoute,
+                ),
+              ],
+            ),
         ],
       ),
     );
@@ -386,7 +441,9 @@ class AppDrawer extends ConsumerWidget {
   /// Verifica si la ruta actual pertenece a la sección Procesos
   bool _isProcesosSection(String route) {
     return route.startsWith('/facturador-global') ||
-        route.startsWith('/debitos-automaticos');
+        route.startsWith('/debitos-automaticos') ||
+        route.startsWith('/presentaciones-tarjetas') ||
+        route.startsWith('/historial-rechazos');
   }
 
   /// Verifica si la ruta actual pertenece a la sección Clientes
@@ -413,5 +470,12 @@ class AppDrawer extends ConsumerWidget {
         route.startsWith('/cuentas') ||
         route == '/parametros-contables' ||
         route == '/tesoreria-diaria';
+  }
+
+  /// Verifica si la ruta actual pertenece a la sección Administración
+  bool _isAdminSection(String route) {
+    return route.startsWith('/valores-cuota') ||
+        route.startsWith('/conceptos') ||
+        route.startsWith('/usuarios');
   }
 }

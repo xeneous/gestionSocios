@@ -75,17 +75,23 @@ class CuotaSocialItem {
   final int anioMes;
   double valor;
   bool incluir;
-  bool esPromocion; // true si aplica descuento 50% primer año (concepto CRP)
+  bool esPromocion; // true si tiene algún descuento (concepto CRP)
+  bool esBonificada; // true si descuento es 100% (concepto CRB, importe $0)
 
   CuotaSocialItem({
     required this.anioMes,
     required this.valor,
     this.incluir = true,
     this.esPromocion = false,
+    this.esBonificada = false,
   });
 
-  /// Retorna el concepto según si es promoción o no
-  String get concepto => esPromocion ? 'CRP' : 'CS';
+  /// CS = sin descuento, CRP = descuento parcial, CRB = bonificada 100%
+  String get concepto {
+    if (esBonificada) return 'CRB';
+    if (esPromocion) return 'CRP';
+    return 'CS';
+  }
 
   String get periodoTexto => ValorCuotaSocial.formatAnioMes(anioMes);
 }

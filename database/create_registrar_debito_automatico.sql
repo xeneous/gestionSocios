@@ -60,10 +60,6 @@ DECLARE
   v_operacion_id BIGINT;
   v_idtransaccion_da BIGINT;
   v_total_presentacion NUMERIC := 0;
-  v_numero_asiento INTEGER;
-  v_anio_mes_asiento INTEGER;
-  v_cuenta_banco_id INTEGER;
-  v_cuenta_deudores_id INTEGER;
 BEGIN
   -- Validar que haya datos
   IF jsonb_array_length(p_presentacion_data) = 0 THEN
@@ -123,7 +119,7 @@ BEGIN
       v_socio_id,
       v_entidad_id,
       p_fecha_presentacion,
-      'DA ',
+      'DA',
       p_anio_mes::VARCHAR,
       v_importe_total,
       v_importe_total,  -- Se considera cancelado (el DA cancela los CS)
@@ -172,8 +168,12 @@ BEGIN
 
   -- ========================================================================
   -- 4. GENERAR ASIENTO CONTABLE TIPO 6 (Resumen Débito Automático)
+  --    TODO: Se implementará desde el módulo Presentaciones DA al registrar
+  --          la acreditación bancaria (cuando el banco acredita los valores).
+  --          Por ahora se omite — el asiento se genera manualmente.
   -- ========================================================================
 
+  /*
   -- Obtener siguiente número de asiento
   SELECT public.get_next_numero('ASIENTO') INTO v_numero_asiento;
 
@@ -181,7 +181,6 @@ BEGIN
   v_anio_mes_asiento := EXTRACT(YEAR FROM p_fecha_presentacion)::INTEGER * 100 +
                         EXTRACT(MONTH FROM p_fecha_presentacion)::INTEGER;
 
-  -- Obtener IDs de las cuentas contables
   -- Cuenta Banco Galicia Cta Cte (DEBE)
   SELECT cuenta INTO v_cuenta_banco_id
   FROM public.cuentas
@@ -200,74 +199,42 @@ BEGIN
     RAISE EXCEPTION 'No se encontró la cuenta 1101010101 (Deudores por Venta)';
   END IF;
 
-  -- Crear header del asiento
   INSERT INTO public.asientos_header (
-    asiento,
-    anio_mes,
-    tipo_asiento,
-    fecha,
-    detalle
+    asiento, anio_mes, tipo_asiento, fecha, detalle
   ) VALUES (
-    v_numero_asiento,
-    v_anio_mes_asiento,
-    6, -- Tipo 6: Asientos Resumen Débito Automático
+    v_numero_asiento, v_anio_mes_asiento,
+    6,
     p_fecha_presentacion,
     'Presentación débito automático ' || p_nombre_tarjeta || ' - período ' || p_anio_mes::TEXT
   );
 
-  -- Crear item 1: DEBE - Banco Galicia
   INSERT INTO public.asientos_items (
-    asiento,
-    anio_mes,
-    tipo_asiento,
-    item,
-    cuenta_id,
-    debe,
-    haber,
-    observacion
+    asiento, anio_mes, tipo_asiento, item, cuenta_id, debe, haber, observacion
   ) VALUES (
-    v_numero_asiento,
-    v_anio_mes_asiento,
-    6,
-    1,
-    v_cuenta_banco_id,
-    v_total_presentacion,
-    0,
+    v_numero_asiento, v_anio_mes_asiento, 6, 1, v_cuenta_banco_id,
+    v_total_presentacion, 0,
     'Débito automático ' || p_nombre_tarjeta || ' - ' || p_anio_mes::TEXT
   );
 
-  -- Crear item 2: HABER - Deudores por Venta
   INSERT INTO public.asientos_items (
-    asiento,
-    anio_mes,
-    tipo_asiento,
-    item,
-    cuenta_id,
-    debe,
-    haber,
-    observacion
+    asiento, anio_mes, tipo_asiento, item, cuenta_id, debe, haber, observacion
   ) VALUES (
-    v_numero_asiento,
-    v_anio_mes_asiento,
-    6,
-    2,
-    v_cuenta_deudores_id,
-    0,
-    v_total_presentacion,
+    v_numero_asiento, v_anio_mes_asiento, 6, 2, v_cuenta_deudores_id,
+    0, v_total_presentacion,
     'Débito automático ' || p_nombre_tarjeta || ' - ' || p_anio_mes::TEXT
   );
 
-  -- Actualizar la operación con el número de asiento generado
   UPDATE public.operaciones_contables
   SET asiento_numero = v_numero_asiento,
       asiento_anio_mes = v_anio_mes_asiento,
       asiento_tipo = 6
   WHERE id = v_operacion_id;
+  */
 
-  -- Retornar el ID de la operación y el número de asiento
+  -- Retornar el ID de la operación (sin asiento por ahora)
   RETURN jsonb_build_object(
     'operacion_id', v_operacion_id,
-    'numero_asiento', v_numero_asiento
+    'numero_asiento', NULL
   );
 END;
 $$;

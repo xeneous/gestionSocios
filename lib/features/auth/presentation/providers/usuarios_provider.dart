@@ -37,11 +37,7 @@ final usuarioByIdProvider =
 final currentUserProfileProvider = FutureProvider<Usuario?>((ref) async {
   final user = ref.watch(currentUserProvider);
 
-  print('🔍 DEBUG currentUserProfileProvider:');
-  print('  - user: ${user?.email} (id: ${user?.id})');
-
   if (user == null) {
-    print('  - Result: null (no user)');
     return null;
   }
 
@@ -53,15 +49,11 @@ final currentUserProfileProvider = FutureProvider<Usuario?>((ref) async {
       .eq('id', user.id)
       .maybeSingle();
 
-  print('  - DB response: $response');
-
   if (response == null) {
-    print('  - Result: null (no DB record)');
     return null;
   }
 
   final usuario = Usuario.fromJson(response);
-  print('  - Parsed usuario: ${usuario.email}, rol: ${usuario.rol.name}');
 
   return usuario;
 });

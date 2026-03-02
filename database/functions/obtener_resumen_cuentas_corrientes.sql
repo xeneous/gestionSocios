@@ -27,6 +27,7 @@ RETURNS TABLE(
     email VARCHAR(100),
     tarjeta_id INTEGER,
     residente BOOLEAN,
+    categoria_residente VARCHAR(50),
     total_count BIGINT
 ) AS $$
 DECLARE
@@ -44,6 +45,7 @@ BEGIN
             s.email as s_email,
             s.tarjeta_id as s_tarjeta_id,
             s.residente as s_residente,
+            s.categoria_residente as s_categoria_residente,
             COALESCE(SUM(cc.importe - COALESCE(cc.cancelado, 0)), 0) as saldo,
             COALESCE(
                 SUM(
@@ -66,7 +68,7 @@ BEGIN
           )
           AND (p_tarjeta_id IS NULL OR s.tarjeta_id = p_tarjeta_id)
           AND (p_solo_residentes = FALSE OR s.residente = TRUE)
-        GROUP BY s.id, s.apellido, s.nombre, s.grupo, s.telefono, s.email, s.tarjeta_id, s.residente
+        GROUP BY s.id, s.apellido, s.nombre, s.grupo, s.telefono, s.email, s.tarjeta_id, s.residente, s.categoria_residente
     )
     SELECT COUNT(*) INTO v_total_count
     FROM socio_meses sm
@@ -85,6 +87,7 @@ BEGIN
             s.email as s_email,
             s.tarjeta_id as s_tarjeta_id,
             s.residente as s_residente,
+            s.categoria_residente as s_categoria_residente,
             COALESCE(SUM(cc.importe - COALESCE(cc.cancelado, 0)), 0) as saldo,
             COALESCE(
                 SUM(
@@ -107,7 +110,7 @@ BEGIN
           )
           AND (p_tarjeta_id IS NULL OR s.tarjeta_id = p_tarjeta_id)
           AND (p_solo_residentes = FALSE OR s.residente = TRUE)
-        GROUP BY s.id, s.apellido, s.nombre, s.grupo, s.telefono, s.email, s.tarjeta_id, s.residente
+        GROUP BY s.id, s.apellido, s.nombre, s.grupo, s.telefono, s.email, s.tarjeta_id, s.residente, s.categoria_residente
     )
     SELECT
         sm.id::INTEGER as socio_id,
@@ -121,6 +124,7 @@ BEGIN
         sm.s_email::VARCHAR(100) as email,
         sm.s_tarjeta_id::INTEGER as tarjeta_id,
         sm.s_residente::BOOLEAN as residente,
+        sm.s_categoria_residente::VARCHAR(50) as categoria_residente,
         v_total_count as total_count
     FROM socio_meses sm
     WHERE (p_meses_minimo IS NULL

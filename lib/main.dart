@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:intl/date_symbol_data_local.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'core/router/app_router.dart';
 
@@ -10,6 +12,8 @@ Future<void> main() async {
   // Configuración de Supabase
   // NOTA: RLS está deshabilitado ya que la app maneja su propia autenticación
   // TODO: Implementar RLS correctamente o migrar auth a Supabase
+  await initializeDateFormatting('es_AR', null);
+
   await Supabase.initialize(
     url: 'https://ojbdljecdvjgsbthouvf.supabase.co',
     anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9qYmRsamVjZHZqZ3NidGhvdXZmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY0OTk0MjksImV4cCI6MjA4MjA3NTQyOX0.GdJ6fBByxx6hlq8njMs0ceZj2xSermSSowzqVSLh7hg',
@@ -32,6 +36,16 @@ class SAOApp extends ConsumerWidget {
     return MaterialApp.router(
       title: 'SAO 2026 - Sistema Contable',
       debugShowCheckedModeBanner: false,
+      locale: const Locale('es', 'AR'),
+      localizationsDelegates: const [
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
+      supportedLocales: const [
+        Locale('es', 'AR'),
+        Locale('en', 'US'),
+      ],
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(
           seedColor: Colors.blue,

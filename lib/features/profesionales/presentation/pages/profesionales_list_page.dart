@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../providers/profesionales_provider.dart';
 import '../../../auth/presentation/providers/user_role_provider.dart';
 import '../../../../core/presentation/widgets/app_drawer.dart';
+import '../../../../core/utils/web_utils.dart';
 
 class ProfesionalesListPage extends ConsumerStatefulWidget {
   const ProfesionalesListPage({super.key});
@@ -56,6 +57,11 @@ class _ProfesionalesListPageState extends ConsumerState<ProfesionalesListPage> {
       appBar: AppBar(
         title: const Text('Profesionales'),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.open_in_new),
+            tooltip: 'Abrir en nueva pestaña',
+            onPressed: () => abrirEnNuevaPestana('/profesionales'),
+          ),
           IconButton(
             icon: const Icon(Icons.home),
             onPressed: () => context.go('/'),

@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:pdf/pdf.dart';
@@ -16,6 +17,7 @@ import '../../providers/debitos_automaticos_provider.dart';
 import '../../services/presentacion_tarjetas_service.dart';
 import '../../../socios/providers/tarjetas_provider.dart';
 import '../../../../core/utils/date_picker_utils.dart';
+import '../../../../core/utils/web_utils.dart';
 
 class DebitosAutomaticosPage extends ConsumerStatefulWidget {
   const DebitosAutomaticosPage({super.key});
@@ -49,6 +51,16 @@ class _DebitosAutomaticosPageState
               },
               tooltip: 'Nueva consulta',
             ),
+          IconButton(
+            icon: const Icon(Icons.home),
+            tooltip: 'Inicio',
+            onPressed: () => context.go('/'),
+          ),
+          IconButton(
+            icon: const Icon(Icons.open_in_new),
+            tooltip: 'Abrir en nueva pestaña',
+            onPressed: () => abrirEnNuevaPestana('/debitos-automaticos'),
+          ),
         ],
       ),
       body: Column(
@@ -970,10 +982,11 @@ class _DebitosAutomaticosPageState
                   'Operación ID: ${resultado['operacion_id']}',
                   style: const TextStyle(fontWeight: FontWeight.bold),
                 ),
-                Text(
-                  'Asiento generado: ${resultado['numero_asiento']}',
-                  style: const TextStyle(fontWeight: FontWeight.bold),
-                ),
+                if (resultado['numero_asiento'] != null)
+                  Text(
+                    'Asiento generado: ${resultado['numero_asiento']}',
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
                 const SizedBox(height: 8),
                 Text(
                   'Socios procesados: ${movimientos.map((m) => m.socioId).toSet().length}',

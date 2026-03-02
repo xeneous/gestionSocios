@@ -55,6 +55,10 @@ import '../../features/profesionales/presentation/pages/cobranzas_select_profesi
 import '../../features/cuentas_corrientes/presentation/pages/cuenta_corriente_profesional_table_page.dart';
 import '../../features/rechazos_da/presentation/pages/rechazos_da_page.dart';
 import '../../features/rechazos_mastercard/presentation/pages/rechazos_mastercard_page.dart';
+import '../../features/debitos_automaticos/presentation/pages/presentaciones_tarjetas_page.dart';
+import '../../features/debitos_automaticos/presentation/pages/detalle_presentacion_page.dart';
+import '../../features/debitos_automaticos/models/presentacion_tarjeta.dart';
+import '../../features/rechazos_da/presentation/pages/historial_rechazos_page.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   final authState = ref.watch(authStateProvider);
@@ -287,6 +291,26 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/rechazos-mastercard',
         name: 'rechazos-mastercard',
         builder: (context, state) => const RechazosMastercardPage(),
+      ),
+      // Presentaciones de Tarjetas (historial DA)
+      GoRoute(
+        path: '/presentaciones-tarjetas',
+        name: 'presentaciones-tarjetas',
+        builder: (context, state) => const PresentacionesTarjetasPage(),
+      ),
+      GoRoute(
+        path: '/presentaciones-tarjetas/detalle',
+        name: 'presentaciones-tarjetas-detalle',
+        builder: (context, state) {
+          final presentacion = state.extra as PresentacionTarjeta;
+          return DetallePresentacionPage(presentacion: presentacion);
+        },
+      ),
+      // Historial de Rechazos
+      GoRoute(
+        path: '/historial-rechazos',
+        name: 'historial-rechazos',
+        builder: (context, state) => const HistorialRechazosPage(),
       ),
       // Seguimiento de Deudas
       GoRoute(

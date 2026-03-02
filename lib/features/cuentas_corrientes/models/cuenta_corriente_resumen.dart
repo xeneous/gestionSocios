@@ -10,6 +10,7 @@ class CuentaCorrienteResumen {
   final String? email;
   final int? tarjetaId;
   final bool residente;
+  final String? categoriaResidente;
 
   CuentaCorrienteResumen({
     required this.socioId,
@@ -23,6 +24,7 @@ class CuentaCorrienteResumen {
     this.email,
     this.tarjetaId,
     this.residente = false,
+    this.categoriaResidente,
   });
 
   bool get tieneEmail => email != null && email!.isNotEmpty;

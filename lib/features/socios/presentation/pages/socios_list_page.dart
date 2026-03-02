@@ -5,6 +5,7 @@ import '../../providers/socios_provider.dart';
 import '../../../auth/presentation/providers/user_role_provider.dart';
 import '../../providers/grupos_agrupados_provider.dart';
 import '../../../../core/presentation/widgets/app_drawer.dart';
+import '../../../../core/utils/web_utils.dart';
 
 class SociosListPage extends ConsumerStatefulWidget {
   const SociosListPage({super.key});
@@ -88,6 +89,11 @@ class _SociosListPageState extends ConsumerState<SociosListPage> {
       appBar: AppBar(
         title: const Text('Socios'),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.open_in_new),
+            tooltip: 'Abrir en nueva pestaña',
+            onPressed: () => abrirEnNuevaPestana('/socios'),
+          ),
           IconButton(
             icon: const Icon(Icons.home),
             onPressed: () => context.go('/'),
