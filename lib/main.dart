@@ -34,7 +34,7 @@ class SAOApp extends ConsumerWidget {
     final router = ref.watch(routerProvider);
     
     return MaterialApp.router(
-      title: 'SAO 2026 - Sistema Contable',
+      title: 'Sistema de Gestion Sociedad Argentina de Oftalmologia',
       debugShowCheckedModeBanner: false,
       locale: const Locale('es', 'AR'),
       localizationsDelegates: const [

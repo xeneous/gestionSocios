@@ -25,7 +25,7 @@ class DashboardPage extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('SAO 2026'),
+        title: const Text('Sistema de Gestion Sociedad Argentina de Oftalmologia'),
         actions: [
           IconButton(
             icon: const Icon(Icons.edit_note),

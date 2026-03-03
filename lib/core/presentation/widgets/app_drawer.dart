@@ -29,10 +29,10 @@ class AppDrawer extends ConsumerWidget {
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
                 Text(
-                  'SAO 2026',
+                  'Sociedad Argentina de Oftalmologia',
                   style: TextStyle(
                     color: Colors.white,
-                    fontSize: 24,
+                    fontSize: 18,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
