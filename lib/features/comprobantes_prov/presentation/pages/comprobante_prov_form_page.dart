@@ -1476,17 +1476,6 @@ class _ItemDialogState extends ConsumerState<_ItemDialog> {
                 ),
                 const SizedBox(height: 16),
                 TextFormField(
-                  controller: _baseContableController,
-                  decoration: const InputDecoration(
-                    labelText: 'Base Contable',
-                    border: OutlineInputBorder(),
-                    prefixText: '\$ ',
-                  ),
-                  keyboardType:
-                      const TextInputType.numberWithOptions(decimal: true),
-                ),
-                const SizedBox(height: 16),
-                TextFormField(
                   controller: _detalleController,
                   decoration: const InputDecoration(
                     labelText: 'Detalle',
@@ -1516,8 +1505,7 @@ class _ItemDialogState extends ConsumerState<_ItemDialog> {
                 concepto: (_selectedConcepto ?? '').toUpperCase(),
                 cuenta: int.parse(_cuentaController.text.trim()),
                 importe: double.parse(_importeController.text.trim()),
-                baseContable:
-                    double.tryParse(_baseContableController.text.trim()) ?? 0,
+                baseContable: double.tryParse(_importeController.text.trim()) ?? 0,
                 alicuota: double.tryParse(_alicuotaController.text.trim()) ?? 0,
                 detalle: _detalleController.text.trim().isEmpty
                     ? null

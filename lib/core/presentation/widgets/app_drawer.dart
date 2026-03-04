@@ -183,6 +183,13 @@ class AppDrawer extends ConsumerWidget {
                   route: '/historial-rechazos',
                   currentRoute: currentRoute,
                 ),
+                _buildMenuItem(
+                  context: context,
+                  icon: Icons.print,
+                  title: 'Reimpresión',
+                  route: '/reimpresion',
+                  currentRoute: currentRoute,
+                ),
               ],
             ),
 
@@ -443,7 +450,8 @@ class AppDrawer extends ConsumerWidget {
     return route.startsWith('/facturador-global') ||
         route.startsWith('/debitos-automaticos') ||
         route.startsWith('/presentaciones-tarjetas') ||
-        route.startsWith('/historial-rechazos');
+        route.startsWith('/historial-rechazos') ||
+        route.startsWith('/reimpresion');
   }
 
   /// Verifica si la ruta actual pertenece a la sección Clientes

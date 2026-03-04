@@ -1,4 +1,6 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:universal_html/html.dart' as html;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
@@ -34,6 +36,9 @@ class _OrdenPagoPageState extends ConsumerState<OrdenPagoPage> {
   // Formas de pago seleccionadas
   final Map<int, double> _formasPago = {}; // conceptoId -> monto
 
+  // Fecha de la orden de pago (puede ser anterior a hoy)
+  DateTime _fechaOP = DateTime.now();
+
   // Controllers para campos de formas de pago
   final Map<int, TextEditingController> _formasPagoControllers = {};
 
@@ -42,6 +47,16 @@ class _OrdenPagoPageState extends ConsumerState<OrdenPagoPage> {
 
   final _dateFormat = DateFormat('dd/MM/yyyy');
   final _currencyFormat = NumberFormat.currency(locale: 'es_AR', symbol: '\$');
+
+  @override
+  void initState() {
+    super.initState();
+    // Invalidar caché para asegurar datos frescos al abrir la página
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.invalidate(comprobantesPendientesProveedorProvider(widget.proveedorId));
+      ref.invalidate(saldoProveedorProvider(widget.proveedorId));
+    });
+  }
 
   @override
   void dispose() {
@@ -713,43 +728,71 @@ class _OrdenPagoPageState extends ConsumerState<OrdenPagoPage> {
 
   Future<void> _generarOrdenPago() async {
     // Mostrar diálogo de confirmación
+    // Permitir seleccionar fecha antes de confirmar
+    DateTime fechaSeleccionada = _fechaOP;
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Confirmar Orden de Pago'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Proveedor: ID ${widget.proveedorId}'),
-            const SizedBox(height: 8),
-            Text(
-              'Total a pagar: ${_currencyFormat.format(_getTotalSeleccionado())}',
-              style: const TextStyle(fontWeight: FontWeight.bold),
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Confirmar Orden de Pago'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Proveedor: ID ${widget.proveedorId}'),
+              const SizedBox(height: 8),
+              Text(
+                'Total a pagar: ${_currencyFormat.format(_getTotalSeleccionado())}',
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
+              Text('Medios de pago: ${_formasPago.length}'),
+              const SizedBox(height: 16),
+              // Selector de fecha de la OP
+              InkWell(
+                onTap: () async {
+                  final picked = await showDatePicker(
+                    context: context,
+                    initialDate: fechaSeleccionada,
+                    firstDate: DateTime(2020),
+                    lastDate: DateTime.now().add(const Duration(days: 1)),
+                  );
+                  if (picked != null) {
+                    setDialogState(() => fechaSeleccionada = picked);
+                  }
+                },
+                child: InputDecorator(
+                  decoration: const InputDecoration(
+                    labelText: 'Fecha de la OP',
+                    border: OutlineInputBorder(),
+                    prefixIcon: Icon(Icons.calendar_today),
+                  ),
+                  child: Text(_dateFormat.format(fechaSeleccionada)),
+                ),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                '¿Confirma la generación de la orden de pago?',
+                style: TextStyle(fontWeight: FontWeight.w500),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancelar'),
             ),
-            Text(
-              'Medios de pago: ${_formasPago.length}',
-            ),
-            const SizedBox(height: 16),
-            const Text(
-              '¿Confirma la generación de la orden de pago?',
-              style: TextStyle(fontWeight: FontWeight.w500),
+            FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              style: FilledButton.styleFrom(backgroundColor: Colors.orange),
+              child: const Text('Confirmar'),
             ),
           ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancelar'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, true),
-            style: FilledButton.styleFrom(backgroundColor: Colors.orange),
-            child: const Text('Confirmar'),
-          ),
-        ],
       ),
     );
+    if (confirmed == true) {
+      setState(() => _fechaOP = fechaSeleccionada);
+    }
 
     if (confirmed != true) return;
 
@@ -783,6 +826,7 @@ class _OrdenPagoPageState extends ConsumerState<OrdenPagoPage> {
                 proveedorId: widget.proveedorId,
                 transaccionesAPagar: _selectedPagos,
                 formasPago: _formasPago,
+                fecha: _fechaOP,
               );
 
       final numeroOP = resultado['numero_orden_pago']!;
@@ -939,8 +983,18 @@ class _OrdenPagoPageState extends ConsumerState<OrdenPagoPage> {
       // Cerrar diálogo de carga
       if (mounted) Navigator.pop(context);
 
-      // Imprimir
-      await pdfService.imprimirOrdenPago(pdf);
+      if (kIsWeb) {
+        // En web: descargar el PDF
+        final bytes = await pdf.save();
+        final blob = html.Blob([bytes], 'application/pdf');
+        final url = html.Url.createObjectUrlFromBlob(blob);
+        final anchor = html.AnchorElement(href: url)
+          ..setAttribute('download', 'OP_$idTransaccion.pdf')
+          ..click();
+        html.Url.revokeObjectUrl(url);
+      } else {
+        await pdfService.imprimirOrdenPago(pdf);
+      }
     } catch (e) {
       // Cerrar diálogo de carga si está abierto
       if (mounted) Navigator.pop(context);

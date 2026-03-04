@@ -59,6 +59,7 @@ import '../../features/debitos_automaticos/presentation/pages/presentaciones_tar
 import '../../features/debitos_automaticos/presentation/pages/detalle_presentacion_page.dart';
 import '../../features/debitos_automaticos/models/presentacion_tarjeta.dart';
 import '../../features/rechazos_da/presentation/pages/historial_rechazos_page.dart';
+import '../../features/reimpresion/presentation/pages/reimpresion_page.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   final authState = ref.watch(authStateProvider);
@@ -598,6 +599,12 @@ final routerProvider = Provider<GoRouter>((ref) {
               int.parse(state.pathParameters['profesionalId']!);
           return NuevaFacturaPage(profesionalId: profesionalId);
         },
+      ),
+      // Reimpresión de OP y Cobranzas
+      GoRoute(
+        path: '/reimpresion',
+        name: 'reimpresion',
+        builder: (context, state) => const ReimpresionPage(),
       ),
       // Cobranzas de Profesionales
       GoRoute(

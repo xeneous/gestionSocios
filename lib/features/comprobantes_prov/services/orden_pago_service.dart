@@ -70,6 +70,7 @@ class OrdenPagoService {
     required int proveedorId,
     required Map<int, double> transaccionesAPagar,
     required Map<int, double> formasPago,
+    DateTime? fecha,
     int? operadorId,
   }) async {
     // Validar que los totales coincidan
@@ -99,21 +100,21 @@ class OrdenPagoService {
       nuevoNumeroOP = (maxCompResult.first['comprobante'] as int) + 1;
     }
 
-    final now = DateTime.now();
-    final anioMes = now.year * 100 + now.month;
+    final fechaOP = fecha ?? DateTime.now();
+    final anioMes = fechaOP.year * 100 + fechaOP.month;
 
     // Crear la orden de pago en comp_prov_header
     final ordenPagoData = {
       'comprobante': nuevoNumeroOP,
       'anio_mes': anioMes,
-      'fecha': now.toIso8601String().split('T')[0],
+      'fecha': fechaOP.toIso8601String().split('T')[0],
       'proveedor': proveedorId,
       'tipo_comprobante': tipoOrdenPago,
       'nro_comprobante': nuevoNumeroOP.toString().padLeft(8, '0'),
       'total_importe': totalAPagar,
       'cancelado': 0,
       'estado': 'C',  // Cancelado (la OP se genera como pagada)
-      'fecha_real': now.toIso8601String().split('T')[0],
+      'fecha_real': fechaOP.toIso8601String().split('T')[0],
     };
 
     final insertResult = await _supabase
@@ -195,7 +196,7 @@ class OrdenPagoService {
       final valorResult = await _supabase.from('valores_tesoreria').insert({
         'idtransaccion_origen': ordenPagoId,
         'idconcepto_tesoreria': conceptoId,
-        'fecha_emision': now.toIso8601String().split('T')[0],
+        'fecha_emision': fechaOP.toIso8601String().split('T')[0],
         'importe': -monto, // Negativo porque es egreso
         'numero_interno': nuevoNumeroOP,
         'tipo_movimiento': 2, // 2 = Egreso (pago a proveedor)
@@ -208,7 +209,7 @@ class OrdenPagoService {
     final opResult = await _supabase.from('operaciones_contables').insert({
       'tipo_operacion': 'ORDEN_PAGO',
       'numero_comprobante': nuevoNumeroOP,
-      'fecha': now.toIso8601String().split('T')[0],
+      'fecha': fechaOP.toIso8601String().split('T')[0],
       'entidad_tipo': 'PROVEEDOR',
       'entidad_id': proveedorId,
       'total': totalAPagar,
@@ -233,12 +234,12 @@ class OrdenPagoService {
         formasPago: formasPago,
         totalAPagar: totalAPagar,
         numeroOrdenPago: nuevoNumeroOP,
-        fecha: now,
+        fecha: fechaOP,
       );
 
       // Actualizar operaciones_contables con el asiento generado
       if (numeroAsiento != null) {
-        final anioMes = now.year * 100 + now.month;
+        final anioMes = fechaOP.year * 100 + fechaOP.month;
         await _supabase.from('operaciones_contables').update({
           'asiento_numero': numeroAsiento,
           'asiento_anio_mes': anioMes,

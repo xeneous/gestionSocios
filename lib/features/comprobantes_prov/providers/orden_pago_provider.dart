@@ -39,6 +39,7 @@ class OrdenPagoNotifier extends Notifier<AsyncValue<void>> {
     required int proveedorId,
     required Map<int, double> transaccionesAPagar,
     required Map<int, double> formasPago,
+    DateTime? fecha,
     int? operadorId,
   }) async {
     state = const AsyncValue.loading();
@@ -48,6 +49,7 @@ class OrdenPagoNotifier extends Notifier<AsyncValue<void>> {
         proveedorId: proveedorId,
         transaccionesAPagar: transaccionesAPagar,
         formasPago: formasPago,
+        fecha: fecha,
         operadorId: operadorId,
       );
       state = const AsyncValue.data(null);
