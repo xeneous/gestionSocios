@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:excel/excel.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'dart:io' show File, Platform;
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:path_provider/path_provider.dart';
@@ -660,12 +661,34 @@ class ResumenCuentasCorrientesPage extends ConsumerWidget {
     List<CuentaCorrienteResumen> socios,
   ) async {
     try {
+      final supabase = Supabase.instance.client;
+
+      // Fetch extra fields from socios table
+      final socioIds = socios.map((s) => s.socioId).toList();
+
+      final sociosExtra = <int, Map<String, dynamic>>{};
+      if (socioIds.isNotEmpty) {
+        final response = await supabase
+            .from('socios')
+            .select('id, numero_documento, grupo_desde, domicilio, localidad, codigo_postal, provincia_id, telefono, telefono_secundario, celular, adherido_debito')
+            .inFilter('id', socioIds);
+        for (final row in (response as List)) {
+          sociosExtra[row['id'] as int] = row as Map<String, dynamic>;
+        }
+      }
+
+      // Fetch province names
+      final provinciasMap = <int, String>{};
+      final provResponse = await supabase
+          .from('provincias')
+          .select('id, descripcion');
+      for (final row in (provResponse as List)) {
+        provinciasMap[row['id'] as int] = row['descripcion'] as String;
+      }
+
       // Crear archivo Excel
       final excel = Excel.createExcel();
-      
-      // Renombrar la hoja por defecto en lugar de eliminarla
       excel.rename('Sheet1', 'Resumen Cuentas Corrientes');
-      
       final sheet = excel['Resumen Cuentas Corrientes'];
 
       // Estilos
@@ -675,21 +698,16 @@ class ResumenCuentasCorrientesPage extends ConsumerWidget {
         fontColorHex: ExcelColor.white,
       );
 
-      // Encabezados
-      final headers = [
-        'Socio',
-        'Apellido',
-        'Nombre',
-        'Grupo',
-        'Saldo',
-        'RDA Pendiente',
-        'Teléfono',
-        'Email',
+      // Encabezados según formato requerido
+      const headers = [
+        'socio', 'Grupo', 'gdesde', 'documento', 'apellido', 'nombre',
+        'tarjeta', 'formapago', 'saldo', 'residente', 'rechazos',
+        'domicilio', 'localidad', 'cpostal', 'provincia',
+        'telefono_particular', 'telefono_consultorio', 'email',
       ];
 
       for (var i = 0; i < headers.length; i++) {
-        final cell = sheet
-            .cell(CellIndex.indexByColumnRow(columnIndex: i, rowIndex: 0));
+        final cell = sheet.cell(CellIndex.indexByColumnRow(columnIndex: i, rowIndex: 0));
         cell.value = TextCellValue(headers[i]);
         cell.cellStyle = headerStyle;
       }
@@ -697,32 +715,51 @@ class ResumenCuentasCorrientesPage extends ConsumerWidget {
       // Datos
       for (var i = 0; i < socios.length; i++) {
         final socio = socios[i];
+        final extra = sociosExtra[socio.socioId] ?? {};
         final rowIndex = i + 1;
 
-        sheet
-            .cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: rowIndex))
-            .value = IntCellValue(socio.socioId);
-        sheet
-            .cell(CellIndex.indexByColumnRow(columnIndex: 1, rowIndex: rowIndex))
-            .value = TextCellValue(socio.apellido);
-        sheet
-            .cell(CellIndex.indexByColumnRow(columnIndex: 2, rowIndex: rowIndex))
-            .value = TextCellValue(socio.nombre);
-        sheet
-            .cell(CellIndex.indexByColumnRow(columnIndex: 3, rowIndex: rowIndex))
-            .value = TextCellValue(socio.grupo ?? '-');
-        sheet
-            .cell(CellIndex.indexByColumnRow(columnIndex: 4, rowIndex: rowIndex))
-            .value = DoubleCellValue(socio.saldo);
-        sheet
-            .cell(CellIndex.indexByColumnRow(columnIndex: 5, rowIndex: rowIndex))
-            .value = DoubleCellValue(socio.rdaPendiente);
-        sheet
-            .cell(CellIndex.indexByColumnRow(columnIndex: 6, rowIndex: rowIndex))
-            .value = TextCellValue(socio.telefono ?? '-');
-        sheet
-            .cell(CellIndex.indexByColumnRow(columnIndex: 7, rowIndex: rowIndex))
-            .value = TextCellValue(socio.email ?? '-');
+        final tarjetaNombre = socio.tarjetaId == 1
+            ? 'Visa'
+            : socio.tarjetaId == 2
+                ? 'Mastercard'
+                : '';
+        final adherido = extra['adherido_debito'] as bool? ?? false;
+        final formaPago = adherido && tarjetaNombre.isNotEmpty
+            ? tarjetaNombre
+            : 'Trf';
+
+        final provinciaId = extra['provincia_id'] as int?;
+        final provinciaNombre = provinciaId != null
+            ? (provinciasMap[provinciaId] ?? provinciaId.toString())
+            : '';
+
+        final grupoDesdeRaw = extra['grupo_desde'] as String?;
+        final grupoDesde = grupoDesdeRaw != null
+            ? DateFormat('dd/MM/yyyy').format(DateTime.parse(grupoDesdeRaw))
+            : '';
+
+        void setCell(int col, CellValue val) => sheet
+            .cell(CellIndex.indexByColumnRow(columnIndex: col, rowIndex: rowIndex))
+            .value = val;
+
+        setCell(0, IntCellValue(socio.socioId));
+        setCell(1, TextCellValue(socio.grupo ?? ''));
+        setCell(2, TextCellValue(grupoDesde));
+        setCell(3, TextCellValue(extra['numero_documento'] as String? ?? ''));
+        setCell(4, TextCellValue(socio.apellido));
+        setCell(5, TextCellValue(socio.nombre));
+        setCell(6, TextCellValue(tarjetaNombre));
+        setCell(7, TextCellValue(formaPago));
+        setCell(8, DoubleCellValue(socio.saldo));
+        setCell(9, TextCellValue(socio.residente ? 'S' : 'N'));
+        setCell(10, IntCellValue(0)); // rechazos: pendiente implementar
+        setCell(11, TextCellValue(extra['domicilio'] as String? ?? ''));
+        setCell(12, TextCellValue(extra['localidad'] as String? ?? ''));
+        setCell(13, TextCellValue(extra['codigo_postal'] as String? ?? ''));
+        setCell(14, TextCellValue(provinciaNombre));
+        setCell(15, TextCellValue(extra['telefono'] as String? ?? ''));
+        setCell(16, TextCellValue(extra['telefono_secundario'] as String? ?? extra['celular'] as String? ?? ''));
+        setCell(17, TextCellValue(socio.email ?? ''));
       }
 
       // Guardar archivo
