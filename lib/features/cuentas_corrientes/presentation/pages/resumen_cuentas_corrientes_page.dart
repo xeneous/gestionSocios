@@ -292,6 +292,12 @@ class ResumenCuentasCorrientesPage extends ConsumerWidget {
                     ),
                     DataColumn(
                       label: Text(
+                        'Tarjeta',
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                    DataColumn(
+                      label: Text(
                         'Saldo',
                         style: TextStyle(fontWeight: FontWeight.bold),
                       ),
@@ -339,6 +345,26 @@ class ResumenCuentasCorrientesPage extends ConsumerWidget {
                         DataCell(Text(socio.categoriaResidente ?? '-')),
                         DataCell(Text(socio.apellido)),
                         DataCell(Text(socio.nombre)),
+                        DataCell(
+                          Text(
+                            socio.tarjetaId == 1
+                                ? 'Visa'
+                                : socio.tarjetaId == 2
+                                    ? 'MC'
+                                    : 'Trf',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: socio.tarjetaId != null
+                                  ? FontWeight.bold
+                                  : FontWeight.normal,
+                              color: socio.tarjetaId == 1
+                                  ? Colors.blue[700]
+                                  : socio.tarjetaId == 2
+                                      ? Colors.orange[800]
+                                      : Colors.grey[600],
+                            ),
+                          ),
+                        ),
                         DataCell(
                           Text(
                             currencyFormat.format(socio.saldo),

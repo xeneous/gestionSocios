@@ -39,22 +39,24 @@ class PresentacionTarjetasService {
       // Calcular total del lote
       final totalLote = itemsLote.fold<double>(0.0, (sum, item) => sum + item.importe);
 
-      // Escribir encabezado de lote
-      buffer.writeln(_generarEncabezadoLoteVisa(
+      // Escribir encabezado de lote (CRLF requerido por VISA)
+      buffer.write(_generarEncabezadoLoteVisa(
         fechaLimite: fechaLimite,
         numeroLote: loteActual,
         cantidadItems: cantidadItemsLote,
         totalLote: totalLote,
       ));
+      buffer.write('\r\n');
 
-      // Escribir items del lote
+      // Escribir items del lote (CRLF requerido por VISA)
       for (var item in itemsLote) {
         cuponGlobal++;
-        buffer.writeln(_generarDetalleVisa(
+        buffer.write(_generarDetalleVisa(
           item: item,
           numeroCupon: cuponGlobal,
           fechaLimite: fechaLimite,
         ));
+        buffer.write('\r\n');
       }
 
       loteActual++;
@@ -86,19 +88,21 @@ class PresentacionTarjetasService {
     final cantidadTotal = itemsValidos.length;
     final importeTotal = itemsValidos.fold<double>(0.0, (sum, item) => sum + item.importe);
 
-    // Escribir encabezado del archivo (solo UNA vez)
-    buffer.writeln(_generarEncabezadoMastercard(
+    // Escribir encabezado del archivo (solo UNA vez, CRLF requerido)
+    buffer.write(_generarEncabezadoMastercard(
       fechaLimite: fechaLimite,
       cantidadTotal: cantidadTotal,
       importeTotal: importeTotal,
     ));
+    buffer.write('\r\n');
 
-    // Escribir todos los detalles
+    // Escribir todos los detalles (CRLF requerido)
     for (var item in itemsValidos) {
-      buffer.writeln(_generarDetalleMastercard(
+      buffer.write(_generarDetalleMastercard(
         item: item,
         fechaLimite: fechaLimite,
       ));
+      buffer.write('\r\n');
     }
 
     return buffer.toString();

@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:excel/excel.dart' as xl;
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:universal_html/html.dart' as html;
@@ -151,6 +152,15 @@ class _DebitosAutomaticosPageState
                       // Botón Ver Vista Previa
                       FilledButton.icon(
                         onPressed: () {
+                          // Invalidar caché para forzar re-fetch desde Supabase
+                          final anioMes = _fechaSeleccionada.year * 100 +
+                              _fechaSeleccionada.month;
+                          final filtro = FiltroDebitosParams(
+                            anioMes: anioMes,
+                            tarjetaId: _tarjetaSeleccionada,
+                          );
+                          ref.invalidate(movimientosPendientesProvider(filtro));
+                          ref.invalidate(estadisticasDebitosProvider(filtro));
                           setState(() {
                             _mostrarVistaPrevia = true;
                           });
@@ -312,9 +322,9 @@ class _DebitosAutomaticosPageState
                     ),
                   ),
                   OutlinedButton.icon(
-                    onPressed: () => _generarPDF(tarjetasValidas),
-                    icon: const Icon(Icons.picture_as_pdf),
-                    label: const Text('Generar PDF'),
+                    onPressed: () => _generarExcel(tarjetasValidas),
+                    icon: const Icon(Icons.table_chart),
+                    label: const Text('Exportar Excel'),
                     style: OutlinedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 24,
@@ -709,6 +719,134 @@ class _DebitosAutomaticosPageState
     await file.writeAsString(contenido);
   }
 
+  /// Exporta la presentación a Excel
+  Future<void> _generarExcel(List<DebitoAutomaticoItem> movimientos) async {
+    try {
+      if (mounted) {
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) => const AlertDialog(
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CircularProgressIndicator(),
+                SizedBox(height: 16),
+                Text('Generando Excel...'),
+              ],
+            ),
+          ),
+        );
+      }
+
+      final currencyFormat = NumberFormat.currency(symbol: '\$', decimalDigits: 2);
+
+      // Nombre de tarjeta
+      final tarjetasAsync = ref.read(tarjetasProvider);
+      String nombreTarjeta = 'Débito Automático';
+      if (tarjetasAsync.hasValue && _tarjetaSeleccionada != null) {
+        final tarjeta = tarjetasAsync.value!.firstWhere(
+          (t) => t.id == _tarjetaSeleccionada,
+          orElse: () => tarjetasAsync.value!.first,
+        );
+        nombreTarjeta = tarjeta.descripcion;
+      }
+
+      final excel = xl.Excel.createExcel();
+      final sheet = excel['Presentacion'];
+      excel.delete('Sheet1');
+
+      // Encabezado con info
+      sheet.cell(xl.CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: 0)).value =
+          xl.TextCellValue('Presentación Débito Automático - $nombreTarjeta');
+      sheet.cell(xl.CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: 1)).value =
+          xl.TextCellValue('Período: ${DateFormat('MM/yyyy').format(_fechaSeleccionada)}');
+      sheet.cell(xl.CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: 2)).value =
+          xl.TextCellValue('Fecha generación: ${DateFormat('dd/MM/yyyy HH:mm').format(DateTime.now())}');
+
+      // Fila de encabezados de columna
+      const headers = ['Socio ID', 'Apellido', 'Nombre', 'Tarjeta', 'Tipo', 'Doc. Nro', 'Importe', 'Tarjeta Válida'];
+      for (int i = 0; i < headers.length; i++) {
+        final cell = sheet.cell(xl.CellIndex.indexByColumnRow(columnIndex: i, rowIndex: 4));
+        cell.value = xl.TextCellValue(headers[i]);
+        cell.cellStyle = xl.CellStyle(bold: true);
+      }
+
+      // Filas de datos
+      for (int i = 0; i < movimientos.length; i++) {
+        final item = movimientos[i];
+        final row = i + 5;
+        sheet.cell(xl.CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: row)).value =
+            xl.IntCellValue(item.socioId);
+        sheet.cell(xl.CellIndex.indexByColumnRow(columnIndex: 1, rowIndex: row)).value =
+            xl.TextCellValue(item.apellido);
+        sheet.cell(xl.CellIndex.indexByColumnRow(columnIndex: 2, rowIndex: row)).value =
+            xl.TextCellValue(item.nombre);
+        sheet.cell(xl.CellIndex.indexByColumnRow(columnIndex: 3, rowIndex: row)).value =
+            xl.TextCellValue(item.numeroTarjetaEnmascarado);
+        sheet.cell(xl.CellIndex.indexByColumnRow(columnIndex: 4, rowIndex: row)).value =
+            xl.TextCellValue(item.tipoComprobante);
+        sheet.cell(xl.CellIndex.indexByColumnRow(columnIndex: 5, rowIndex: row)).value =
+            xl.TextCellValue(item.documentoNumero);
+        sheet.cell(xl.CellIndex.indexByColumnRow(columnIndex: 6, rowIndex: row)).value =
+            xl.DoubleCellValue(item.importe);
+        sheet.cell(xl.CellIndex.indexByColumnRow(columnIndex: 7, rowIndex: row)).value =
+            xl.TextCellValue(item.tarjetaValida ? 'Sí' : 'No');
+      }
+
+      // Fila de total
+      final totalRow = movimientos.length + 6;
+      sheet.cell(xl.CellIndex.indexByColumnRow(columnIndex: 5, rowIndex: totalRow)).value =
+          xl.TextCellValue('TOTAL');
+      final totalImporte = movimientos.fold<double>(0.0, (sum, item) => sum + item.importe);
+      sheet.cell(xl.CellIndex.indexByColumnRow(columnIndex: 6, rowIndex: totalRow)).value =
+          xl.DoubleCellValue(totalImporte);
+
+      final bytes = excel.encode();
+      if (bytes == null) throw Exception('No se pudo generar el archivo Excel');
+
+      if (mounted) Navigator.pop(context);
+
+      final nombreArchivo =
+          'Presentacion_DA_${DateFormat('yyyyMMdd_HHmmss').format(DateTime.now())}.xlsx';
+
+      if (kIsWeb) {
+        final blob = html.Blob([bytes], 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        final url = html.Url.createObjectUrlFromBlob(blob);
+        final anchor = html.AnchorElement(href: url)
+          ..setAttribute('download', nombreArchivo)
+          ..click();
+        html.Url.revokeObjectUrl(url);
+      } else {
+        final directory = await getDownloadsDirectory();
+        if (directory == null) throw Exception('No se pudo acceder al directorio de descargas');
+        final file = File('${directory.path}/$nombreArchivo');
+        await file.writeAsBytes(bytes);
+      }
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Excel generado: $nombreArchivo'),
+            backgroundColor: Colors.green,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error al generar Excel: $e'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 5),
+          ),
+        );
+      }
+    }
+  }
+
   /// Genera un PDF con la previsualización de la presentación
   Future<void> _generarPDF(List<DebitoAutomaticoItem> movimientos) async {
     try {
@@ -754,6 +892,7 @@ class _DebitosAutomaticosPageState
         pw.MultiPage(
           pageFormat: PdfPageFormat.a4.landscape,
           margin: const pw.EdgeInsets.all(32),
+          maxPages: 9999,
           build: (context) => [
             // Título
             pw.Header(
