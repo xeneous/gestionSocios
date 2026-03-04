@@ -338,6 +338,18 @@ class ResumenCuentasCorrientesPage extends ConsumerWidget {
                     ),
                   ],
                   rows: socios.map((socio) {
+                    final tarjetasList = tarjetasAsync.when(
+                      data: (v) => v,
+                      loading: () => <Map<String, dynamic>>[],
+                      error: (_, __) => <Map<String, dynamic>>[],
+                    );
+                    final tarjetasDescMap = {
+                      for (final t in tarjetasList)
+                        t['id'] as int: t['descripcion'] as String
+                    };
+                    final tarjetaDesc = socio.tarjetaId != null
+                        ? (tarjetasDescMap[socio.tarjetaId!] ?? 'Trf')
+                        : 'Trf';
                     return DataRow(
                       onSelectChanged: (_) => context.push('/socios/${socio.socioId}/cuenta-corriente'),
                       cells: [
@@ -348,21 +360,15 @@ class ResumenCuentasCorrientesPage extends ConsumerWidget {
                         DataCell(Text(socio.nombre)),
                         DataCell(
                           Text(
-                            socio.tarjetaId == 1
-                                ? 'Visa'
-                                : socio.tarjetaId == 2
-                                    ? 'MC'
-                                    : 'Trf',
+                            tarjetaDesc,
                             style: TextStyle(
                               fontSize: 12,
                               fontWeight: socio.tarjetaId != null
                                   ? FontWeight.bold
                                   : FontWeight.normal,
-                              color: socio.tarjetaId == 1
+                              color: socio.tarjetaId != null
                                   ? Colors.blue[700]
-                                  : socio.tarjetaId == 2
-                                      ? Colors.orange[800]
-                                      : Colors.grey[600],
+                                  : Colors.grey[600],
                             ),
                           ),
                         ),
@@ -686,6 +692,34 @@ class ResumenCuentasCorrientesPage extends ConsumerWidget {
         provinciasMap[row['id'] as int] = row['descripcion'] as String;
       }
 
+      // Fetch tarjetas names
+      final tarjetasMap = <int, String>{};
+      final tarjetasResponse = await supabase
+          .from('tarjetas')
+          .select('id, descripcion');
+      for (final row in (tarjetasResponse as List)) {
+        tarjetasMap[row['id'] as int] = row['descripcion'] as String;
+      }
+
+      // Fetch RDA pendientes por socio (rechazos)
+      final rdaMap = <int, double>{};
+      if (socioIds.isNotEmpty) {
+        final rdaResponse = await supabase
+            .from('cuentas_corrientes')
+            .select('socio_id, importe, cancelado')
+            .eq('tipo_comprobante', 'RDA')
+            .inFilter('socio_id', socioIds);
+        for (final row in (rdaResponse as List)) {
+          final sid = row['socio_id'] as int;
+          final importe = (row['importe'] as num?)?.toDouble() ?? 0.0;
+          final cancelado = (row['cancelado'] as num?)?.toDouble() ?? 0.0;
+          final pendiente = importe - cancelado;
+          if (pendiente > 0) {
+            rdaMap[sid] = (rdaMap[sid] ?? 0.0) + pendiente;
+          }
+        }
+      }
+
       // Crear archivo Excel
       final excel = Excel.createExcel();
       excel.rename('Sheet1', 'Resumen Cuentas Corrientes');
@@ -718,11 +752,9 @@ class ResumenCuentasCorrientesPage extends ConsumerWidget {
         final extra = sociosExtra[socio.socioId] ?? {};
         final rowIndex = i + 1;
 
-        final tarjetaNombre = socio.tarjetaId == 1
-            ? 'Visa'
-            : socio.tarjetaId == 2
-                ? 'Mastercard'
-                : '';
+        final tarjetaNombre = socio.tarjetaId != null
+            ? (tarjetasMap[socio.tarjetaId!] ?? '')
+            : '';
         final adherido = extra['adherido_debito'] as bool? ?? false;
         final formaPago = adherido && tarjetaNombre.isNotEmpty
             ? tarjetaNombre
@@ -752,7 +784,7 @@ class ResumenCuentasCorrientesPage extends ConsumerWidget {
         setCell(7, TextCellValue(formaPago));
         setCell(8, DoubleCellValue(socio.saldo));
         setCell(9, TextCellValue(socio.residente ? 'S' : 'N'));
-        setCell(10, IntCellValue(0)); // rechazos: pendiente implementar
+        setCell(10, DoubleCellValue(rdaMap[socio.socioId] ?? 0.0));
         setCell(11, TextCellValue(extra['domicilio'] as String? ?? ''));
         setCell(12, TextCellValue(extra['localidad'] as String? ?? ''));
         setCell(13, TextCellValue(extra['codigo_postal'] as String? ?? ''));
