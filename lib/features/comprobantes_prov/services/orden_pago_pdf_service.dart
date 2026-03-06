@@ -41,7 +41,7 @@ class OrdenPagoPdfService {
     // 3. Obtener imputaciones (qué facturas se pagaron)
     final imputacionesData = await _supabase
         .from('notas_imputacion')
-        .select('*, comp_prov_header!id_transaccion(*)')
+        .select('id_operacion, id_transaccion, importe')
         .eq('id_operacion', idTransaccion)
         .eq('tipo_operacion', 1);
 
@@ -51,13 +51,23 @@ class OrdenPagoPdfService {
       final idTransaccionPagada = imp['id_transaccion'] as int;
       final compPagado = await _supabase
           .from('comp_prov_header')
-          .select('*, tip_comp_mod_header(*)')
+          .select('tipo_comprobante, nro_comprobante, fecha, fecha1_venc, total_importe')
           .eq('id_transaccion', idTransaccionPagada)
           .single();
 
-      final tipoData = compPagado['tip_comp_mod_header'] as Map<String, dynamic>?;
+      final tipoCompCodigo = compPagado['tipo_comprobante'] as int?;
+      String tipoLabel = 'FC';
+      if (tipoCompCodigo != null) {
+        final tipoResp = await _supabase
+            .from('tip_comp_mod_header')
+            .select('comprobante')
+            .eq('codigo', tipoCompCodigo)
+            .maybeSingle();
+        tipoLabel = tipoResp?['comprobante'] as String? ?? 'FC';
+      }
+
       transaccionesList.add({
-        'tipo_comprobante': tipoData?['comprobante'] ?? 'FC',
+        'tipo_comprobante': tipoLabel,
         'nro_comprobante': compPagado['nro_comprobante'] as String? ?? '',
         'fecha': compPagado['fecha'] as String?,
         'fecha1_venc': compPagado['fecha1_venc'] as String?,
@@ -69,8 +79,9 @@ class OrdenPagoPdfService {
     // 4. Obtener items de la OP (formas de pago)
     final itemsData = await _supabase
         .from('comp_prov_items')
-        .select('*, conceptos_tesoreria:cuenta(*)')
-        .eq('id_transaccion', idTransaccion);
+        .select('item, detalle, importe')
+        .eq('id_transaccion', idTransaccion)
+        .order('item');
 
     final formasPagoList = <Map<String, dynamic>>[];
     for (final item in itemsData as List) {
@@ -84,15 +95,22 @@ class OrdenPagoPdfService {
     if (formasPagoList.isEmpty) {
       final valoresData = await _supabase
           .from('valores_tesoreria')
-          .select('*, conceptos_tesoreria(*)')
-          .eq('numero_interno', numeroOP)
-          .eq('tipo_entidad', 'PRO')
-          .eq('id_entidad', proveedorId);
+          .select('idconcepto_tesoreria, importe')
+          .eq('numero_interno', numeroOP);
 
       for (final valor in valoresData as List) {
-        final concepto = valor['conceptos_tesoreria'] as Map<String, dynamic>?;
+        final conceptoId = valor['idconcepto_tesoreria'] as int?;
+        String descripcion = 'Forma de pago';
+        if (conceptoId != null) {
+          final conceptoResp = await _supabase
+              .from('conceptos_tesoreria')
+              .select('descripcion')
+              .eq('id', conceptoId)
+              .maybeSingle();
+          descripcion = conceptoResp?['descripcion'] as String? ?? 'Forma de pago';
+        }
         formasPagoList.add({
-          'descripcion': concepto?['descripcion'] as String? ?? 'Forma de pago',
+          'descripcion': descripcion,
           'monto': ((valor['importe'] as num).toDouble()).abs(),
         });
       }

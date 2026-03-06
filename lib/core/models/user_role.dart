@@ -1,5 +1,6 @@
 /// Roles de usuario en el sistema
 enum UserRole {
+  fichasocios('Ficha Socios'),
   usuario('Usuario'),
   contable('Contable'),
   supervisor('Supervisor'),
@@ -17,11 +18,16 @@ enum UserRole {
         return UserRole.supervisor;
       case 'contable':
         return UserRole.contable;
+      case 'fichasocios':
+        return UserRole.fichasocios;
       case 'usuario':
       default:
         return UserRole.usuario;
     }
   }
+
+  /// Rol solo lectura de fichas de socios
+  bool get esFichaSocios => this == UserRole.fichasocios;
 
   /// Verifica si el rol tiene permisos de administrador
   bool get esAdministrador => this == UserRole.administrador;

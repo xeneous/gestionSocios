@@ -81,6 +81,7 @@ class _SociosListPageState extends ConsumerState<SociosListPage> {
   Widget build(BuildContext context) {
     final searchState = ref.watch(sociosSearchStateProvider);
     final gruposAsync = ref.watch(gruposAgrupadosProvider(searchState.soloActivos));
+    final userRole = ref.watch(userRoleProvider);
 
     // Sincronizar controllers con el estado persistido (solo una vez)
     _syncControllersFromState(searchState);
@@ -94,19 +95,22 @@ class _SociosListPageState extends ConsumerState<SociosListPage> {
             tooltip: 'Abrir en nueva pestaña',
             onPressed: () => abrirEnNuevaPestana('/socios'),
           ),
-          IconButton(
-            icon: const Icon(Icons.home),
-            onPressed: () => context.go('/'),
-            tooltip: 'Inicio',
-          ),
+          if (!userRole.esFichaSocios)
+            IconButton(
+              icon: const Icon(Icons.home),
+              onPressed: () => context.go('/'),
+              tooltip: 'Inicio',
+            ),
         ],
       ),
-      drawer: AppDrawer(currentRoute: '/socios'),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => context.go('/socios/nuevo'),
-        icon: const Icon(Icons.person_add),
-        label: const Text('Nuevo Socio'),
-      ),
+      drawer: userRole.esFichaSocios ? null : AppDrawer(currentRoute: '/socios'),
+      floatingActionButton: userRole.esFichaSocios
+          ? null
+          : FloatingActionButton.extended(
+              onPressed: () => context.go('/socios/nuevo'),
+              icon: const Icon(Icons.person_add),
+              label: const Text('Nuevo Socio'),
+            ),
       body: Column(
         children: [
           // Search form
@@ -410,6 +414,7 @@ class _SociosListPageState extends ConsumerState<SociosListPage> {
                               ),
                             ),
                           const SizedBox(width: 8),
+                          if (!userRole.esFichaSocios)
                           IconButton(
                             icon: const Icon(Icons.account_balance_wallet,
                                 color: Colors.green),

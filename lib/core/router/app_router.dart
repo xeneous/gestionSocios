@@ -60,9 +60,13 @@ import '../../features/debitos_automaticos/presentation/pages/detalle_presentaci
 import '../../features/debitos_automaticos/models/presentacion_tarjeta.dart';
 import '../../features/rechazos_da/presentation/pages/historial_rechazos_page.dart';
 import '../../features/reimpresion/presentation/pages/reimpresion_page.dart';
+import '../../features/auth/presentation/providers/user_role_provider.dart';
+import '../../features/auth/presentation/providers/usuarios_provider.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   final authState = ref.watch(authStateProvider);
+  final userRole = ref.watch(userRoleProvider);
+  final userProfileAsync = ref.watch(currentUserProfileProvider);
 
   return GoRouter(
     initialLocation: '/login',
@@ -75,7 +79,19 @@ final routerProvider = Provider<GoRouter>((ref) {
       }
 
       if (isLoggedIn && isLoginRoute) {
-        return '/';
+        // Esperar a que el perfil cargue para evitar flash del dashboard
+        if (userProfileAsync.isLoading) return null;
+        return userRole.esFichaSocios ? '/socios' : '/';
+      }
+
+      // Rol fichasocios: solo puede acceder a /socios y /socios/:id (sin CC)
+      if (userRole.esFichaSocios) {
+        final path = state.matchedLocation;
+        final esSociosPermitido = path.startsWith('/socios') &&
+            !path.contains('cuenta-corriente');
+        if (!esSociosPermitido) {
+          return '/socios';
+        }
       }
 
       return null;

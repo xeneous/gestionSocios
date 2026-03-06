@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:excel/excel.dart';
 import 'package:universal_html/html.dart' as html;
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../providers/cuentas_corrientes_provider.dart';
 import '../../providers/cobranzas_provider.dart';
 import '../../models/cuenta_corriente_completa_model.dart';
@@ -27,6 +28,28 @@ class CuentaCorrienteSocioTablePage extends ConsumerStatefulWidget {
 class _CuentaCorrienteSocioTablePageState
     extends ConsumerState<CuentaCorrienteSocioTablePage> {
   bool _soloPendientes = true;
+  Set<int> _periodosConRechazo = {};
+
+  @override
+  void initState() {
+    super.initState();
+    _cargarPeriodosConRechazo();
+  }
+
+  Future<void> _cargarPeriodosConRechazo() async {
+    try {
+      final resp = await Supabase.instance.client
+          .from('rechazos_tarjetas')
+          .select('periodo')
+          .eq('socio_id', widget.socioId);
+      setState(() {
+        _periodosConRechazo = {
+          for (final r in resp as List)
+            if (r['periodo'] != null) r['periodo'] as int,
+        };
+      });
+    } catch (_) {}
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -337,6 +360,17 @@ class _CuentaCorrienteSocioTablePageState
                   //     padding: EdgeInsets.zero,
                   //     constraints: const BoxConstraints(),
                   //   ),
+                  if (cuenta.header.tipoComprobante == 'RDA' &&
+                      _periodosConRechazo.contains(
+                          int.tryParse(cuenta.header.documentoNumero ?? '')))
+                    IconButton(
+                      icon: const Icon(Icons.info_outline,
+                          size: 18, color: Colors.orange),
+                      onPressed: () => _showMotivoRechazoDialog(cuenta),
+                      tooltip: 'Ver Motivo de Rechazo',
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                    ),
                   IconButton(
                     icon: const Icon(Icons.visibility,
                         size: 18, color: Colors.grey),
@@ -383,6 +417,55 @@ class _CuentaCorrienteSocioTablePageState
     }
 
     return rows;
+  }
+
+  Future<void> _showMotivoRechazoDialog(CuentaCorrienteCompleta cuenta) async {
+    // Buscar en rechazos_tarjetas por socio_id, entidad_id y periodo (documento_numero)
+    final periodo = int.tryParse(cuenta.header.documentoNumero ?? '');
+
+    String? motivo;
+    if (periodo != null) {
+      try {
+        final supabase = Supabase.instance.client;
+        final resp = await supabase
+            .from('rechazos_tarjetas')
+            .select('motivo, fecha_rechazo, numero_tarjeta')
+            .eq('socio_id', cuenta.header.socioId)
+            .eq('entidad_id', cuenta.header.entidadId)
+            .eq('periodo', periodo)
+            .maybeSingle();
+        if (resp != null) {
+          motivo = resp['motivo'] as String?;
+        }
+      } catch (_) {}
+    }
+
+    if (!mounted) return;
+
+    await showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.info_outline, color: Colors.orange),
+            SizedBox(width: 8),
+            Text('Motivo de Rechazo'),
+          ],
+        ),
+        content: Text(
+          motivo?.isNotEmpty == true
+              ? motivo!
+              : 'No se encontró el motivo de rechazo.',
+          style: const TextStyle(fontSize: 15),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cerrar'),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _showDetalleDialog(CuentaCorrienteCompleta cuenta) async {

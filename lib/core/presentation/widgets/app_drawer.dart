@@ -45,6 +45,22 @@ class AppDrawer extends ConsumerWidget {
             ),
           ),
 
+          // ==================== FICHA SOCIOS (rol limitado) ====================
+          if (userRole.esFichaSocios) ...[
+            _buildMenuItem(
+              context: context,
+              icon: Icons.people,
+              title: 'Socios',
+              route: '/socios',
+              currentRoute: currentRoute,
+              onTap: () {
+                ref.read(sociosSearchStateProvider.notifier).clearSearch();
+                Navigator.pop(context);
+                context.go('/socios');
+              },
+            ),
+          ] else ...[
+
           // Dashboard
           ListTile(
             leading: const Icon(Icons.dashboard),
@@ -367,6 +383,8 @@ class AppDrawer extends ConsumerWidget {
                 ),
               ],
             ),
+
+          ], // cierre del else (fichasocios)
         ],
       ),
     );

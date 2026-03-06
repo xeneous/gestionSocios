@@ -368,25 +368,28 @@ class _SocioFormPageState extends ConsumerState<SocioFormPage>
               ),
             );
 
-            // Preguntar si desea cargar la cobranza
-            final cargarCobranza = await showDialog<bool>(
-              context: context,
-              builder: (context) => AlertDialog(
-                title: const Text('Cargar Cobranza'),
-                content: const Text(
-                    '¿Desea cargar la cobranza para las cuotas sociales creadas?'),
-                actions: [
-                  TextButton(
-                    onPressed: () => Navigator.of(context).pop(false),
-                    child: const Text('No'),
-                  ),
-                  FilledButton(
-                    onPressed: () => Navigator.of(context).pop(true),
-                    child: const Text('Sí'),
-                  ),
-                ],
-              ),
-            );
+            // Preguntar si desea cargar la cobranza (no para fichasocios)
+            final esFichaSocios = ref.read(userRoleProvider).esFichaSocios;
+            final cargarCobranza = esFichaSocios
+                ? false
+                : await showDialog<bool>(
+                    context: context,
+                    builder: (context) => AlertDialog(
+                      title: const Text('Cargar Cobranza'),
+                      content: const Text(
+                          '¿Desea cargar la cobranza para las cuotas sociales creadas?'),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.of(context).pop(false),
+                          child: const Text('No'),
+                        ),
+                        FilledButton(
+                          onPressed: () => Navigator.of(context).pop(true),
+                          child: const Text('Sí'),
+                        ),
+                      ],
+                    ),
+                  );
 
             // Si confirma, navegar a la pantalla de cobranzas
             if (cargarCobranza == true && mounted) {
@@ -419,16 +422,24 @@ class _SocioFormPageState extends ConsumerState<SocioFormPage>
   @override
   Widget build(BuildContext context) {
     final gruposAsync = ref.watch(gruposAgrupadosProvider(false));
+    final esFichaSocios = ref.watch(userRoleProvider).esFichaSocios;
 
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.socioId != null ? 'Editar Socio' : 'Nuevo Socio'),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.home),
-            onPressed: () => context.go('/'),
-            tooltip: 'Inicio',
-          ),
+          if (widget.socioId != null && !esFichaSocios)
+            IconButton(
+              icon: const Icon(Icons.account_balance_wallet),
+              onPressed: () => context.go('/socios/${widget.socioId}/cuenta-corriente'),
+              tooltip: 'Cuenta Corriente',
+            ),
+          if (!esFichaSocios)
+            IconButton(
+              icon: const Icon(Icons.home),
+              onPressed: () => context.go('/'),
+              tooltip: 'Inicio',
+            ),
         ],
       ),
       body: (_isLoading || _isLoadingData)
