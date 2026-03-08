@@ -12,7 +12,8 @@ class OrdenPagoService {
   }
 
   /// Obtiene los comprobantes pendientes de pago de un proveedor
-  Future<List<Map<String, dynamic>>> getComprobantesPendientes(int proveedorId) async {
+  Future<List<Map<String, dynamic>>> getComprobantesPendientes(
+      int proveedorId) async {
     // Primero obtener los tipos de comprobante para saber el multiplicador
     final tiposResponse = await _supabase
         .from('tip_comp_mod_header')
@@ -47,14 +48,16 @@ class OrdenPagoService {
       final cancelado = (comp['cancelado'] as num?)?.toDouble() ?? 0;
       final saldo = totalImporte - cancelado;
       final tipoComprobante = comp['tipo_comprobante'] as int?;
-      final tipoData = tipoComprobante != null ? tiposMap[tipoComprobante] : null;
+      final tipoData =
+          tipoComprobante != null ? tiposMap[tipoComprobante] : null;
       final multiplicador = tipoData?['multiplicador'] ?? 1;
       // Solo mostrar facturas pendientes (multiplicador 1 = crédito del proveedor, debemos pagarle)
       return saldo > 0.01 && multiplicador == 1;
     }).map((comp) {
       // Agregar datos del tipo de comprobante al resultado
       final tipoComprobante = comp['tipo_comprobante'] as int?;
-      final tipoData = tipoComprobante != null ? tiposMap[tipoComprobante] : null;
+      final tipoData =
+          tipoComprobante != null ? tiposMap[tipoComprobante] : null;
       return {
         ...comp as Map<String, dynamic>,
         'tip_comp_mod_header': tipoData,
@@ -79,9 +82,8 @@ class OrdenPagoService {
 
     if ((totalAPagar - totalFormasPago).abs() > 0.01) {
       throw Exception(
-        'Los totales no coinciden: Total a pagar: \$${totalAPagar.toStringAsFixed(2)}, '
-        'Total formas de pago: \$${totalFormasPago.toStringAsFixed(2)}'
-      );
+          'Los totales no coinciden: Total a pagar: \$${totalAPagar.toStringAsFixed(2)}, '
+          'Total formas de pago: \$${totalFormasPago.toStringAsFixed(2)}');
     }
 
     // Obtener próximo número de orden de pago
@@ -113,7 +115,7 @@ class OrdenPagoService {
       'nro_comprobante': nuevoNumeroOP.toString().padLeft(8, '0'),
       'total_importe': totalAPagar,
       'cancelado': 0,
-      'estado': 'C',  // Cancelado (la OP se genera como pagada)
+      'estado': 'C', // Cancelado (la OP se genera como pagada)
       'fecha_real': fechaOP.toIso8601String().split('T')[0],
     };
 
@@ -137,21 +139,20 @@ class OrdenPagoService {
           .eq('id_transaccion', idTransaccion)
           .single();
 
-      final canceladoActual = (transaccion['cancelado'] as num?)?.toDouble() ?? 0;
+      final canceladoActual =
+          (transaccion['cancelado'] as num?)?.toDouble() ?? 0;
       final nuevoCancelado = canceladoActual + montoPagado;
 
       // Actualizar campo cancelado
-      await _supabase
-          .from('comp_prov_header')
-          .update({'cancelado': nuevoCancelado})
-          .eq('id_transaccion', idTransaccion);
+      await _supabase.from('comp_prov_header').update(
+          {'cancelado': nuevoCancelado}).eq('id_transaccion', idTransaccion);
 
       // Registrar trazabilidad en notas_imputacion
       await _supabase.from('notas_imputacion').insert({
         'id_operacion': ordenPagoId,
         'id_transaccion': idTransaccion,
         'importe': montoPagado,
-        'tipo_operacion': 1,  // 1 = Orden de Pago (proveedores)
+        'tipo_operacion': 1, // 1 = Orden de Pago (proveedores)
         'observacion': 'OP $nuevoNumeroOP',
       });
     }
@@ -169,14 +170,15 @@ class OrdenPagoService {
           .eq('id', conceptoId)
           .single();
 
-      final cuentaContable = int.tryParse(concepto['imputacion_contable']?.toString() ?? '0') ?? 0;
+      final cuentaContable =
+          int.tryParse(concepto['imputacion_contable']?.toString() ?? '0') ?? 0;
 
       await _supabase.from('comp_prov_items').insert({
         'id_transaccion': ordenPagoId,
         'comprobante': nuevoNumeroOP,
         'anio_mes': anioMes,
         'item': itemNum,
-        'concepto': 'EXE',  // Exento por defecto
+        'concepto': 'EXE', // Exento por defecto
         'cuenta': cuentaContable,
         'importe': monto,
         'base_contable': monto,
@@ -193,27 +195,35 @@ class OrdenPagoService {
       final conceptoId = entry.key;
       final monto = entry.value;
 
-      final valorResult = await _supabase.from('valores_tesoreria').insert({
-        'idtransaccion_origen': ordenPagoId,
-        'idconcepto_tesoreria': conceptoId,
-        'fecha_emision': fechaOP.toIso8601String().split('T')[0],
-        'importe': -monto, // Negativo porque es egreso
-        'numero_interno': nuevoNumeroOP,
-        'tipo_movimiento': 2, // 2 = Egreso (pago a proveedor)
-      }).select('id').single();
+      final valorResult = await _supabase
+          .from('valores_tesoreria')
+          .insert({
+            'idtransaccion_origen': ordenPagoId,
+            'idconcepto_tesoreria': conceptoId,
+            'fecha_emision': fechaOP.toIso8601String().split('T')[0],
+            'importe': -monto, // Negativo porque es egreso
+            'numero_interno': nuevoNumeroOP,
+            'tipo_movimiento': 2, // 2 = Egreso (pago a proveedor)
+          })
+          .select('id')
+          .single();
 
       idsValoresTesoreria.add(valorResult['id'] as int);
     }
 
     // Crear registro en operaciones_contables
-    final opResult = await _supabase.from('operaciones_contables').insert({
-      'tipo_operacion': 'ORDEN_PAGO',
-      'numero_comprobante': nuevoNumeroOP,
-      'fecha': fechaOP.toIso8601String().split('T')[0],
-      'entidad_tipo': 'PROVEEDOR',
-      'entidad_id': proveedorId,
-      'total': totalAPagar,
-    }).select('id').single();
+    final opResult = await _supabase
+        .from('operaciones_contables')
+        .insert({
+          'tipo_operacion': 'ORDEN_PAGO',
+          'numero_comprobante': nuevoNumeroOP,
+          'fecha': fechaOP.toIso8601String().split('T')[0],
+          'entidad_tipo': 'PROVEEDOR',
+          'entidad_id': proveedorId,
+          'total': totalAPagar,
+        })
+        .select('id')
+        .single();
     final operacionId = opResult['id'] as int;
 
     // Vincular valores_tesoreria con la operación
@@ -238,14 +248,12 @@ class OrdenPagoService {
       );
 
       // Actualizar operaciones_contables con el asiento generado
-      if (numeroAsiento != null) {
-        final anioMes = fechaOP.year * 100 + fechaOP.month;
-        await _supabase.from('operaciones_contables').update({
-          'asiento_numero': numeroAsiento,
-          'asiento_anio_mes': anioMes,
-          'asiento_tipo': 2, // tipoEgreso
-        }).eq('id', operacionId);
-      }
+      final anioMes = fechaOP.year * 100 + fechaOP.month;
+      await _supabase.from('operaciones_contables').update({
+        'asiento_numero': numeroAsiento,
+        'asiento_anio_mes': anioMes,
+        'asiento_tipo': 2, // tipoEgreso
+      }).eq('id', operacionId);
     } catch (e) {
       asientoError = e.toString().replaceFirst('Exception: ', '');
     }
@@ -286,8 +294,7 @@ class OrdenPagoService {
           'No se encontró CUENTA_PROVEEDORES en parámetros_contables');
     }
 
-    final cuentaProveedores =
-        int.tryParse(paramResponse['valor'].toString());
+    final cuentaProveedores = int.tryParse(paramResponse['valor'].toString());
     if (cuentaProveedores == null) {
       throw Exception(
           'El valor de CUENTA_PROVEEDORES no es un número válido: ${paramResponse['valor']}');
@@ -325,8 +332,8 @@ class OrdenPagoService {
           .eq('id', conceptoId)
           .maybeSingle();
 
-      final cuentaPago = int.tryParse(
-          concepto?['imputacion_contable']?.toString() ?? '0');
+      final cuentaPago =
+          int.tryParse(concepto?['imputacion_contable']?.toString() ?? '0');
       if (cuentaPago == null || cuentaPago == 0) {
         final desc = concepto?['descripcion'] ?? 'ID $conceptoId';
         throw Exception(
@@ -368,8 +375,8 @@ class OrdenPagoService {
         .select('total_importe, cancelado, tipo_comprobante')
         .eq('proveedor', proveedorId);
 
-    double totalFacturas = 0;  // Lo que debemos (facturas)
-    double totalPagos = 0;     // Lo que pagamos (OP, NC)
+    double totalFacturas = 0; // Lo que debemos (facturas)
+    double totalPagos = 0; // Lo que pagamos (OP, NC)
     int totalTransacciones = 0;
 
     for (final comp in response) {
@@ -377,7 +384,8 @@ class OrdenPagoService {
       final cancelado = (comp['cancelado'] as num?)?.toDouble() ?? 0;
       final saldo = totalImporte - cancelado;
       final tipoComprobante = comp['tipo_comprobante'] as int?;
-      final multiplicador = tipoComprobante != null ? (tiposMap[tipoComprobante] ?? 1) : 1;
+      final multiplicador =
+          tipoComprobante != null ? (tiposMap[tipoComprobante] ?? 1) : 1;
 
       if (multiplicador == 1) {
         // Facturas = aumenta deuda
@@ -392,7 +400,7 @@ class OrdenPagoService {
     return {
       'total_facturas': totalFacturas,
       'total_pagos': totalPagos,
-      'saldo_total': totalFacturas - totalPagos,  // Positivo = debemos
+      'saldo_total': totalFacturas - totalPagos, // Positivo = debemos
       'total_transacciones': totalTransacciones.toDouble(),
     };
   }

@@ -16,7 +16,8 @@ class MovimientoTesoreria {
   final int id;
   final DateTime fecha;
   final String concepto;
-  final double importe; // positivo = débito (ingreso), negativo = crédito (egreso)
+  final double
+      importe; // positivo = débito (ingreso), negativo = crédito (egreso)
   final int tipoMovimiento; // 1 = ingreso, 2 = egreso
   final String? observaciones;
   final int? numeroInterno;
@@ -78,17 +79,19 @@ class TesoreriaDiariaParams {
   int get hashCode => Object.hash(fechaDesde, fechaHasta);
 }
 
-final tesoreriaDiariaProvider = FutureProvider.family<
-    List<MovimientoTesoreria>,
-    TesoreriaDiariaParams>((ref, params) async {
+final tesoreriaDiariaProvider =
+    FutureProvider.family<List<MovimientoTesoreria>, TesoreriaDiariaParams>(
+        (ref, params) async {
   final supabase = ref.watch(supabaseProvider);
 
   // 1. Obtener movimientos de valores_tesoreria con conceptos
   final response = await supabase
       .from('valores_tesoreria')
-      .select('id, tipo_movimiento, fecha_emision, importe, numero_interno, observaciones, banco, idconcepto_tesoreria, conceptos_tesoreria(descripcion)')
+      .select(
+          'id, tipo_movimiento, fecha_emision, importe, numero_interno, observaciones, banco, idconcepto_tesoreria, conceptos_tesoreria(descripcion)')
       .gte('fecha_emision', params.fechaDesde.toIso8601String().split('T')[0])
-      .lte('fecha_emision', '${params.fechaHasta.toIso8601String().split('T')[0]}T23:59:59')
+      .lte('fecha_emision',
+          '${params.fechaHasta.toIso8601String().split('T')[0]}T23:59:59')
       .order('fecha_emision', ascending: false);
 
   if ((response as List).isEmpty) return [];
@@ -98,7 +101,8 @@ final tesoreriaDiariaProvider = FutureProvider.family<
   // 2. Obtener datos de operaciones_contables vinculados (asiento + tipo operación)
   final detallesResponse = await supabase
       .from('operaciones_detalle_valores_tesoreria')
-      .select('valor_tesoreria_id, operaciones_contables(tipo_operacion, entidad_tipo, numero_comprobante, asiento_numero, asiento_tipo)')
+      .select(
+          'valor_tesoreria_id, operaciones_contables(tipo_operacion, entidad_tipo, numero_comprobante, asiento_numero, asiento_tipo)')
       .inFilter('valor_tesoreria_id', valorIds);
 
   // Construir mapa valorId → operacion
@@ -115,7 +119,9 @@ final tesoreriaDiariaProvider = FutureProvider.family<
   return response.map((v) {
     final valorId = v['id'] as int;
     final op = operacionMap[valorId];
-    final concepto = (v['conceptos_tesoreria'] as Map<String, dynamic>?)?['descripcion'] as String? ?? 'Sin concepto';
+    final concepto = (v['conceptos_tesoreria']
+            as Map<String, dynamic>?)?['descripcion'] as String? ??
+        'Sin concepto';
 
     return MovimientoTesoreria(
       id: valorId,
@@ -144,7 +150,8 @@ class TesoreriaDiariaPage extends ConsumerStatefulWidget {
   const TesoreriaDiariaPage({super.key});
 
   @override
-  ConsumerState<TesoreriaDiariaPage> createState() => _TesoreriaDiariaPageState();
+  ConsumerState<TesoreriaDiariaPage> createState() =>
+      _TesoreriaDiariaPageState();
 }
 
 class _TesoreriaDiariaPageState extends ConsumerState<TesoreriaDiariaPage> {
@@ -298,13 +305,14 @@ class _TesoreriaDiariaPageState extends ConsumerState<TesoreriaDiariaPage> {
                   data: (conceptos) => SizedBox(
                     width: 260,
                     child: DropdownButtonFormField<int?>(
-                      value: _filtroConceptoId,
+                      initialValue: _filtroConceptoId,
                       isExpanded: true,
                       decoration: const InputDecoration(
                         labelText: 'Concepto',
                         border: OutlineInputBorder(),
                         isDense: true,
-                        contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        contentPadding:
+                            EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                       ),
                       items: [
                         const DropdownMenuItem<int?>(
@@ -385,7 +393,8 @@ class _TesoreriaDiariaPageState extends ConsumerState<TesoreriaDiariaPage> {
     );
   }
 
-  Widget _buildContenido(AsyncValue<List<MovimientoTesoreria>> movimientosAsync) {
+  Widget _buildContenido(
+      AsyncValue<List<MovimientoTesoreria>> movimientosAsync) {
     return movimientosAsync.when(
       data: (movimientos) {
         // Aplicar filtros client-side
@@ -396,7 +405,8 @@ class _TesoreriaDiariaPageState extends ConsumerState<TesoreriaDiariaPage> {
             case 'efectivo':
               return m.esEfectivo;
             case 'concepto':
-              return _filtroConceptoId == null || m.conceptoId == _filtroConceptoId;
+              return _filtroConceptoId == null ||
+                  m.conceptoId == _filtroConceptoId;
             default:
               return true;
           }
@@ -423,8 +433,10 @@ class _TesoreriaDiariaPageState extends ConsumerState<TesoreriaDiariaPage> {
         }
 
         // Totales generales (del filtro aplicado)
-        final totalDebitos = movimientosFiltrados.fold(0.0, (s, m) => s + m.debito);
-        final totalCreditos = movimientosFiltrados.fold(0.0, (s, m) => s + m.credito);
+        final totalDebitos =
+            movimientosFiltrados.fold(0.0, (s, m) => s + m.debito);
+        final totalCreditos =
+            movimientosFiltrados.fold(0.0, (s, m) => s + m.credito);
 
         return Column(
           children: [
@@ -434,23 +446,28 @@ class _TesoreriaDiariaPageState extends ConsumerState<TesoreriaDiariaPage> {
               color: Colors.grey[200],
               child: Row(
                 children: [
-                  Text('${movimientosFiltrados.length} movimiento(s) · ${porDia.length} día(s)'),
+                  Text(
+                      '${movimientosFiltrados.length} movimiento(s) · ${porDia.length} día(s)'),
                   const Spacer(),
                   Text(
                     'Total Débitos: ${_currencyFormat.format(totalDebitos)}',
-                    style: const TextStyle(color: Colors.green, fontWeight: FontWeight.bold),
+                    style: const TextStyle(
+                        color: Colors.green, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(width: 24),
                   Text(
                     'Total Créditos: ${_currencyFormat.format(totalCreditos)}',
-                    style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
+                    style: const TextStyle(
+                        color: Colors.red, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(width: 24),
                   Text(
                     'Neto: ${_currencyFormat.format(totalDebitos - totalCreditos)}',
                     style: TextStyle(
                       fontWeight: FontWeight.bold,
-                      color: (totalDebitos - totalCreditos) >= 0 ? Colors.green[700] : Colors.red,
+                      color: (totalDebitos - totalCreditos) >= 0
+                          ? Colors.green[700]
+                          : Colors.red,
                     ),
                   ),
                 ],
@@ -464,9 +481,11 @@ class _TesoreriaDiariaPageState extends ConsumerState<TesoreriaDiariaPage> {
                   final dia = porDia.keys.elementAt(index);
                   final movsDia = porDia[dia]!;
                   final debitosDia = movsDia.fold(0.0, (s, m) => s + m.debito);
-                  final creditosDia = movsDia.fold(0.0, (s, m) => s + m.credito);
+                  final creditosDia =
+                      movsDia.fold(0.0, (s, m) => s + m.credito);
 
-                  return _buildDiaSection(dia, movsDia, debitosDia, creditosDia);
+                  return _buildDiaSection(
+                      dia, movsDia, debitosDia, creditosDia);
                 },
               ),
             ),
@@ -508,7 +527,8 @@ class _TesoreriaDiariaPageState extends ConsumerState<TesoreriaDiariaPage> {
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
             decoration: BoxDecoration(
               color: Colors.blueGrey[700],
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),
+              borderRadius:
+                  const BorderRadius.vertical(top: Radius.circular(4)),
             ),
             child: Row(
               children: [
@@ -525,7 +545,8 @@ class _TesoreriaDiariaPageState extends ConsumerState<TesoreriaDiariaPage> {
                 const Spacer(),
                 Text(
                   'Débitos: ${_currencyFormat.format(debitos)}',
-                  style: const TextStyle(color: Colors.greenAccent, fontSize: 13),
+                  style:
+                      const TextStyle(color: Colors.greenAccent, fontSize: 13),
                 ),
                 const SizedBox(width: 16),
                 Text(
@@ -552,12 +573,26 @@ class _TesoreriaDiariaPageState extends ConsumerState<TesoreriaDiariaPage> {
               horizontalMargin: 16,
               headingRowColor: WidgetStateProperty.all(Colors.grey[100]),
               columns: const [
-                DataColumn(label: Text('Concepto', style: TextStyle(fontWeight: FontWeight.bold))),
-                DataColumn(label: Text('Detalle', style: TextStyle(fontWeight: FontWeight.bold))),
-                DataColumn(label: Text('Tipo Op.', style: TextStyle(fontWeight: FontWeight.bold))),
-                DataColumn(label: Text('Débito', style: TextStyle(fontWeight: FontWeight.bold)), numeric: true),
-                DataColumn(label: Text('Crédito', style: TextStyle(fontWeight: FontWeight.bold)), numeric: true),
-                DataColumn(label: Text('Asiento', style: TextStyle(fontWeight: FontWeight.bold))),
+                DataColumn(
+                    label: Text('Concepto',
+                        style: TextStyle(fontWeight: FontWeight.bold))),
+                DataColumn(
+                    label: Text('Detalle',
+                        style: TextStyle(fontWeight: FontWeight.bold))),
+                DataColumn(
+                    label: Text('Tipo Op.',
+                        style: TextStyle(fontWeight: FontWeight.bold))),
+                DataColumn(
+                    label: Text('Débito',
+                        style: TextStyle(fontWeight: FontWeight.bold)),
+                    numeric: true),
+                DataColumn(
+                    label: Text('Crédito',
+                        style: TextStyle(fontWeight: FontWeight.bold)),
+                    numeric: true),
+                DataColumn(
+                    label: Text('Asiento',
+                        style: TextStyle(fontWeight: FontWeight.bold))),
               ],
               rows: movimientos.map((m) => _buildRow(m)).toList(),
             ),
@@ -583,11 +618,13 @@ class _TesoreriaDiariaPageState extends ConsumerState<TesoreriaDiariaPage> {
       final tipoAsientoDesc = m.asientoTipo != null
           ? (_tiposAsiento[m.asientoTipo] ?? 'Tipo ${m.asientoTipo}')
           : '';
-      asientoLabel = '${m.asientoNumero}${tipoAsientoDesc.isNotEmpty ? ' ($tipoAsientoDesc)' : ''}';
+      asientoLabel =
+          '${m.asientoNumero}${tipoAsientoDesc.isNotEmpty ? ' ($tipoAsientoDesc)' : ''}';
     }
 
     return DataRow(
-      color: WidgetStateProperty.all(m.esDebito ? Colors.green[50] : Colors.red[50]),
+      color: WidgetStateProperty.all(
+          m.esDebito ? Colors.green[50] : Colors.red[50]),
       cells: [
         DataCell(Text(m.concepto)),
         DataCell(
@@ -618,7 +655,8 @@ class _TesoreriaDiariaPageState extends ConsumerState<TesoreriaDiariaPage> {
         DataCell(
           Text(
             m.credito > 0 ? _currencyFormat.format(m.credito) : '-',
-            style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
+            style:
+                const TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
           ),
         ),
         DataCell(

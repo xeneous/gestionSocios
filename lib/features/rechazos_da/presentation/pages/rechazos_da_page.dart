@@ -5,7 +5,6 @@ import 'package:intl/intl.dart';
 import 'package:universal_html/html.dart' as html;
 import '../../../../core/utils/web_utils.dart';
 
-import '../../models/rechazo_da_item.dart';
 import '../../providers/rechazos_da_provider.dart';
 
 class RechazosDaPage extends ConsumerWidget {
@@ -40,10 +39,14 @@ class RechazosDaPage extends ConsumerWidget {
       ),
       body: switch (state.estado) {
         RechazosDaEstado.inicial => _PanelSeleccionArchivo(notifier: notifier),
-        RechazosDaEstado.buscando => _PanelCargando(mensaje: 'Buscando débitos en cuenta corriente...'),
-        RechazosDaEstado.registrando => _PanelCargando(mensaje: 'Registrando rechazos...'),
-        RechazosDaEstado.listo => _PanelResultados(state: state, notifier: notifier),
-        RechazosDaEstado.completado => _PanelCompletado(state: state, notifier: notifier),
+        RechazosDaEstado.buscando =>
+          _PanelCargando(mensaje: 'Buscando débitos en cuenta corriente...'),
+        RechazosDaEstado.registrando =>
+          _PanelCargando(mensaje: 'Registrando rechazos...'),
+        RechazosDaEstado.listo =>
+          _PanelResultados(state: state, notifier: notifier),
+        RechazosDaEstado.completado =>
+          _PanelCompletado(state: state, notifier: notifier),
         RechazosDaEstado.error => _PanelError(state: state, notifier: notifier),
       },
     );
@@ -93,14 +96,18 @@ class _PanelSeleccionArchivo extends StatelessWidget {
               const SizedBox(height: 8),
               Text(
                 'Seleccioná el archivo RDEBLIQC recibido de Visa',
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.grey),
+                style: Theme.of(context)
+                    .textTheme
+                    .bodyMedium
+                    ?.copyWith(color: Colors.grey),
               ),
               const SizedBox(height: 32),
               ElevatedButton.icon(
                 icon: const Icon(Icons.folder_open),
                 label: const Text('Seleccionar archivo .txt'),
                 style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
                 ),
                 onPressed: _seleccionarArchivo,
               ),
@@ -209,9 +216,8 @@ class _PanelResultados extends StatelessWidget {
               FilledButton.icon(
                 icon: const Icon(Icons.check_circle),
                 label: Text('Confirmar ${state.seleccionados} rechazos'),
-                onPressed: state.seleccionados == 0
-                    ? null
-                    : () => _confirmar(context),
+                onPressed:
+                    state.seleccionados == 0 ? null : () => _confirmar(context),
               ),
             ],
           ),
@@ -234,7 +240,8 @@ class _PanelResultados extends StatelessWidget {
                 final encontrado = r.daEncontrado;
 
                 return Card(
-                  margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                  margin:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
                   color: encontrado ? null : Colors.red.shade50,
                   child: CheckboxListTile(
                     value: r.seleccionado,
@@ -280,7 +287,8 @@ class _PanelResultados extends StatelessWidget {
                         Row(
                           children: [
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 6, vertical: 2),
                               decoration: BoxDecoration(
                                 color: Colors.orange.shade100,
                                 borderRadius: BorderRadius.circular(4),
@@ -297,26 +305,30 @@ class _PanelResultados extends StatelessWidget {
                             const SizedBox(width: 8),
                             if (!encontrado)
                               Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 6, vertical: 2),
                                 decoration: BoxDecoration(
                                   color: Colors.red.shade100,
                                   borderRadius: BorderRadius.circular(4),
                                 ),
                                 child: const Text(
                                   'DA no encontrado en CC',
-                                  style: TextStyle(fontSize: 11, color: Colors.red),
+                                  style: TextStyle(
+                                      fontSize: 11, color: Colors.red),
                                 ),
                               ),
                             if (encontrado)
                               Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 6, vertical: 2),
                                 decoration: BoxDecoration(
                                   color: Colors.green.shade100,
                                   borderRadius: BorderRadius.circular(4),
                                 ),
                                 child: const Text(
                                   'DA encontrado',
-                                  style: TextStyle(fontSize: 11, color: Colors.green),
+                                  style: TextStyle(
+                                      fontSize: 11, color: Colors.green),
                                 ),
                               ),
                           ],
@@ -460,7 +472,8 @@ class _ChipInfo extends StatelessWidget {
   final String label;
   final String valor;
   final Color color;
-  const _ChipInfo({required this.label, required this.valor, required this.color});
+  const _ChipInfo(
+      {required this.label, required this.valor, required this.color});
 
   @override
   Widget build(BuildContext context) {

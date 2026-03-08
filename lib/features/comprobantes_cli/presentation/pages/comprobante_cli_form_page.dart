@@ -228,7 +228,7 @@ class _ComprobanteCliFormPageState
         cancelado: _comprobante?.cancelado ?? 0,
         fecha1Venc: _fecha1Venc,
         fecha2Venc: _fecha2Venc,
-        estado: 'P',  // Estado siempre es P (Pendiente)
+        estado: 'P', // Estado siempre es P (Pendiente)
         fechaReal: _fechaReal,
         descripcionImporte: _descripcionController.text.trim().isEmpty
             ? null
@@ -965,7 +965,7 @@ class _ItemDialogState extends ConsumerState<_ItemDialog> {
           _selectedConcepto != null && conceptos.contains(_selectedConcepto);
 
       return DropdownButtonFormField<String>(
-        value: valorValido ? _selectedConcepto : null,
+        initialValue: valorValido ? _selectedConcepto : null,
         decoration: const InputDecoration(
           labelText: 'Concepto *',
           border: OutlineInputBorder(),
@@ -1140,8 +1140,7 @@ class _ItemDialogState extends ConsumerState<_ItemDialog> {
                 importe: double.parse(_importeController.text.trim()),
                 baseContable:
                     double.tryParse(_baseContableController.text.trim()) ?? 0,
-                alicuota:
-                    double.tryParse(_alicuotaController.text.trim()) ?? 0,
+                alicuota: double.tryParse(_alicuotaController.text.trim()) ?? 0,
                 detalle: _detalleController.text.trim().isEmpty
                     ? null
                     : _detalleController.text.trim(),

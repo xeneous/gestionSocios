@@ -40,8 +40,8 @@ class RechazosMastercardPage extends ConsumerWidget {
       body: switch (state.estado) {
         RechazosMastercardEstado.inicial =>
           _PanelSeleccionArchivo(notifier: notifier),
-        RechazosMastercardEstado.buscando =>
-          const _PanelCargando(mensaje: 'Buscando débitos en cuenta corriente...'),
+        RechazosMastercardEstado.buscando => const _PanelCargando(
+            mensaje: 'Buscando débitos en cuenta corriente...'),
         RechazosMastercardEstado.registrando =>
           const _PanelCargando(mensaje: 'Procesando...'),
         RechazosMastercardEstado.listo =>
@@ -149,7 +149,8 @@ class _PanelSeleccionArchivoState extends State<_PanelSeleccionArchivo> {
                   padding:
                       const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
                 ),
-                onPressed: _fechaPresentacion == null ? null : _seleccionarArchivo,
+                onPressed:
+                    _fechaPresentacion == null ? null : _seleccionarArchivo,
               ),
 
               if (_fechaPresentacion == null) ...[
@@ -229,13 +230,12 @@ class _PanelResultadosState extends State<_PanelResultados>
       builder: (_) => AlertDialog(
         title: const Text('Confirmar procesamiento'),
         content: Text(
-          [
+          '${[
             if (state.rechazosSeleccionados > 0)
               '• ${state.rechazosSeleccionados} rechazo(s) RDA a registrar en CC.',
             if (state.observadosSeleccionados > 0)
               '• ${state.observadosSeleccionados} tarjeta(s) a actualizar.',
-          ].join('\n') +
-              '\n\nEsta acción no se puede deshacer. ¿Continuar?',
+          ].join('\n')}\n\nEsta acción no se puede deshacer. ¿Continuar?',
         ),
         actions: [
           TextButton(
@@ -267,8 +267,7 @@ class _PanelResultadosState extends State<_PanelResultados>
         Container(
           width: double.infinity,
           color: Colors.blueGrey.shade50,
-          padding:
-              const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           child: Wrap(
             spacing: 24,
             runSpacing: 8,
@@ -326,8 +325,7 @@ class _PanelResultadosState extends State<_PanelResultados>
           controller: _tabController,
           tabs: [
             Tab(
-              text:
-                  'Rechazos (${state.totalRechazos})',
+              text: 'Rechazos (${state.totalRechazos})',
               icon: const Icon(Icons.cancel),
             ),
             Tab(
@@ -383,8 +381,7 @@ class _TabRechazos extends StatelessWidget {
       children: [
         // Barra de acciones
         Padding(
-          padding:
-              const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
           child: Row(
             children: [
               _ChipInfo(
@@ -396,9 +393,8 @@ class _TabRechazos extends StatelessWidget {
               _ChipInfo(
                 label: 'Sin DA en CC',
                 valor: '${state.rechazosNoEncontrados}',
-                color: state.rechazosNoEncontrados > 0
-                    ? Colors.red
-                    : Colors.grey,
+                color:
+                    state.rechazosNoEncontrados > 0 ? Colors.red : Colors.grey,
               ),
               const Spacer(),
               TextButton.icon(
@@ -424,8 +420,7 @@ class _TabRechazos extends StatelessWidget {
               final encontrado = r.daEncontrado;
 
               return Card(
-                margin: const EdgeInsets.symmetric(
-                    horizontal: 16, vertical: 4),
+                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
                 color: encontrado ? null : Colors.red.shade50,
                 child: CheckboxListTile(
                   value: r.seleccionado,
@@ -437,8 +432,7 @@ class _TabRechazos extends StatelessWidget {
                       Expanded(
                         child: Text(
                           r.socioNombre ?? 'Socio ${r.item.socioId}',
-                          style: const TextStyle(
-                              fontWeight: FontWeight.bold),
+                          style: const TextStyle(fontWeight: FontWeight.bold),
                         ),
                       ),
                       const SizedBox(width: 16),
@@ -446,8 +440,7 @@ class _TabRechazos extends StatelessWidget {
                         '\$ ${fmt.format(r.item.importe)}',
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
-                          color:
-                              Theme.of(context).colorScheme.primary,
+                          color: Theme.of(context).colorScheme.primary,
                         ),
                       ),
                     ],
@@ -495,9 +488,7 @@ class _TabRechazos extends StatelessWidget {
                                   : 'DA no encontrado en CC',
                               style: TextStyle(
                                 fontSize: 11,
-                                color: encontrado
-                                    ? Colors.green
-                                    : Colors.red,
+                                color: encontrado ? Colors.green : Colors.red,
                               ),
                             ),
                           ),
@@ -529,8 +520,7 @@ class _TabObservados extends StatelessWidget {
     final observados = state.soloObservados;
 
     if (observados.isEmpty) {
-      return const Center(
-          child: Text('No hay observados en este archivo.'));
+      return const Center(child: Text('No hay observados en este archivo.'));
     }
 
     return Column(
@@ -568,15 +558,13 @@ class _TabObservados extends StatelessWidget {
               final indexReal = state.resultados.indexOf(r);
 
               return Card(
-                margin: const EdgeInsets.symmetric(
-                    horizontal: 16, vertical: 4),
+                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
                 child: CheckboxListTile(
                   value: r.seleccionado,
                   onChanged: (_) => notifier.toggleSeleccion(indexReal),
                   title: Text(
                     r.socioNombre ?? 'Socio ${r.item.socioId}',
-                    style:
-                        const TextStyle(fontWeight: FontWeight.bold),
+                    style: const TextStyle(fontWeight: FontWeight.bold),
                   ),
                   subtitle: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -736,8 +724,7 @@ class _ChipInfo extends StatelessWidget {
       children: [
         Text('$label: ', style: const TextStyle(fontSize: 13)),
         Container(
-          padding:
-              const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
           decoration: BoxDecoration(
             color: color.withOpacity(0.15),
             borderRadius: BorderRadius.circular(12),
