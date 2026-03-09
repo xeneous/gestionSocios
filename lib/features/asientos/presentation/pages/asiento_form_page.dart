@@ -7,6 +7,7 @@ import '../../providers/asientos_provider.dart';
 import '../../models/asiento_model.dart';
 import '../../../cuentas/providers/cuentas_provider.dart';
 import '../../../cuentas/models/cuenta_model.dart';
+import '../../../auth/presentation/providers/auth_provider.dart';
 import '../widgets/cuentas_search_dialog.dart';
 import '../../../../core/utils/date_picker_utils.dart';
 
@@ -148,7 +149,7 @@ class _AsientoFormPageState extends ConsumerState<AsientoFormPage> {
     }
   }
 
-  void _validateAndSelectAccount(AsientoItemRow item, List<Cuenta> cuentas, String value) {
+  Future<void> _validateAndSelectAccount(AsientoItemRow item, String value) async {
     final numCuenta = int.tryParse(value);
     if (numCuenta == null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -161,15 +162,20 @@ class _AsientoFormPageState extends ConsumerState<AsientoFormPage> {
       return;
     }
 
-    final cuenta = cuentas.firstWhere(
-      (c) => c.cuenta == numCuenta && c.imputable,
-      orElse: () => Cuenta(cuenta: 0, descripcion: ''),
-    );
+    final supabase = ref.read(supabaseProvider);
+    final response = await supabase
+        .from('cuentas')
+        .select()
+        .eq('cuenta', numCuenta)
+        .eq('activo', true)
+        .maybeSingle();
 
-    if (cuenta.cuenta == 0) {
+    if (!mounted) return;
+
+    if (response == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Cuenta $numCuenta no existe o no es imputable'),
+          content: Text('Cuenta $numCuenta no existe'),
           backgroundColor: Colors.red,
           duration: const Duration(seconds: 2),
         ),
@@ -178,13 +184,31 @@ class _AsientoFormPageState extends ConsumerState<AsientoFormPage> {
         item.cuentaId = null;
         item.cuentaDescripcion = null;
       });
-    } else {
-      setState(() {
-        item.cuentaId = cuenta.cuenta;
-        item.cuentaDescripcion = cuenta.descripcion;
-        item.cuentaController.text = cuenta.cuenta.toString();
-      });
+      return;
     }
+
+    final cuenta = Cuenta.fromJson(response);
+    if (!cuenta.imputable) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Cuenta $numCuenta no es imputable'),
+          backgroundColor: Colors.red,
+          duration: const Duration(seconds: 2),
+        ),
+      );
+      setState(() {
+        item.cuentaId = null;
+        item.cuentaDescripcion = null;
+      });
+      return;
+    }
+
+    setState(() {
+      item.cuentaId = cuenta.cuenta;
+      item.cuentaDescripcion = cuenta.descripcion;
+      item.cuentaController.text = cuenta.cuenta.toString();
+    });
+    item.debeFocus.requestFocus();
   }
 
   Future<void> _showCuentasSearchDialog(AsientoItemRow item) async {
@@ -206,6 +230,13 @@ class _AsientoFormPageState extends ConsumerState<AsientoFormPage> {
   Future<void> _saveAsiento() async {
     if (!_formKey.currentState!.validate()) {
       return;
+    }
+
+    // Sincronizar valores desde los controllers antes de validar
+    // (por si el usuario guardó sin perder el foco del campo)
+    for (final item in _items) {
+      item.debe = double.tryParse(item.debeController.text) ?? item.debe;
+      item.haber = double.tryParse(item.haberController.text) ?? item.haber;
     }
 
     // Filtrar solo líneas con cuenta seleccionada y monto > 0
@@ -246,7 +277,7 @@ class _AsientoFormPageState extends ConsumerState<AsientoFormPage> {
     try {
       // Calcular anio_mes (YYYYMM)
       final anioMes = int.parse(DateFormat('yyyyMM').format(_selectedDate));
-      final tipoAsiento = 0; // Tipo 0 = Asiento Diario
+      final tipoAsiento = widget.tipoAsiento ?? 0;
       
       final bool isEditing = widget.asiento != null;
       
@@ -454,10 +485,7 @@ class _AsientoFormPageState extends ConsumerState<AsientoFormPage> {
                                                     FilteringTextInputFormatter.digitsOnly,
                                                   ],
                                                   onFieldSubmitted: (value) {
-                                                    _validateAndSelectAccount(item, cuentas, value);
-                                                    if (item.cuentaId != null) {
-                                                      item.debeFocus.requestFocus();
-                                                    }
+                                                    _validateAndSelectAccount(item, value);
                                                   },
                                                   onChanged: (value) {
                                                     setState(() {

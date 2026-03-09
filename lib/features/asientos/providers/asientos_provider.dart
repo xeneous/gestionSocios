@@ -270,6 +270,13 @@ class AsientosNotifier extends Notifier<AsyncValue<void>> {
             'El asiento no está balanceado. Debe = ${asientoCompleto.totalDebe}, Haber = ${asientoCompleto.totalHaber}');
       }
 
+      // GUARDIA: el tipo_asiento NUNCA puede cambiar al editar
+      if (asientoCompleto.header.tipoAsiento != tipoAsiento) {
+        throw Exception(
+            'Error interno: el tipo de asiento no puede modificarse al editar '
+            '(original=$tipoAsiento, recibido=${asientoCompleto.header.tipoAsiento})');
+      }
+
       // IMPORTANTE: Borrar items viejos PRIMERO para evitar conflicto de foreign key
       await supabase
           .from('asientos_items')

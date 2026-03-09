@@ -497,9 +497,10 @@ class _CuentaCorrienteProveedorPageState
       if (mounted) Navigator.pop(context);
 
       if (!mounted) return;
+      final messenger = ScaffoldMessenger.of(context);
       await showDialog(
         context: context,
-        builder: (context) => AlertDialog(
+        builder: (dialogContext) => AlertDialog(
           title: Row(
             children: [
               const Icon(Icons.print, color: Colors.teal),
@@ -510,12 +511,11 @@ class _CuentaCorrienteProveedorPageState
           content: const Text('¿Qué desea hacer con la orden de pago?'),
           actions: [
             TextButton(
-              onPressed: () => Navigator.pop(context),
+              onPressed: () => Navigator.pop(dialogContext),
               child: const Text('Cerrar'),
             ),
             FilledButton.icon(
               onPressed: () async {
-                final messenger = ScaffoldMessenger.of(context);
                 try {
                   await pdfService.imprimirOrdenPago(pdf);
                 } catch (e) {
@@ -530,7 +530,6 @@ class _CuentaCorrienteProveedorPageState
             ),
             FilledButton.icon(
               onPressed: () async {
-                final messenger = ScaffoldMessenger.of(context);
                 try {
                   final provData = ref.read(proveedorProvider(widget.proveedorId));
                   final nombre = provData.value?.razonSocial ?? 'proveedor_${widget.proveedorId}';

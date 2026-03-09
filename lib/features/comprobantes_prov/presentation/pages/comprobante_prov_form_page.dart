@@ -198,6 +198,20 @@ class _ComprobanteProvFormPageState
     return _items.fold(0, (sum, item) => sum + item.importe);
   }
 
+  /// Si contiene guión: "1-10" → "0001-00000010".
+  /// Sin guión: guarda tal cual (hasta 14 chars). Retorna null si vacío.
+  String? _formatNroComprobante(String input) {
+    final trimmed = input.trim();
+    if (trimmed.isEmpty) return null;
+    if (!trimmed.contains('-')) return trimmed;
+    final parts = trimmed.split('-');
+    if (parts.length != 2) return trimmed;
+    final p1 = int.tryParse(parts[0]);
+    final p2 = int.tryParse(parts[1]);
+    if (p1 == null || p2 == null) return trimmed;
+    return '${p1.toString().padLeft(4, '0')}-${p2.toString().padLeft(8, '0')}';
+  }
+
   Future<void> _saveComprobante() async {
     if (!_formKey.currentState!.validate()) return;
 
@@ -255,7 +269,7 @@ class _ComprobanteProvFormPageState
         fecha: _fecha,
         proveedor: proveedorId,
         tipoComprobante: _tipoComprobante!,
-        nroComprobante: _nroComprobanteController.text.trim(),
+        nroComprobante: _formatNroComprobante(_nroComprobanteController.text) ?? _nroComprobanteController.text.trim(),
         tipoFactura: _tipoFactura,
         totalImporte: _calcularTotal(),
         cancelado: _comprobante?.cancelado ?? 0,
@@ -1393,47 +1407,16 @@ class _ItemDialogState extends ConsumerState<_ItemDialog> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: conceptosAsync.when(
-                        data: _buildConceptoField,
-                        loading: () => const TextField(
-                          enabled: false,
-                          decoration: InputDecoration(
-                            labelText: 'Cargando conceptos...',
-                            border: OutlineInputBorder(),
-                          ),
-                        ),
-                        error: (_, __) => _buildConceptoField([]),
-                      ),
+                conceptosAsync.when(
+                  data: _buildConceptoField,
+                  loading: () => const TextField(
+                    enabled: false,
+                    decoration: InputDecoration(
+                      labelText: 'Cargando conceptos...',
+                      border: OutlineInputBorder(),
                     ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: TextFormField(
-                        controller: _cuentaController,
-                        decoration: InputDecoration(
-                          labelText: 'Cuenta *',
-                          border: const OutlineInputBorder(),
-                          suffixIcon: IconButton(
-                            icon: const Icon(Icons.search),
-                            tooltip: 'Buscar cuenta',
-                            onPressed: _buscarCuenta,
-                          ),
-                        ),
-                        keyboardType: TextInputType.number,
-                        validator: (value) {
-                          if (value == null || value.trim().isEmpty) {
-                            return 'Requerido';
-                          }
-                          if (int.tryParse(value.trim()) == null) {
-                            return 'Número inválido';
-                          }
-                          return null;
-                        },
-                      ),
-                    ),
-                  ],
+                  ),
+                  error: (_, __) => _buildConceptoField([]),
                 ),
                 const SizedBox(height: 16),
                 Row(

@@ -8,6 +8,7 @@ import '../../../clientes/providers/clientes_provider.dart';
 import '../../../clientes/models/cliente_model.dart';
 import '../../../asientos/presentation/widgets/cuentas_search_dialog.dart';
 import '../../../cuentas/models/cuenta_model.dart';
+import '../../../cuentas/providers/cuentas_provider.dart';
 import '../../../../core/utils/date_picker_utils.dart';
 
 class ComprobanteCliFormPage extends ConsumerStatefulWidget {
@@ -183,6 +184,20 @@ class _ComprobanteCliFormPageState
     return _items.fold(0, (sum, item) => sum + item.importe);
   }
 
+  /// Si contiene guión: "1-10" → "0001-00000010".
+  /// Sin guión: guarda tal cual (hasta 14 chars). Retorna null si vacío.
+  String? _formatNroComprobante(String input) {
+    final trimmed = input.trim();
+    if (trimmed.isEmpty) return null;
+    if (!trimmed.contains('-')) return trimmed;
+    final parts = trimmed.split('-');
+    if (parts.length != 2) return trimmed;
+    final p1 = int.tryParse(parts[0]);
+    final p2 = int.tryParse(parts[1]);
+    if (p1 == null || p2 == null) return trimmed;
+    return '${p1.toString().padLeft(4, '0')}-${p2.toString().padLeft(8, '0')}';
+  }
+
   Future<void> _saveComprobante() async {
     if (!_formKey.currentState!.validate()) return;
 
@@ -210,6 +225,30 @@ class _ComprobanteCliFormPageState
       return;
     }
 
+    // Validar que todas las cuentas contables de los items existan
+    final cuentasAsync = ref.read(cuentasProvider);
+    final cuentas = cuentasAsync.asData?.value;
+    if (cuentas != null) {
+      final cuentasValidas = cuentas.map((c) => c.cuenta).toSet();
+      final cuentasInvalidas = _items
+          .where((i) => i.cuenta != 0 && !cuentasValidas.contains(i.cuenta))
+          .map((i) => i.cuenta)
+          .toSet();
+      if (cuentasInvalidas.isNotEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                  'Las siguientes cuentas contables no existen: ${cuentasInvalidas.join(', ')}'),
+              backgroundColor: Colors.red,
+              duration: const Duration(seconds: 5),
+            ),
+          );
+        }
+        return;
+      }
+    }
+
     setState(() => _isLoading = true);
 
     try {
@@ -220,9 +259,7 @@ class _ComprobanteCliFormPageState
         fecha: _fecha,
         cliente: clienteId,
         tipoComprobante: _tipoComprobante!,
-        nroComprobante: _nroComprobanteController.text.trim().isEmpty
-            ? null
-            : _nroComprobanteController.text.trim(),
+        nroComprobante: _formatNroComprobante(_nroComprobanteController.text),
         tipoFactura: _tipoFactura,
         totalImporte: _calcularTotal(),
         cancelado: _comprobante?.cancelado ?? 0,
@@ -1015,47 +1052,16 @@ class _ItemDialogState extends ConsumerState<_ItemDialog> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: conceptosAsync.when(
-                        data: _buildConceptoField,
-                        loading: () => const TextField(
-                          enabled: false,
-                          decoration: InputDecoration(
-                            labelText: 'Cargando conceptos...',
-                            border: OutlineInputBorder(),
-                          ),
-                        ),
-                        error: (_, __) => _buildConceptoField([]),
-                      ),
+                conceptosAsync.when(
+                  data: _buildConceptoField,
+                  loading: () => const TextField(
+                    enabled: false,
+                    decoration: InputDecoration(
+                      labelText: 'Cargando conceptos...',
+                      border: OutlineInputBorder(),
                     ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: TextFormField(
-                        controller: _cuentaController,
-                        decoration: InputDecoration(
-                          labelText: 'Cuenta *',
-                          border: const OutlineInputBorder(),
-                          suffixIcon: IconButton(
-                            icon: const Icon(Icons.search),
-                            tooltip: 'Buscar cuenta',
-                            onPressed: _buscarCuenta,
-                          ),
-                        ),
-                        keyboardType: TextInputType.number,
-                        validator: (value) {
-                          if (value == null || value.trim().isEmpty) {
-                            return 'Requerido';
-                          }
-                          if (int.tryParse(value.trim()) == null) {
-                            return 'Número inválido';
-                          }
-                          return null;
-                        },
-                      ),
-                    ),
-                  ],
+                  ),
+                  error: (_, __) => _buildConceptoField([]),
                 ),
                 const SizedBox(height: 16),
                 Row(
