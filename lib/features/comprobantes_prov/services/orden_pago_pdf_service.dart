@@ -11,12 +11,6 @@ class OrdenPagoPdfService {
 
   OrdenPagoPdfService(this._supabase);
 
-  /// Genera un PDF de la orden de pago
-  ///
-  /// Parámetros:
-  /// - idTransaccion: ID de la orden de pago en comp_prov_header
-  ///
-  /// Retorna el documento PDF generado
   Future<pw.Document> generarOrdenPagoPdf({
     required int idTransaccion,
   }) async {
@@ -31,12 +25,13 @@ class OrdenPagoPdfService {
     final fechaOP = DateTime.parse(opData['fecha'] as String);
     final totalPagado = (opData['total_importe'] as num).toDouble();
     final proveedorId = opData['proveedor'] as int;
+    final observaciones = opData['observaciones'] as String? ?? '';
 
     // 2. Obtener datos del proveedor
     final proveedorData = opData['proveedores'] as Map<String, dynamic>?;
-    final nombreProveedor = proveedorData?['razon_social'] as String? ?? 'Proveedor $proveedorId';
-    final cuitProveedor = proveedorData?['cuit'] as String? ?? '';
-    final domicilioProveedor = proveedorData?['domicilio'] as String? ?? '';
+    final nombreProveedor =
+        proveedorData?['razon_social'] as String? ?? 'Proveedor $proveedorId';
+    final telefonoProveedor = proveedorData?['telefono'] as String? ?? '';
 
     // 3. Obtener imputaciones (qué facturas se pagaron)
     final imputacionesData = await _supabase
@@ -47,11 +42,10 @@ class OrdenPagoPdfService {
 
     final transaccionesList = <Map<String, dynamic>>[];
     for (final imp in imputacionesData as List) {
-      // Obtener datos del comprobante pagado
       final idTransaccionPagada = imp['id_transaccion'] as int;
       final compPagado = await _supabase
           .from('comp_prov_header')
-          .select('tipo_comprobante, nro_comprobante, fecha, fecha1_venc, total_importe')
+          .select('tipo_comprobante, nro_comprobante, fecha, total_importe')
           .eq('id_transaccion', idTransaccionPagada)
           .single();
 
@@ -70,13 +64,11 @@ class OrdenPagoPdfService {
         'tipo_comprobante': tipoLabel,
         'nro_comprobante': compPagado['nro_comprobante'] as String? ?? '',
         'fecha': compPagado['fecha'] as String?,
-        'fecha1_venc': compPagado['fecha1_venc'] as String?,
-        'importe_total': (compPagado['total_importe'] as num).toDouble(),
         'monto_pagado': (imp['importe'] as num).toDouble(),
       });
     }
 
-    // 4. Obtener items de la OP (formas de pago)
+    // 4. Obtener formas de pago (items de la OP)
     final itemsData = await _supabase
         .from('comp_prov_items')
         .select('item, detalle, importe')
@@ -87,11 +79,10 @@ class OrdenPagoPdfService {
     for (final item in itemsData as List) {
       formasPagoList.add({
         'descripcion': item['detalle'] as String? ?? 'Forma de pago',
-        'monto': (item['importe'] as num).toDouble(),
+        'monto': ((item['importe'] as num).toDouble()).abs(),
       });
     }
 
-    // Si no hay items, obtener de valores_tesoreria
     if (formasPagoList.isEmpty) {
       final valoresData = await _supabase
           .from('valores_tesoreria')
@@ -107,7 +98,8 @@ class OrdenPagoPdfService {
               .select('descripcion')
               .eq('id', conceptoId)
               .maybeSingle();
-          descripcion = conceptoResp?['descripcion'] as String? ?? 'Forma de pago';
+          descripcion =
+              conceptoResp?['descripcion'] as String? ?? 'Forma de pago';
         }
         formasPagoList.add({
           'descripcion': descripcion,
@@ -119,261 +111,255 @@ class OrdenPagoPdfService {
     // 5. Generar PDF
     final pdf = pw.Document();
     final dateFormat = DateFormat('dd/MM/yyyy');
-
-    // Convertir total a letras
+    final currencyFormat = NumberFormat('#,##0.00');
     final totalEnLetras = NumeroALetras.convertir(totalPagado);
 
     pdf.addPage(
       pw.Page(
         pageFormat: PdfPageFormat.a4,
-        margin: const pw.EdgeInsets.all(40),
+        margin: const pw.EdgeInsets.all(36),
         build: (context) {
           return pw.Column(
-            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            crossAxisAlignment: pw.CrossAxisAlignment.stretch,
             children: [
-              // Header
-              pw.Row(
-                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-                children: [
-                  pw.Column(
-                    crossAxisAlignment: pw.CrossAxisAlignment.start,
-                    children: [
-                      pw.Text(
-                        'SOCIEDAD ARGENTINA DE OFTALMOLOGÍA',
-                        style: pw.TextStyle(
-                          fontSize: 16,
-                          fontWeight: pw.FontWeight.bold,
-                        ),
-                      ),
-                      pw.SizedBox(height: 4),
-                      pw.Text(
-                        'ORDEN DE PAGO',
-                        style: pw.TextStyle(
-                          fontSize: 14,
-                          fontWeight: pw.FontWeight.bold,
-                        ),
-                      ),
-                    ],
-                  ),
-                  pw.Container(
-                    padding: const pw.EdgeInsets.all(8),
-                    decoration: pw.BoxDecoration(
-                      border: pw.Border.all(width: 2),
-                    ),
-                    child: pw.Column(
-                      crossAxisAlignment: pw.CrossAxisAlignment.end,
-                      children: [
-                        pw.Text(
-                          'OP Nº $numeroOP',
-                          style: pw.TextStyle(
-                            fontSize: 18,
-                            fontWeight: pw.FontWeight.bold,
-                          ),
-                        ),
-                        pw.SizedBox(height: 4),
-                        pw.Text(
-                          'Fecha: ${dateFormat.format(fechaOP)}',
-                          style: const pw.TextStyle(fontSize: 10),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-
-              pw.SizedBox(height: 24),
-
-              // Datos del proveedor
+              // ── Header institucional ──
               pw.Container(
-                padding: const pw.EdgeInsets.all(12),
-                decoration: pw.BoxDecoration(
-                  border: pw.Border.all(),
-                ),
+                decoration: pw.BoxDecoration(border: pw.Border.all()),
+                padding: const pw.EdgeInsets.all(10),
                 child: pw.Column(
                   crossAxisAlignment: pw.CrossAxisAlignment.start,
                   children: [
                     pw.Text(
-                      'PÁGUESE A',
+                      'Sociedad Argentina de Oftalmologia',
                       style: pw.TextStyle(
-                        fontSize: 10,
-                        fontWeight: pw.FontWeight.bold,
-                      ),
-                    ),
-                    pw.SizedBox(height: 8),
-                    pw.Text(
-                      'Proveedor Nº: $proveedorId',
-                      style: const pw.TextStyle(fontSize: 12),
-                    ),
-                    pw.Text(
-                      'Razón Social: $nombreProveedor',
-                      style: pw.TextStyle(
-                        fontSize: 12,
-                        fontWeight: pw.FontWeight.bold,
-                      ),
-                    ),
-                    if (cuitProveedor.isNotEmpty)
-                      pw.Text(
-                        'CUIT: $cuitProveedor',
-                        style: const pw.TextStyle(fontSize: 10),
-                      ),
-                    if (domicilioProveedor.isNotEmpty)
-                      pw.Text(
-                        'Domicilio: $domicilioProveedor',
-                        style: const pw.TextStyle(fontSize: 10),
-                      ),
-                  ],
-                ),
-              ),
-
-              pw.SizedBox(height: 16),
-
-              // Total en letras
-              pw.Container(
-                padding: const pw.EdgeInsets.all(12),
-                decoration: pw.BoxDecoration(
-                  border: pw.Border.all(),
-                  color: PdfColors.grey100,
-                ),
-                child: pw.Column(
-                  crossAxisAlignment: pw.CrossAxisAlignment.start,
-                  children: [
-                    pw.Text(
-                      'LA SUMA DE:',
-                      style: pw.TextStyle(
-                        fontSize: 10,
+                        fontSize: 14,
                         fontWeight: pw.FontWeight.bold,
                       ),
                     ),
                     pw.SizedBox(height: 4),
                     pw.Text(
-                      totalEnLetras.toUpperCase(),
+                      'Marcelo Torcuato de Alvear 2051, C1122 Cdad. Autónoma de Buenos Aires',
+                      style: const pw.TextStyle(fontSize: 10),
+                    ),
+                    pw.Row(
+                      children: [
+                        pw.Expanded(
+                          child: pw.Text(
+                            '4373-8826',
+                            style: const pw.TextStyle(fontSize: 10),
+                          ),
+                        ),
+                        pw.Expanded(
+                          child: pw.Text(
+                            'info@sao.org.ar',
+                            style: const pw.TextStyle(fontSize: 10),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+
+              pw.SizedBox(height: 10),
+
+              // ── Nombre / OP / Fecha ──
+              pw.Container(
+                decoration: pw.BoxDecoration(
+                  border: pw.Border(
+                    top: const pw.BorderSide(),
+                    left: const pw.BorderSide(),
+                    right: const pw.BorderSide(),
+                  ),
+                ),
+                padding: const pw.EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 8,
+                ),
+                child: pw.Row(
+                  children: [
+                    pw.Expanded(
+                      child: pw.Text(
+                        'Nombre: $proveedorId  $nombreProveedor',
+                        style: pw.TextStyle(
+                          fontSize: 11,
+                          fontWeight: pw.FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    pw.Text(
+                      'Orden de Pago: $numeroOP',
                       style: pw.TextStyle(
-                        fontSize: 12,
+                        fontSize: 11,
+                        fontWeight: pw.FontWeight.bold,
+                      ),
+                    ),
+                    pw.SizedBox(width: 20),
+                    pw.Text(
+                      'Fecha: ${dateFormat.format(fechaOP)}',
+                      style: pw.TextStyle(
+                        fontSize: 11,
                         fontWeight: pw.FontWeight.bold,
                       ),
                     ),
                   ],
                 ),
               ),
-
-              pw.SizedBox(height: 16),
-
-              // Tabla de comprobantes pagados
-              pw.Text(
-                'EN CANCELACIÓN DE:',
-                style: pw.TextStyle(
-                  fontSize: 10,
-                  fontWeight: pw.FontWeight.bold,
+              // Telefono
+              pw.Container(
+                decoration: pw.BoxDecoration(border: pw.Border.all()),
+                padding: const pw.EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 6,
+                ),
+                child: pw.Text(
+                  'Telefono: $telefonoProveedor',
+                  style: const pw.TextStyle(fontSize: 10),
                 ),
               ),
-              pw.SizedBox(height: 8),
+
+              pw.SizedBox(height: 10),
+
+              // ── Tabla comprobantes: Emisión | Comprobante | Importe ──
               pw.Table(
                 border: pw.TableBorder.all(),
                 columnWidths: {
-                  0: const pw.FlexColumnWidth(1.5),
-                  1: const pw.FlexColumnWidth(2),
-                  2: const pw.FlexColumnWidth(1.5),
-                  3: const pw.FlexColumnWidth(1.5),
-                  4: const pw.FlexColumnWidth(1.5),
+                  0: const pw.FixedColumnWidth(80),
+                  1: const pw.FlexColumnWidth(1),
+                  2: const pw.FixedColumnWidth(110),
                 },
                 children: [
-                  // Header
                   pw.TableRow(
-                    decoration:
-                        const pw.BoxDecoration(color: PdfColors.grey300),
                     children: [
-                      _buildTableCell('Tipo', isHeader: true),
-                      _buildTableCell('Nro. Comprobante', isHeader: true),
-                      _buildTableCell('Fecha', isHeader: true),
-                      _buildTableCell('Importe',
-                          isHeader: true, align: pw.TextAlign.right),
-                      _buildTableCell('Pagado',
-                          isHeader: true, align: pw.TextAlign.right),
+                      _cell('Emisión', isHeader: true),
+                      _cell('Comprobante', isHeader: true),
+                      _cell(
+                        'Importe',
+                        isHeader: true,
+                        align: pw.TextAlign.right,
+                      ),
                     ],
                   ),
-                  // Rows
                   ...transaccionesList.map((t) {
                     final fecha = t['fecha'] != null
-                        ? dateFormat.format(DateTime.parse(t['fecha']))
+                        ? dateFormat
+                            .format(DateTime.parse(t['fecha'] as String))
                         : '-';
-                    final importe =
-                        '\$${(t['importe_total'] as double).toStringAsFixed(2)}';
-                    final pagado =
-                        '\$${(t['monto_pagado'] as double).toStringAsFixed(2)}';
-
+                    final comprobante =
+                        '${t['tipo_comprobante']}  ${t['nro_comprobante']}';
                     return pw.TableRow(
                       children: [
-                        _buildTableCell(t['tipo_comprobante']),
-                        _buildTableCell(t['nro_comprobante']),
-                        _buildTableCell(fecha),
-                        _buildTableCell(importe, align: pw.TextAlign.right),
-                        _buildTableCell(pagado, align: pw.TextAlign.right),
-                      ],
-                    );
-                  }),
-                ],
-              ),
-
-              pw.SizedBox(height: 16),
-
-              // Formas de pago
-              pw.Text(
-                'FORMA DE PAGO:',
-                style: pw.TextStyle(
-                  fontSize: 10,
-                  fontWeight: pw.FontWeight.bold,
-                ),
-              ),
-              pw.SizedBox(height: 8),
-              pw.Table(
-                border: pw.TableBorder.all(),
-                columnWidths: {
-                  0: const pw.FlexColumnWidth(3),
-                  1: const pw.FlexColumnWidth(1),
-                },
-                children: [
-                  // Header
-                  pw.TableRow(
-                    decoration:
-                        const pw.BoxDecoration(color: PdfColors.grey300),
-                    children: [
-                      _buildTableCell('Descripción', isHeader: true),
-                      _buildTableCell('Monto',
-                          isHeader: true, align: pw.TextAlign.right),
-                    ],
-                  ),
-                  // Rows
-                  ...formasPagoList.map((fp) {
-                    return pw.TableRow(
-                      children: [
-                        _buildTableCell(fp['descripcion']),
-                        _buildTableCell(
-                          '\$${(fp['monto'] as double).toStringAsFixed(2)}',
+                        _cell(fecha),
+                        _cell(comprobante),
+                        _cell(
+                          currencyFormat.format(t['monto_pagado'] as double),
                           align: pw.TextAlign.right,
                         ),
                       ],
                     );
                   }),
-                  // Total
+                  // Total row
                   pw.TableRow(
-                    decoration:
-                        const pw.BoxDecoration(color: PdfColors.grey100),
                     children: [
-                      _buildTableCell('TOTAL',
-                          isHeader: true, align: pw.TextAlign.right),
-                      _buildTableCell(
-                        '\$${totalPagado.toStringAsFixed(2)}',
+                      _cell(''),
+                      _cell(
+                        'Total:',
                         isHeader: true,
                         align: pw.TextAlign.right,
+                      ),
+                      pw.Padding(
+                        padding: const pw.EdgeInsets.all(5),
+                        child: pw.Container(
+                          decoration: pw.BoxDecoration(border: pw.Border.all()),
+                          padding: const pw.EdgeInsets.symmetric(
+                            horizontal: 4,
+                            vertical: 2,
+                          ),
+                          child: pw.Text(
+                            currencyFormat.format(totalPagado),
+                            style: pw.TextStyle(
+                              fontSize: 9,
+                              fontWeight: pw.FontWeight.bold,
+                            ),
+                            textAlign: pw.TextAlign.right,
+                          ),
+                        ),
                       ),
                     ],
                   ),
                 ],
               ),
 
+              // ── Son Pesos (borde continuo con la tabla) ──
+              pw.Container(
+                decoration: pw.BoxDecoration(
+                  border: pw.Border(
+                    left: const pw.BorderSide(),
+                    right: const pw.BorderSide(),
+                    bottom: const pw.BorderSide(),
+                  ),
+                ),
+                padding: const pw.EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 6,
+                ),
+                child: pw.Text(
+                  'Son Pesos: $totalEnLetras',
+                  style: const pw.TextStyle(fontSize: 9),
+                ),
+              ),
+
+              pw.SizedBox(height: 14),
+
+              // ── Resumen: total + formas de pago ──
+              pw.Row(
+                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                children: [
+                  pw.SizedBox(),
+                  pw.Text(
+                    currencyFormat.format(totalPagado),
+                    style: pw.TextStyle(
+                      fontSize: 11,
+                      fontWeight: pw.FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+              pw.SizedBox(height: 4),
+              ...formasPagoList.map(
+                (fp) => pw.Padding(
+                  padding: const pw.EdgeInsets.symmetric(vertical: 2),
+                  child: pw.Row(
+                    mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                    children: [
+                      pw.Text(
+                        fp['descripcion'] as String,
+                        style: const pw.TextStyle(fontSize: 10),
+                      ),
+                      pw.Text(
+                        currencyFormat.format(fp['monto'] as double),
+                        style: const pw.TextStyle(fontSize: 10),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+
+              pw.SizedBox(height: 14),
+
+              // ── Observaciones ──
+              pw.Text(
+                'Observaciones:',
+                style: const pw.TextStyle(fontSize: 10),
+              ),
+              if (observaciones.isNotEmpty) ...[
+                pw.SizedBox(height: 4),
+                pw.Text(observaciones, style: const pw.TextStyle(fontSize: 9)),
+              ],
+
               pw.Spacer(),
 
-              // Footer con firmas
+              // ── Footer firmas ──
               pw.Row(
                 mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                 children: [
@@ -384,7 +370,7 @@ class OrdenPagoPdfService {
                         pw.Divider(),
                         pw.SizedBox(height: 4),
                         pw.Text(
-                          'Firma Autorizada',
+                          'Recibido',
                           style: const pw.TextStyle(fontSize: 10),
                         ),
                       ],
@@ -397,7 +383,7 @@ class OrdenPagoPdfService {
                         pw.Divider(),
                         pw.SizedBox(height: 4),
                         pw.Text(
-                          'Recibí Conforme',
+                          'Gerencia',
                           style: const pw.TextStyle(fontSize: 10),
                         ),
                       ],
@@ -414,8 +400,7 @@ class OrdenPagoPdfService {
     return pdf;
   }
 
-  /// Helper para construir celdas de tabla
-  pw.Widget _buildTableCell(
+  pw.Widget _cell(
     String text, {
     bool isHeader = false,
     pw.TextAlign align = pw.TextAlign.left,
@@ -433,14 +418,12 @@ class OrdenPagoPdfService {
     );
   }
 
-  /// Abre el diálogo de impresión
   Future<void> imprimirOrdenPago(pw.Document pdf) async {
     await Printing.layoutPdf(
       onLayout: (format) async => pdf.save(),
     );
   }
 
-  /// Comparte el PDF
   Future<void> compartirOrdenPago({
     required pw.Document pdf,
     required int numeroOP,
@@ -451,11 +434,9 @@ class OrdenPagoPdfService {
         .replaceAll(' ', '_')
         .toLowerCase();
 
-    final fileName = 'op_${numeroOP}_$nombreLimpio.pdf';
-
     await Printing.sharePdf(
       bytes: await pdf.save(),
-      filename: fileName,
+      filename: 'op_${numeroOP}_$nombreLimpio.pdf',
     );
   }
 }
