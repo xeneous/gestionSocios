@@ -1,0 +1,47 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "SAO - Producción",
+      "request": "launch",
+      "type": "dart",
+      "flutterMode": "debug",
+      "args": [
+        "--dart-define=ENV=prod"
+      ]
+    },
+    {
+      "name": "SAO - Desarrollo",
+      "request": "launch",
+      "type": "dart",
+      "flutterMode": "debug",
+      "args": [
+        "--dart-define=ENV=dev",
+        "--dart-define=SUPABASE_URL=https://REEMPLAZAR.supabase.co",
+        "--dart-define=SUPABASE_ANON_KEY=REEMPLAZAR_ANON_KEY"
+      ]
+    },
+    {
+      "name": "SAO - Web Producción",
+      "request": "launch",
+      "type": "dart",
+      "flutterMode": "release",
+      "args": [
+        "-d", "chrome",
+        "--dart-define=ENV=prod"
+      ]
+    },
+    {
+      "name": "SAO - Web Desarrollo",
+      "request": "launch",
+      "type": "dart",
+      "flutterMode": "debug",
+      "args": [
+        "-d", "chrome",
+        "--dart-define=ENV=dev",
+        "--dart-define=SUPABASE_URL=https://REEMPLAZAR.supabase.co",
+        "--dart-define=SUPABASE_ANON_KEY=REEMPLAZAR_ANON_KEY"
+      ]
+    }
+  ]
+}

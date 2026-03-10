@@ -4,19 +4,16 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'app_config.dart';
 import 'core/router/app_router.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
-  // Configuración de Supabase
-  // NOTA: RLS está deshabilitado ya que la app maneja su propia autenticación
-  // TODO: Implementar RLS correctamente o migrar auth a Supabase
   await initializeDateFormatting('es_AR', null);
 
   await Supabase.initialize(
-    url: 'https://ojbdljecdvjgsbthouvf.supabase.co',
-    anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9qYmRsamVjZHZqZ3NidGhvdXZmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY0OTk0MjksImV4cCI6MjA4MjA3NTQyOX0.GdJ6fBByxx6hlq8njMs0ceZj2xSermSSowzqVSLh7hg',
+    url: AppConfig.supabaseUrl,
+    anonKey: AppConfig.supabaseAnonKey,
   );
   
   runApp(
@@ -35,7 +32,7 @@ class SAOApp extends ConsumerWidget {
     
     return MaterialApp.router(
       title: 'Sistema de Gestion Sociedad Argentina de Oftalmologia',
-      debugShowCheckedModeBanner: false,
+      debugShowCheckedModeBanner: AppConfig.isDev,
       locale: const Locale('es', 'AR'),
       localizationsDelegates: const [
         GlobalMaterialLocalizations.delegate,

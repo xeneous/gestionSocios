@@ -281,13 +281,6 @@ class AppDrawer extends ConsumerWidget {
               ),
               _buildMenuItem(
                 context: context,
-                icon: Icons.flash_on,
-                title: 'Pago Directo',
-                route: '/pago-directo',
-                currentRoute: currentRoute,
-              ),
-              _buildMenuItem(
-                context: context,
                 icon: Icons.account_balance_wallet,
                 title: 'Saldos Proveedores',
                 route: '/saldos-proveedores',
@@ -485,7 +478,7 @@ class AppDrawer extends ConsumerWidget {
     return route.startsWith('/proveedores') ||
         route.startsWith('/comprobantes-proveedores') ||
         route.startsWith('/orden-pago') ||
-        route == '/pago-directo' ||
+
         route == '/saldos-proveedores';
   }
 

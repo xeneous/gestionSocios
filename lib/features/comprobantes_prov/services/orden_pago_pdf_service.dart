@@ -87,7 +87,7 @@ class OrdenPagoPdfService {
       final valoresData = await _supabase
           .from('valores_tesoreria')
           .select('idconcepto_tesoreria, importe')
-          .eq('numero_interno', numeroOP);
+          .eq('idtransaccion_origen', idTransaccion);
 
       for (final valor in valoresData as List) {
         final conceptoId = valor['idconcepto_tesoreria'] as int?;

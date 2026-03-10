@@ -44,7 +44,6 @@ final allQuickAccessItems = <QuickAccessItem>[
   QuickAccessItem(id: 'proveedores', label: 'Proveedores', icon: Icons.store, route: '/proveedores', color: Colors.orange, category: _proveedores),
   QuickAccessItem(id: 'comp_compras', label: 'Comprobantes Compras', icon: Icons.receipt_long, route: '/comprobantes-proveedores', color: Colors.orange, category: _proveedores),
   QuickAccessItem(id: 'orden_pago', label: 'Orden de Pago', icon: Icons.payment, route: '/orden-pago', color: Colors.orange, category: _proveedores),
-  QuickAccessItem(id: 'pago_directo', label: 'Pago Directo', icon: Icons.flash_on, route: '/pago-directo', color: Colors.deepOrange, category: _proveedores),
   QuickAccessItem(id: 'saldos_prov', label: 'Saldos Proveedores', icon: Icons.account_balance_wallet, route: '/saldos-proveedores', color: Colors.orange, category: _proveedores),
 
   // Contabilidad
@@ -60,7 +59,7 @@ const defaultQuickAccessIds = [
   'cobranzas',
   'cobranzas_cli',
   'orden_pago',
-  'pago_directo',
+
   'asientos',
 ];
 

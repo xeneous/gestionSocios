@@ -983,18 +983,62 @@ class _OrdenPagoPageState extends ConsumerState<OrdenPagoPage> {
       // Cerrar diálogo de carga
       if (mounted) Navigator.pop(context);
 
-      if (kIsWeb) {
-        // En web: descargar el PDF
-        final bytes = await pdf.save();
-        final blob = html.Blob([bytes], 'application/pdf');
-        final url = html.Url.createObjectUrlFromBlob(blob);
-        final anchor = html.AnchorElement(href: url)
-          ..setAttribute('download', 'OP_$idTransaccion.pdf')
-          ..click();
-        html.Url.revokeObjectUrl(url);
-      } else {
-        await pdfService.imprimirOrdenPago(pdf);
-      }
+      if (!mounted) return;
+      final messenger = ScaffoldMessenger.of(context);
+      await showDialog(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: const Row(
+            children: [
+              Icon(Icons.print, color: Colors.teal),
+              SizedBox(width: 8),
+              Text('Orden de Pago generada'),
+            ],
+          ),
+          content: const Text('¿Desea imprimir o descargar la orden de pago?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('Cerrar'),
+            ),
+            if (kIsWeb)
+              OutlinedButton.icon(
+                onPressed: () async {
+                  try {
+                    final bytes = await pdf.save();
+                    final blob = html.Blob([bytes], 'application/pdf');
+                    final url = html.Url.createObjectUrlFromBlob(blob);
+                    html.AnchorElement(href: url)
+                      ..setAttribute('download', 'OP_$idTransaccion.pdf')
+                      ..click();
+                    html.Url.revokeObjectUrl(url);
+                  } catch (e) {
+                    messenger.showSnackBar(SnackBar(
+                      content: Text('Error: $e'),
+                      backgroundColor: Colors.red,
+                    ));
+                  }
+                },
+                icon: const Icon(Icons.download),
+                label: const Text('Descargar'),
+              ),
+            FilledButton.icon(
+              onPressed: () async {
+                try {
+                  await pdfService.imprimirOrdenPago(pdf);
+                } catch (e) {
+                  messenger.showSnackBar(SnackBar(
+                    content: Text('Error: $e'),
+                    backgroundColor: Colors.red,
+                  ));
+                }
+              },
+              icon: const Icon(Icons.print),
+              label: const Text('Imprimir'),
+            ),
+          ],
+        ),
+      );
     } catch (e) {
       // Cerrar diálogo de carga si está abierto
       if (mounted) Navigator.pop(context);
