@@ -677,7 +677,8 @@ class ResumenCuentasCorrientesPage extends ConsumerWidget {
         final response = await supabase
             .from('socios')
             .select('id, numero_documento, grupo_desde, domicilio, localidad, codigo_postal, provincia_id, telefono, telefono_secundario, celular, adherido_debito')
-            .inFilter('id', socioIds);
+            .inFilter('id', socioIds)
+            .limit(99999);
         for (final row in (response as List)) {
           sociosExtra[row['id'] as int] = row as Map<String, dynamic>;
         }
@@ -708,7 +709,8 @@ class ResumenCuentasCorrientesPage extends ConsumerWidget {
             .from('cuentas_corrientes')
             .select('socio_id, importe, cancelado')
             .eq('tipo_comprobante', 'RDA')
-            .inFilter('socio_id', socioIds);
+            .inFilter('socio_id', socioIds)
+            .limit(99999);
         for (final row in (rdaResponse as List)) {
           final sid = row['socio_id'] as int;
           final importe = (row['importe'] as num?)?.toDouble() ?? 0.0;

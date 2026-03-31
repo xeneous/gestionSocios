@@ -28,7 +28,7 @@ class CuentasCorrientesService {
   }) async {
     try {
       // Llamar a función RPC optimizada con paginación
-      final response = await _supabase.rpc(
+      final rpcCall = _supabase.rpc(
         'obtener_resumen_cuentas_corrientes',
         params: {
           'p_limit': limit,
@@ -40,6 +40,8 @@ class CuentasCorrientesService {
           'p_solo_residentes': soloResidentes,
         },
       );
+      // PostgREST limita a 1000 filas por defecto; al exportar (limit=null) lo anulamos
+      final response = limit == null ? await rpcCall.limit(99999) : await rpcCall;
 
       final rows = response as List;
 
