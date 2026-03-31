@@ -669,18 +669,20 @@ class ResumenCuentasCorrientesPage extends ConsumerWidget {
     try {
       final supabase = Supabase.instance.client;
 
-      // Fetch extra fields from socios table
+      // Fetch extra fields from socios table (en batches de 500 para no superar límite de PostgREST)
       final socioIds = socios.map((s) => s.socioId).toList();
 
       final sociosExtra = <int, Map<String, dynamic>>{};
       if (socioIds.isNotEmpty) {
-        final response = await supabase
-            .from('socios')
-            .select('id, numero_documento, grupo_desde, domicilio, localidad, codigo_postal, provincia_id, telefono, telefono_secundario, celular, adherido_debito')
-            .inFilter('id', socioIds)
-            .limit(99999);
-        for (final row in (response as List)) {
-          sociosExtra[row['id'] as int] = row as Map<String, dynamic>;
+        for (var i = 0; i < socioIds.length; i += 500) {
+          final batch = socioIds.sublist(i, i + 500 > socioIds.length ? socioIds.length : i + 500);
+          final response = await supabase
+              .from('socios')
+              .select('id, numero_documento, grupo_desde, domicilio, localidad, codigo_postal, provincia_id, telefono, telefono_secundario, celular, adherido_debito')
+              .inFilter('id', batch);
+          for (final row in (response as List)) {
+            sociosExtra[row['id'] as int] = row as Map<String, dynamic>;
+          }
         }
       }
 
@@ -702,22 +704,24 @@ class ResumenCuentasCorrientesPage extends ConsumerWidget {
         tarjetasMap[row['id'] as int] = row['descripcion'] as String;
       }
 
-      // Fetch RDA pendientes por socio (rechazos)
+      // Fetch RDA pendientes por socio (rechazos) — en batches de 500
       final rdaMap = <int, double>{};
       if (socioIds.isNotEmpty) {
-        final rdaResponse = await supabase
-            .from('cuentas_corrientes')
-            .select('socio_id, importe, cancelado')
-            .eq('tipo_comprobante', 'RDA')
-            .inFilter('socio_id', socioIds)
-            .limit(99999);
-        for (final row in (rdaResponse as List)) {
-          final sid = row['socio_id'] as int;
-          final importe = (row['importe'] as num?)?.toDouble() ?? 0.0;
-          final cancelado = (row['cancelado'] as num?)?.toDouble() ?? 0.0;
-          final pendiente = importe - cancelado;
-          if (pendiente > 0) {
-            rdaMap[sid] = (rdaMap[sid] ?? 0.0) + pendiente;
+        for (var i = 0; i < socioIds.length; i += 500) {
+          final batch = socioIds.sublist(i, i + 500 > socioIds.length ? socioIds.length : i + 500);
+          final rdaResponse = await supabase
+              .from('cuentas_corrientes')
+              .select('socio_id, importe, cancelado')
+              .eq('tipo_comprobante', 'RDA')
+              .inFilter('socio_id', batch);
+          for (final row in (rdaResponse as List)) {
+            final sid = row['socio_id'] as int;
+            final importe = (row['importe'] as num?)?.toDouble() ?? 0.0;
+            final cancelado = (row['cancelado'] as num?)?.toDouble() ?? 0.0;
+            final pendiente = importe - cancelado;
+            if (pendiente > 0) {
+              rdaMap[sid] = (rdaMap[sid] ?? 0.0) + pendiente;
+            }
           }
         }
       }

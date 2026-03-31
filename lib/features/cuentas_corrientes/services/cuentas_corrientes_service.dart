@@ -83,7 +83,8 @@ class CuentasCorrientesService {
     }
   }
 
-  /// Obtiene TODO el resumen sin paginación (para exportar a Excel)
+  /// Obtiene TODO el resumen paginando de a 1000 (para exportar a Excel)
+  /// PostgREST limita a 1000 filas por request; este método itera hasta traer todo.
   Future<List<CuentaCorrienteResumen>> obtenerResumenCompletoParaExportar({
     bool soloActivos = true,
     int? mesesMinimo,
@@ -91,16 +92,28 @@ class CuentasCorrientesService {
     int? tarjetaId,
     bool soloResidentes = false,
   }) async {
-    final result = await obtenerResumenCuentasCorrientes(
-      limit: null,
-      offset: 0,
-      soloActivos: soloActivos,
-      mesesMinimo: mesesMinimo,
-      mesesExacto: mesesExacto,
-      tarjetaId: tarjetaId,
-      soloResidentes: soloResidentes,
-    );
-    return result['items'] as List<CuentaCorrienteResumen>;
+    const batchSize = 1000;
+    final allItems = <CuentaCorrienteResumen>[];
+    int offset = 0;
+    int totalCount = 0;
+
+    do {
+      final result = await obtenerResumenCuentasCorrientes(
+        limit: batchSize,
+        offset: offset,
+        soloActivos: soloActivos,
+        mesesMinimo: mesesMinimo,
+        mesesExacto: mesesExacto,
+        tarjetaId: tarjetaId,
+        soloResidentes: soloResidentes,
+      );
+      final batch = result['items'] as List<CuentaCorrienteResumen>;
+      if (totalCount == 0) totalCount = result['totalCount'] as int;
+      allItems.addAll(batch);
+      offset += batchSize;
+    } while (allItems.length < totalCount && offset < totalCount);
+
+    return allItems;
   }
 
   /// Método legacy - procesa en el cliente
