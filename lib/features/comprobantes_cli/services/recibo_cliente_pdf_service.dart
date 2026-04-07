@@ -39,7 +39,16 @@ class ReciboClientePdfService {
     final cuitCliente = clienteData?['cuit'] as String? ?? '';
     final domicilioCliente = clienteData?['domicilio'] as String? ?? '';
 
-    // 3. Obtener imputaciones (qué facturas se cobraron)
+    // 3. Cargar tipos de comprobante para lookup
+    final tiposData = await _supabase
+        .from('tip_vent_mod_header')
+        .select('codigo, comprobante');
+    final tiposMap = <int, String>{};
+    for (final t in tiposData as List) {
+      tiposMap[t['codigo'] as int] = t['comprobante'] as String? ?? 'FC';
+    }
+
+    // 4. Obtener imputaciones (qué facturas se cobraron)
     final imputacionesData = await _supabase
         .from('notas_imputacion')
         .select('id_transaccion, importe')
@@ -51,14 +60,16 @@ class ReciboClientePdfService {
       final idTransaccionCobrada = imp['id_transaccion'] as int;
       final compCobrado = await _supabase
           .from('ven_cli_header')
-          .select('comprobante, nro_comprobante, fecha, total_importe, tip_vent_mod_header(comprobante)')
+          .select('tipo_comprobante, nro_comprobante, fecha, total_importe')
           .eq('id_transaccion', idTransaccionCobrada)
           .maybeSingle();
 
       if (compCobrado != null) {
-        final tipoData = compCobrado['tip_vent_mod_header'] as Map<String, dynamic>?;
+        final tipoCodigo = compCobrado['tipo_comprobante'] as int?;
         transaccionesList.add({
-          'tipo_comprobante': tipoData?['comprobante'] ?? 'FC',
+          'tipo_comprobante': tipoCodigo != null
+              ? (tiposMap[tipoCodigo] ?? 'FC')
+              : 'FC',
           'nro_comprobante': compCobrado['nro_comprobante'] as String? ?? '',
           'fecha': compCobrado['fecha'] as String?,
           'importe_total': (compCobrado['total_importe'] as num).toDouble(),
@@ -67,17 +78,36 @@ class ReciboClientePdfService {
       }
     }
 
-    // 4. Obtener formas de pago desde valores_tesoreria
+    // 5. Obtener formas de pago desde valores_tesoreria (sin join)
     final valoresData = await _supabase
         .from('valores_tesoreria')
-        .select('importe, conceptos_tesoreria!inner(descripcion)')
+        .select('importe, idconcepto_tesoreria')
         .eq('idtransaccion_origen', idTransaccion);
 
+    // Cargar descripciones de conceptos
+    final conceptosIds = (valoresData as List)
+        .map((v) => v['idconcepto_tesoreria'])
+        .whereType<int>()
+        .toSet()
+        .toList();
+    final conceptosMap = <int, String>{};
+    if (conceptosIds.isNotEmpty) {
+      final conceptosData = await _supabase
+          .from('conceptos_tesoreria')
+          .select('id, descripcion')
+          .inFilter('id', conceptosIds);
+      for (final c in conceptosData as List) {
+        conceptosMap[c['id'] as int] = c['descripcion'] as String? ?? '';
+      }
+    }
+
     final formasPagoList = <Map<String, dynamic>>[];
-    for (final valor in valoresData as List) {
-      final concepto = valor['conceptos_tesoreria'] as Map<String, dynamic>?;
+    for (final valor in valoresData) {
+      final conceptoId = valor['idconcepto_tesoreria'] as int?;
       formasPagoList.add({
-        'descripcion': concepto?['descripcion'] as String? ?? 'Forma de pago',
+        'descripcion': conceptoId != null
+            ? (conceptosMap[conceptoId] ?? 'Forma de pago')
+            : 'Forma de pago',
         'monto': (valor['importe'] as num).toDouble(),
       });
     }
