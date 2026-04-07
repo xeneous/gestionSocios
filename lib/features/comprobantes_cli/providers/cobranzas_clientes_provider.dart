@@ -49,6 +49,7 @@ class CobranzasClientesNotifier extends Notifier<AsyncValue<void>> {
     required Map<int, double> transaccionesAPagar,
     required Map<int, double> formasPago,
     int? operadorId,
+    DateTime? fecha,
   }) async {
     state = const AsyncValue.loading();
 
@@ -77,6 +78,7 @@ class CobranzasClientesNotifier extends Notifier<AsyncValue<void>> {
         transaccionesAPagar: transaccionesAPagar,
         formasPago: formasPago,
         operadorId: operadorId,
+        fecha: fecha,
       );
 
       final numeroRecibo = resultado['numero_recibo'] as int;

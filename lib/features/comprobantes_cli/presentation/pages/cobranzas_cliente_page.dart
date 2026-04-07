@@ -8,6 +8,7 @@ import '../../../clientes/providers/clientes_provider.dart';
 import '../../../cuentas_corrientes/providers/conceptos_tesoreria_provider.dart';
 import '../../../cuentas_corrientes/models/concepto_tesoreria_model.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
+import '../../../../core/utils/date_picker_utils.dart';
 
 /// Página principal de cobranzas de clientes con selección múltiple
 class CobranzasClientePage extends ConsumerStatefulWidget {
@@ -25,6 +26,8 @@ class CobranzasClientePage extends ConsumerStatefulWidget {
 class _CobranzasClientePageState extends ConsumerState<CobranzasClientePage> {
   // Mapa de IDs de transacciones seleccionadas con sus importes a pagar
   final Map<int, double> _selectedPagos = {};
+
+  DateTime _fechaRecibo = DateTime.now();
 
   // Formas de pago seleccionadas
   final Map<int, double> _formasPago = {}; // conceptoId -> monto
@@ -658,42 +661,65 @@ class _CobranzasClientePageState extends ConsumerState<CobranzasClientePage> {
   }
 
   Future<void> _generarRecibo() async {
-    // Mostrar diálogo de confirmación
+    // Mostrar diálogo de confirmación con selector de fecha
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Confirmar Recibo'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Sponsor: ID ${widget.clienteId}'),
-            const SizedBox(height: 8),
-            Text(
-              'Total a cobrar: ${_currencyFormat.format(_getTotalSeleccionado())}',
-              style: const TextStyle(fontWeight: FontWeight.bold),
+      builder: (context) {
+        DateTime fechaSeleccionada = _fechaRecibo;
+        return StatefulBuilder(
+          builder: (context, setStateDialog) => AlertDialog(
+            title: const Text('Confirmar Recibo'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Sponsor: ID ${widget.clienteId}'),
+                const SizedBox(height: 8),
+                Text(
+                  'Total a cobrar: ${_currencyFormat.format(_getTotalSeleccionado())}',
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+                Text('Formas de pago: ${_formasPago.length}'),
+                const SizedBox(height: 16),
+                InkWell(
+                  onTap: () async {
+                    final nueva = await pickDate(context, fechaSeleccionada);
+                    if (nueva != null) {
+                      setStateDialog(() => fechaSeleccionada = nueva);
+                    }
+                  },
+                  child: InputDecorator(
+                    decoration: const InputDecoration(
+                      labelText: 'Fecha del Recibo',
+                      border: OutlineInputBorder(),
+                      prefixIcon: Icon(Icons.calendar_today),
+                    ),
+                    child: Text(_dateFormat.format(fechaSeleccionada)),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  '¿Confirma la generación del recibo?',
+                  style: TextStyle(fontWeight: FontWeight.w500),
+                ),
+              ],
             ),
-            Text(
-              'Formas de pago: ${_formasPago.length}',
-            ),
-            const SizedBox(height: 16),
-            const Text(
-              '¿Confirma la generación del recibo?',
-              style: TextStyle(fontWeight: FontWeight.w500),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancelar'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('Cancelar'),
+              ),
+              FilledButton(
+                onPressed: () {
+                  setState(() => _fechaRecibo = fechaSeleccionada);
+                  Navigator.pop(context, true);
+                },
+                child: const Text('Confirmar'),
+              ),
+            ],
           ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Confirmar'),
-          ),
-        ],
-      ),
+        );
+      },
     );
 
     if (confirmed != true) return;
@@ -729,6 +755,7 @@ class _CobranzasClientePageState extends ConsumerState<CobranzasClientePage> {
             clienteId: widget.clienteId,
             transaccionesAPagar: _selectedPagos,
             formasPago: _formasPago,
+            fecha: _fechaRecibo,
           );
 
       final numeroRecibo = resultado['numero_recibo'] as int;

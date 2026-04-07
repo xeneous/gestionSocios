@@ -66,6 +66,7 @@ class CobranzasClientesService {
     required Map<int, double> transaccionesAPagar,
     required Map<int, double> formasPago,
     int? operadorId,
+    DateTime? fecha,
   }) async {
     // Validar que los totales coincidan
     final totalAPagar = transaccionesAPagar.values.fold(0.0, (a, b) => a + b);
@@ -95,7 +96,7 @@ class CobranzasClientesService {
       nuevoNumeroRecibo = (maxCompResult.first['comprobante'] as int) + 1;
     }
 
-    final now = DateTime.now();
+    final now = fecha ?? DateTime.now();
     final anioMes = now.year * 100 + now.month;
 
     // Crear el recibo en ven_cli_header

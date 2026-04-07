@@ -5,25 +5,20 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:intl/intl.dart';
 import '../../../core/utils/numero_a_letras.dart';
 
-/// Servicio para generar PDFs de recibos de cobranza a clientes
+/// Servicio para generar PDFs de recibos de cobranza a clientes/sponsors
 class ReciboClientePdfService {
   final SupabaseClient _supabase;
 
   ReciboClientePdfService(this._supabase);
 
   /// Genera un PDF del recibo de cobranza
-  ///
-  /// Parámetros:
-  /// - idTransaccion: ID del recibo en ven_cli_header
-  ///
-  /// Retorna el documento PDF generado
   Future<pw.Document> generarReciboPdf({
     required int idTransaccion,
   }) async {
     // 1. Obtener datos del recibo
     final reciboData = await _supabase
         .from('ven_cli_header')
-        .select('*, clientes(*)')
+        .select('comprobante, fecha, total_importe, cliente')
         .eq('id_transaccion', idTransaccion)
         .single();
 
@@ -32,68 +27,72 @@ class ReciboClientePdfService {
     final totalCobrado = (reciboData['total_importe'] as num).toDouble();
     final clienteId = reciboData['cliente'] as int;
 
-    // 2. Obtener datos del cliente
-    final clienteData = reciboData['clientes'] as Map<String, dynamic>?;
-    final nombreCliente = clienteData?['razon_social'] as String? ?? 'Cliente $clienteId';
+    // 2. Obtener datos del cliente por separado
+    final clienteData = await _supabase
+        .from('clientes')
+        .select('razon_social, cuit, domicilio')
+        .eq('codigo', clienteId)
+        .maybeSingle();
+
+    final nombreCliente =
+        clienteData?['razon_social'] as String? ?? 'Sponsor $clienteId';
     final cuitCliente = clienteData?['cuit'] as String? ?? '';
     final domicilioCliente = clienteData?['domicilio'] as String? ?? '';
 
     // 3. Obtener imputaciones (qué facturas se cobraron)
     final imputacionesData = await _supabase
         .from('notas_imputacion')
-        .select('*')
+        .select('id_transaccion, importe')
         .eq('id_operacion', idTransaccion)
         .eq('tipo_operacion', 2);
 
     final transaccionesList = <Map<String, dynamic>>[];
     for (final imp in imputacionesData as List) {
-      // Obtener datos del comprobante cobrado
       final idTransaccionCobrada = imp['id_transaccion'] as int;
       final compCobrado = await _supabase
           .from('ven_cli_header')
-          .select('*, tip_vent_mod_header(*)')
+          .select('comprobante, nro_comprobante, fecha, total_importe, tip_vent_mod_header(comprobante)')
           .eq('id_transaccion', idTransaccionCobrada)
-          .single();
+          .maybeSingle();
 
-      final tipoData = compCobrado['tip_vent_mod_header'] as Map<String, dynamic>?;
-      transaccionesList.add({
-        'tipo_comprobante': tipoData?['comprobante'] ?? 'FC',
-        'nro_comprobante': compCobrado['nro_comprobante'] as String? ?? '',
-        'fecha': compCobrado['fecha'] as String?,
-        'fecha1_venc': compCobrado['fecha1_venc'] as String?,
-        'importe_total': (compCobrado['total_importe'] as num).toDouble(),
-        'monto_cobrado': (imp['importe'] as num).toDouble(),
-      });
+      if (compCobrado != null) {
+        final tipoData = compCobrado['tip_vent_mod_header'] as Map<String, dynamic>?;
+        transaccionesList.add({
+          'tipo_comprobante': tipoData?['comprobante'] ?? 'FC',
+          'nro_comprobante': compCobrado['nro_comprobante'] as String? ?? '',
+          'fecha': compCobrado['fecha'] as String?,
+          'importe_total': (compCobrado['total_importe'] as num).toDouble(),
+          'monto_cobrado': (imp['importe'] as num).toDouble(),
+        });
+      }
     }
 
-    // 4. Obtener items del recibo (formas de pago)
-    final itemsData = await _supabase
-        .from('ven_cli_items')
-        .select('*')
-        .eq('id_transaccion', idTransaccion);
+    // 4. Obtener formas de pago desde valores_tesoreria
+    final valoresData = await _supabase
+        .from('valores_tesoreria')
+        .select('importe, conceptos_tesoreria!inner(descripcion)')
+        .eq('idtransaccion_origen', idTransaccion);
 
     final formasPagoList = <Map<String, dynamic>>[];
-    for (final item in itemsData as List) {
+    for (final valor in valoresData as List) {
+      final concepto = valor['conceptos_tesoreria'] as Map<String, dynamic>?;
       formasPagoList.add({
-        'descripcion': item['detalle'] as String? ?? 'Forma de pago',
-        'monto': (item['importe'] as num).toDouble(),
+        'descripcion': concepto?['descripcion'] as String? ?? 'Forma de pago',
+        'monto': (valor['importe'] as num).toDouble(),
       });
     }
 
-    // Si no hay items, obtener de valores_tesoreria
+    // Si no hay en valores_tesoreria, buscar en ven_cli_items
     if (formasPagoList.isEmpty) {
-      final valoresData = await _supabase
-          .from('valores_tesoreria')
-          .select('*, conceptos_tesoreria(*)')
-          .eq('numero_interno', numeroRecibo)
-          .eq('tipo_entidad', 'CLI')
-          .eq('id_entidad', clienteId);
+      final itemsData = await _supabase
+          .from('ven_cli_items')
+          .select('importe, detalle')
+          .eq('id_transaccion', idTransaccion);
 
-      for (final valor in valoresData as List) {
-        final concepto = valor['conceptos_tesoreria'] as Map<String, dynamic>?;
+      for (final item in itemsData as List) {
         formasPagoList.add({
-          'descripcion': concepto?['descripcion'] as String? ?? 'Forma de pago',
-          'monto': (valor['importe'] as num).toDouble(),
+          'descripcion': item['detalle'] as String? ?? 'Forma de pago',
+          'monto': (item['importe'] as num).toDouble(),
         });
       }
     }
@@ -101,8 +100,6 @@ class ReciboClientePdfService {
     // 5. Generar PDF
     final pdf = pw.Document();
     final dateFormat = DateFormat('dd/MM/yyyy');
-
-    // Convertir total a letras
     final totalEnLetras = NumeroALetras.convertir(totalCobrado);
 
     pdf.addPage(
@@ -146,7 +143,7 @@ class ReciboClientePdfService {
                       crossAxisAlignment: pw.CrossAxisAlignment.end,
                       children: [
                         pw.Text(
-                          'REC Nº $numeroRecibo',
+                          'Nº $numeroRecibo',
                           style: pw.TextStyle(
                             fontSize: 18,
                             fontWeight: pw.FontWeight.bold,
@@ -183,7 +180,7 @@ class ReciboClientePdfService {
                     ),
                     pw.SizedBox(height: 8),
                     pw.Text(
-                      'Cliente Nº: $clienteId',
+                      'Sponsor Nº: $clienteId',
                       style: const pw.TextStyle(fontSize: 12),
                     ),
                     pw.Text(
@@ -259,10 +256,8 @@ class ReciboClientePdfService {
                   4: const pw.FlexColumnWidth(1.5),
                 },
                 children: [
-                  // Header
                   pw.TableRow(
-                    decoration:
-                        const pw.BoxDecoration(color: PdfColors.grey300),
+                    decoration: const pw.BoxDecoration(color: PdfColors.grey300),
                     children: [
                       _buildTableCell('Tipo', isHeader: true),
                       _buildTableCell('Nro. Comprobante', isHeader: true),
@@ -273,7 +268,6 @@ class ReciboClientePdfService {
                           isHeader: true, align: pw.TextAlign.right),
                     ],
                   ),
-                  // Rows
                   ...transaccionesList.map((t) {
                     final fecha = t['fecha'] != null
                         ? dateFormat.format(DateTime.parse(t['fecha']))
@@ -282,7 +276,6 @@ class ReciboClientePdfService {
                         '\$${(t['importe_total'] as double).toStringAsFixed(2)}';
                     final cobrado =
                         '\$${(t['monto_cobrado'] as double).toStringAsFixed(2)}';
-
                     return pw.TableRow(
                       children: [
                         _buildTableCell(t['tipo_comprobante']),
@@ -314,17 +307,14 @@ class ReciboClientePdfService {
                   1: const pw.FlexColumnWidth(1),
                 },
                 children: [
-                  // Header
                   pw.TableRow(
-                    decoration:
-                        const pw.BoxDecoration(color: PdfColors.grey300),
+                    decoration: const pw.BoxDecoration(color: PdfColors.grey300),
                     children: [
                       _buildTableCell('Descripción', isHeader: true),
                       _buildTableCell('Monto',
                           isHeader: true, align: pw.TextAlign.right),
                     ],
                   ),
-                  // Rows
                   ...formasPagoList.map((fp) {
                     return pw.TableRow(
                       children: [
@@ -336,10 +326,8 @@ class ReciboClientePdfService {
                       ],
                     );
                   }),
-                  // Total
                   pw.TableRow(
-                    decoration:
-                        const pw.BoxDecoration(color: PdfColors.grey100),
+                    decoration: const pw.BoxDecoration(color: PdfColors.grey100),
                     children: [
                       _buildTableCell('TOTAL',
                           isHeader: true, align: pw.TextAlign.right),
@@ -359,7 +347,7 @@ class ReciboClientePdfService {
               pw.Row(
                 mainAxisAlignment: pw.MainAxisAlignment.end,
                 children: [
-                  pw.Container(
+                  pw.SizedBox(
                     width: 200,
                     child: pw.Column(
                       children: [
@@ -383,7 +371,6 @@ class ReciboClientePdfService {
     return pdf;
   }
 
-  /// Helper para construir celdas de tabla
   pw.Widget _buildTableCell(
     String text, {
     bool isHeader = false,
@@ -402,14 +389,12 @@ class ReciboClientePdfService {
     );
   }
 
-  /// Abre el diálogo de impresión
   Future<void> imprimirRecibo(pw.Document pdf) async {
     await Printing.layoutPdf(
       onLayout: (format) async => pdf.save(),
     );
   }
 
-  /// Comparte el PDF
   Future<void> compartirRecibo({
     required pw.Document pdf,
     required int numeroRecibo,

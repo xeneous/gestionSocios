@@ -1115,6 +1115,30 @@ class _ItemDialogState extends ConsumerState<_ItemDialog> {
                 ),
                 const SizedBox(height: 16),
                 TextFormField(
+                  controller: _cuentaController,
+                  decoration: InputDecoration(
+                    labelText: 'Cuenta Contable *',
+                    border: const OutlineInputBorder(),
+                    prefixIcon: const Icon(Icons.account_balance),
+                    suffixIcon: IconButton(
+                      icon: const Icon(Icons.search),
+                      tooltip: 'Buscar cuenta',
+                      onPressed: _buscarCuenta,
+                    ),
+                  ),
+                  keyboardType: TextInputType.number,
+                  validator: (value) {
+                    if (value == null || value.trim().isEmpty) {
+                      return 'Requerido';
+                    }
+                    if (int.tryParse(value.trim()) == null) {
+                      return 'Número inválido';
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 16),
+                TextFormField(
                   controller: _detalleController,
                   decoration: const InputDecoration(
                     labelText: 'Detalle',
