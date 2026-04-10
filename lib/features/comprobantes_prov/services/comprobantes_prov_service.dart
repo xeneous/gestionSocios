@@ -11,7 +11,7 @@ class ComprobantesProvService {
     _asientosService = AsientosService(_supabase);
   }
 
-  /// Buscar comprobantes de proveedores con filtros
+  /// Buscar comprobantes de proveedores con filtros y paginación
   Future<List<CompProvHeader>> buscarComprobantes({
     int? proveedor,
     int? tipoComprobante,
@@ -19,7 +19,8 @@ class ComprobantesProvService {
     DateTime? fechaHasta,
     String? nroComprobante,
     bool soloConSaldo = false,
-    int limit = 100,
+    int page = 1,
+    int pageSize = 100,
   }) async {
     var query = _supabase
         .from('comp_prov_header')
@@ -34,21 +35,24 @@ class ComprobantesProvService {
     }
 
     if (fechaDesde != null) {
-      query = query.gte('fecha', fechaDesde.toIso8601String());
+      query = query.gte('fecha', fechaDesde.toIso8601String().substring(0, 10));
     }
 
     if (fechaHasta != null) {
-      query = query.lte('fecha', fechaHasta.toIso8601String());
+      query = query.lte('fecha', fechaHasta.toIso8601String().substring(0, 10));
     }
 
     if (nroComprobante != null && nroComprobante.isNotEmpty) {
       query = query.ilike('nro_comprobante', '%$nroComprobante%');
     }
 
+    final from = (page - 1) * pageSize;
+    final to = from + pageSize - 1;
+
     final response = await query
         .order('fecha', ascending: false)
         .order('comprobante', ascending: false)
-        .limit(limit);
+        .range(from, to);
 
     var comprobantes =
         (response as List).map((json) => CompProvHeader.fromJson(json)).toList();
@@ -58,6 +62,41 @@ class ComprobantesProvService {
     }
 
     return comprobantes;
+  }
+
+  /// Calcula el saldo acumulado de todos los movimientos ANTES de una fecha
+  Future<double> getSaldoAnteriorProveedor(
+    int proveedorId,
+    DateTime fechaDesde,
+  ) async {
+    // Obtener multiplicadores de tipos
+    final tiposResponse = await _supabase
+        .from('tip_comp_mod_header')
+        .select('codigo, multiplicador');
+
+    final multiplicadores = <int, int>{};
+    for (final t in tiposResponse as List) {
+      if (t['multiplicador'] != null) {
+        multiplicadores[t['codigo'] as int] = t['multiplicador'] as int;
+      }
+    }
+
+    // Todos los comprobantes ANTES de fechaDesde (sin limit)
+    final response = await _supabase
+        .from('comp_prov_header')
+        .select('tipo_comprobante, total_importe')
+        .eq('proveedor', proveedorId)
+        .lt('fecha', fechaDesde.toIso8601String().substring(0, 10));
+
+    double saldo = 0;
+    for (final row in response as List) {
+      final mult = multiplicadores[row['tipo_comprobante'] as int] ?? 1;
+      final importe = (row['total_importe'] as num).toDouble();
+      // mult == 1 → factura (Haber, aumenta deuda)
+      // mult == -1 → pago/NC (Debe, reduce deuda)
+      saldo += mult == 1 ? importe : -importe;
+    }
+    return saldo;
   }
 
   /// Obtener comprobante por ID con sus items
@@ -76,15 +115,19 @@ class ComprobantesProvService {
   Future<List<CompProvHeader>> getComprobantesPorProveedor(
     int proveedorId, {
     bool soloConSaldo = false,
-    int limit = 100,
+    int page = 1,
+    int pageSize = 100,
   }) async {
+    final from = (page - 1) * pageSize;
+    final to = from + pageSize - 1;
+
     final response = await _supabase
         .from('comp_prov_header')
         .select('*, proveedores(razon_social)')
         .eq('proveedor', proveedorId)
         .order('fecha', ascending: false)
         .order('comprobante', ascending: false)
-        .limit(limit);
+        .range(from, to);
 
     var comprobantes =
         (response as List).map((json) => CompProvHeader.fromJson(json)).toList();

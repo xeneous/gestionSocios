@@ -17,6 +17,8 @@ class CompProvSearchParams {
   final DateTime? fechaHasta;
   final String? nroComprobante;
   final bool soloConSaldo;
+  final int page;
+  final int pageSize;
 
   CompProvSearchParams({
     this.proveedor,
@@ -25,6 +27,8 @@ class CompProvSearchParams {
     this.fechaHasta,
     this.nroComprobante,
     this.soloConSaldo = false,
+    this.page = 1,
+    this.pageSize = 100,
   });
 
   @override
@@ -37,7 +41,9 @@ class CompProvSearchParams {
           fechaDesde == other.fechaDesde &&
           fechaHasta == other.fechaHasta &&
           nroComprobante == other.nroComprobante &&
-          soloConSaldo == other.soloConSaldo;
+          soloConSaldo == other.soloConSaldo &&
+          page == other.page &&
+          pageSize == other.pageSize;
 
   @override
   int get hashCode =>
@@ -46,10 +52,12 @@ class CompProvSearchParams {
       fechaDesde.hashCode ^
       fechaHasta.hashCode ^
       nroComprobante.hashCode ^
-      soloConSaldo.hashCode;
+      soloConSaldo.hashCode ^
+      page.hashCode ^
+      pageSize.hashCode;
 }
 
-// Provider para búsqueda de comprobantes
+// Provider para búsqueda de comprobantes con paginación
 final comprobantesProvSearchProvider =
     FutureProvider.family<List<CompProvHeader>, CompProvSearchParams>(
         (ref, params) async {
@@ -61,7 +69,34 @@ final comprobantesProvSearchProvider =
     fechaHasta: params.fechaHasta,
     nroComprobante: params.nroComprobante,
     soloConSaldo: params.soloConSaldo,
+    page: params.page,
+    pageSize: params.pageSize,
   );
+});
+
+// Parámetros para saldo anterior
+class SaldoAnteriorParams {
+  final int proveedorId;
+  final DateTime fechaDesde;
+
+  SaldoAnteriorParams(this.proveedorId, this.fechaDesde);
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is SaldoAnteriorParams &&
+          proveedorId == other.proveedorId &&
+          fechaDesde == other.fechaDesde;
+
+  @override
+  int get hashCode => proveedorId.hashCode ^ fechaDesde.hashCode;
+}
+
+// Provider para saldo anterior a una fecha
+final saldoAnteriorProveedorProvider =
+    FutureProvider.family<double, SaldoAnteriorParams>((ref, params) async {
+  final service = ref.watch(comprobantesProvServiceProvider);
+  return service.getSaldoAnteriorProveedor(params.proveedorId, params.fechaDesde);
 });
 
 // Provider para obtener un comprobante por ID

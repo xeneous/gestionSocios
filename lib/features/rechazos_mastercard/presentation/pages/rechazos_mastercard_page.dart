@@ -90,11 +90,40 @@ class _PanelSeleccionArchivoState extends State<_PanelSeleccionArchivo> {
     final fecha = _fechaPresentacion!;
 
     final input = html.FileUploadInputElement();
-    input.accept = '.txt,.csv';
+    input.accept = '.txt';
     input.click();
 
     input.onChange.listen((event) {
       final file = input.files![0];
+      final nombre = file.name.toLowerCase();
+
+      if (!nombre.endsWith('.txt')) {
+        showDialog(
+          context: context,
+          builder: (_) => AlertDialog(
+            title: const Row(
+              children: [
+                Icon(Icons.warning_amber, color: Colors.orange),
+                SizedBox(width: 8),
+                Text('Formato incorrecto'),
+              ],
+            ),
+            content: const Text(
+              '⚠ El archivo debe ser .txt\n\n'
+              'En Mastercard, usá la opción de descarga:\n'
+              '"Rech y Obs TXT (DA123D)"',
+            ),
+            actions: [
+              FilledButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Aceptar'),
+              ),
+            ],
+          ),
+        );
+        return;
+      }
+
       final reader = html.FileReader();
       reader.readAsText(file, 'utf-8');
       reader.onLoad.listen((_) {
@@ -151,6 +180,21 @@ class _PanelSeleccionArchivoState extends State<_PanelSeleccionArchivo> {
                 ),
                 onPressed:
                     _fechaPresentacion == null ? null : _seleccionarArchivo,
+              ),
+              const SizedBox(height: 8),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.info_outline, size: 14, color: Colors.blue),
+                  const SizedBox(width: 6),
+                  Text(
+                    'Opción de descarga en Mastercard: Rech y Obs TXT (DA123D)',
+                    style: Theme.of(context)
+                        .textTheme
+                        .bodySmall
+                        ?.copyWith(color: Colors.blue),
+                  ),
+                ],
               ),
 
               if (_fechaPresentacion == null) ...[

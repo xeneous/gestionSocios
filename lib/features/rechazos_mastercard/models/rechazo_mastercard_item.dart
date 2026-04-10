@@ -30,6 +30,15 @@ class RechazoMastercardItem {
     return '$yyyy$mm';
   }
 
+  /// Elimina el formato Excel CSV: ="12345" → 12345
+  static String _limpiar(String valor) {
+    String v = valor.trim();
+    if (v.startsWith('="') && v.endsWith('"')) {
+      v = v.substring(2, v.length - 1);
+    }
+    return v;
+  }
+
   /// Parsea una línea CSV (separada por ';') del archivo Mastercard.
   /// [fechaPresentacion] es la fecha ingresada por el usuario.
   static RechazoMastercardItem? parsearLinea(
@@ -48,8 +57,8 @@ class RechazoMastercardItem {
     final socioId = idCompleto ~/ 10;
     if (socioId == 0) return null;
 
-    final tarjetaNueva = partes[1].trim();
-    final tarjetaActual = partes[2].trim();
+    final tarjetaNueva = _limpiar(partes[1]);
+    final tarjetaActual = _limpiar(partes[2]);
     final importe = double.tryParse(partes[6].trim()) ?? 0.0;
     final motivo = partes[7].trim();
     if (motivo.isEmpty) return null;

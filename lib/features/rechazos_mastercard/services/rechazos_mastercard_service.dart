@@ -85,9 +85,12 @@ class RechazosMastercardService {
 
       final tabla = item.entidadId == 0 ? 'socios' : 'profesionales';
 
+      final tarjetaNuevaFit = item.tarjetaNueva.length > 16
+          ? item.tarjetaNueva.substring(0, 16)
+          : item.tarjetaNueva;
       await _supabase
           .from(tabla)
-          .update({'numero_tarjeta': item.tarjetaNueva})
+          .update({'numero_tarjeta': tarjetaNuevaFit})
           .eq('id', item.socioId);
 
       actualizados++;
@@ -138,8 +141,12 @@ class RechazosMastercardService {
         'socio_id': item.socioId,
         'entidad_id': item.entidadId,
         'importe': item.importe,
-        'numero_tarjeta': item.tarjetaActual,
-        'motivo': item.motivo,
+        'numero_tarjeta': item.tarjetaActual.length > 16
+            ? item.tarjetaActual.substring(0, 16)
+            : item.tarjetaActual,
+        'motivo': item.motivo.length > 16
+            ? item.motivo.substring(0, 16)
+            : item.motivo,
         'fecha_rechazo': fechaStr,
       });
 

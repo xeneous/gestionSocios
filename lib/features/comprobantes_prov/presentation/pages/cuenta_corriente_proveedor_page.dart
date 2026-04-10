@@ -27,19 +27,34 @@ class CuentaCorrienteProveedorPage extends ConsumerStatefulWidget {
 class _CuentaCorrienteProveedorPageState
     extends ConsumerState<CuentaCorrienteProveedorPage> {
   bool _soloConSaldo = true;
+  DateTime? _fechaDesde;
+  DateTime? _fechaHasta;
+  int _currentPage = 1;
+  static const int _pageSize = 100;
+
   final _dateFormat = DateFormat('dd/MM/yyyy');
   final _currencyFormat = NumberFormat.currency(locale: 'es_AR', symbol: '\$');
+
+  CompProvSearchParams get _searchParams => CompProvSearchParams(
+        proveedor: widget.proveedorId,
+        soloConSaldo: _soloConSaldo,
+        fechaDesde: _fechaDesde,
+        fechaHasta: _fechaHasta,
+        page: _currentPage,
+        pageSize: _pageSize,
+      );
 
   @override
   Widget build(BuildContext context) {
     final proveedorAsync = ref.watch(proveedorProvider(widget.proveedorId));
     final tiposAsync = ref.watch(tiposComprobanteCompraProvider);
+    final comprobantesAsync = ref.watch(comprobantesProvSearchProvider(_searchParams));
 
-    final searchParams = CompProvSearchParams(
-      proveedor: widget.proveedorId,
-      soloConSaldo: _soloConSaldo,
-    );
-    final comprobantesAsync = ref.watch(comprobantesProvSearchProvider(searchParams));
+    // Saldo anterior solo cuando hay fechaDesde
+    final saldoAnteriorAsync = _fechaDesde != null
+        ? ref.watch(saldoAnteriorProveedorProvider(
+            SaldoAnteriorParams(widget.proveedorId, _fechaDesde!)))
+        : null;
 
     return Scaffold(
       appBar: AppBar(
@@ -71,42 +86,141 @@ class _CuentaCorrienteProveedorPageState
       body: Column(
         children: [
           // Header con info del proveedor y saldo
-          _buildInfoHeader(proveedorAsync, comprobantesAsync),
+          _buildInfoHeader(proveedorAsync, comprobantesAsync, saldoAnteriorAsync),
 
           const Divider(height: 1),
 
-          // Filtro
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: Row(
-              children: [
-                Checkbox(
-                  value: _soloConSaldo,
-                  onChanged: (value) {
-                    setState(() => _soloConSaldo = value ?? false);
-                  },
-                ),
-                const Text('Solo con saldo pendiente'),
-                const Spacer(),
-                Text(
-                  'A PAGAR',
-                  style: TextStyle(
-                    color: Colors.orange[700],
-                    fontWeight: FontWeight.bold,
-                    fontSize: 12,
-                  ),
-                ),
-              ],
-            ),
-          ),
+          // Filtros
+          _buildFiltros(),
 
           const Divider(height: 1),
 
           // Tabla de comprobantes
           Expanded(
-            child: _buildComprobantesTable(comprobantesAsync, tiposAsync),
+            child: _buildComprobantesTable(
+                comprobantesAsync, tiposAsync, saldoAnteriorAsync),
+          ),
+
+          // Paginación
+          _buildPaginacion(comprobantesAsync),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFiltros() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Row(
+        children: [
+          // Solo con saldo
+          Checkbox(
+            value: _soloConSaldo,
+            onChanged: (value) {
+              setState(() {
+                _soloConSaldo = value ?? false;
+                _currentPage = 1;
+              });
+            },
+          ),
+          const Text('Solo con saldo pendiente'),
+          const SizedBox(width: 16),
+
+          // Fecha desde
+          _buildDatePicker(
+            label: 'Desde',
+            value: _fechaDesde,
+            onPicked: (date) {
+              setState(() {
+                _fechaDesde = date;
+                _currentPage = 1;
+              });
+            },
+            onClear: () {
+              setState(() {
+                _fechaDesde = null;
+                _currentPage = 1;
+              });
+            },
+          ),
+          const SizedBox(width: 8),
+
+          // Fecha hasta
+          _buildDatePicker(
+            label: 'Hasta',
+            value: _fechaHasta,
+            onPicked: (date) {
+              setState(() {
+                _fechaHasta = date;
+                _currentPage = 1;
+              });
+            },
+            onClear: () {
+              setState(() {
+                _fechaHasta = null;
+                _currentPage = 1;
+              });
+            },
+          ),
+
+          const Spacer(),
+          Text(
+            'A PAGAR',
+            style: TextStyle(
+              color: Colors.orange[700],
+              fontWeight: FontWeight.bold,
+              fontSize: 12,
+            ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildDatePicker({
+    required String label,
+    required DateTime? value,
+    required void Function(DateTime) onPicked,
+    required VoidCallback onClear,
+  }) {
+    return InkWell(
+      onTap: () async {
+        final picked = await showDatePicker(
+          context: context,
+          initialDate: value ?? DateTime.now(),
+          firstDate: DateTime(2000),
+          lastDate: DateTime(2099),
+        );
+        if (picked != null) onPicked(picked);
+      },
+      borderRadius: BorderRadius.circular(6),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          border: Border.all(color: Colors.grey[400]!),
+          borderRadius: BorderRadius.circular(6),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.calendar_today, size: 14, color: Colors.grey[600]),
+            const SizedBox(width: 4),
+            Text(
+              value != null ? '$label: ${_dateFormat.format(value)}' : label,
+              style: TextStyle(
+                fontSize: 13,
+                color: value != null ? Colors.black87 : Colors.grey[600],
+              ),
+            ),
+            if (value != null) ...[
+              const SizedBox(width: 4),
+              InkWell(
+                onTap: onClear,
+                child: Icon(Icons.close, size: 14, color: Colors.grey[600]),
+              ),
+            ],
+          ],
+        ),
       ),
     );
   }
@@ -114,8 +228,8 @@ class _CuentaCorrienteProveedorPageState
   Widget _buildInfoHeader(
     AsyncValue proveedorAsync,
     AsyncValue<List<CompProvHeader>> comprobantesAsync,
+    AsyncValue<double>? saldoAnteriorAsync,
   ) {
-    // Calcular totales
     double totalDeuda = 0;
     double totalPagado = 0;
     int cantidadComprobantes = 0;
@@ -129,7 +243,9 @@ class _CuentaCorrienteProveedorPageState
       }
     }
 
-    final saldoPendiente = totalDeuda - totalPagado;
+    final saldoPagina = totalDeuda - totalPagado;
+    final saldoAnterior = saldoAnteriorAsync?.value ?? 0.0;
+    final saldoTotal = saldoAnterior + saldoPagina;
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -163,15 +279,16 @@ class _CuentaCorrienteProveedorPageState
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               Text(
-                'Saldo a Pagar: ${_currencyFormat.format(saldoPendiente)}',
+                'Saldo a Pagar: ${_currencyFormat.format(saldoTotal)}',
                 style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
-                  color: saldoPendiente > 0 ? Colors.red : Colors.green,
+                  color: saldoTotal > 0 ? Colors.red : Colors.green,
                 ),
               ),
               Text(
-                '$cantidadComprobantes comprobante(s)',
+                '$cantidadComprobantes comprobante(s) en esta página'
+                '${_fechaDesde != null ? ' · Saldo acumulado incluye período anterior' : ''}',
                 style: TextStyle(fontSize: 12, color: Colors.grey[600]),
               ),
             ],
@@ -181,13 +298,57 @@ class _CuentaCorrienteProveedorPageState
     );
   }
 
+  Widget _buildPaginacion(AsyncValue<List<CompProvHeader>> comprobantesAsync) {
+    final cantidad = comprobantesAsync.value?.length ?? 0;
+    final hayAnterior = _currentPage > 1;
+    final haySiguiente = cantidad == _pageSize;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.grey[100],
+        border: Border(top: BorderSide(color: Colors.grey[300]!)),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          IconButton(
+            icon: const Icon(Icons.chevron_left),
+            onPressed: hayAnterior
+                ? () => setState(() => _currentPage--)
+                : null,
+            tooltip: 'Página anterior',
+          ),
+          Text(
+            'Página $_currentPage',
+            style: const TextStyle(fontWeight: FontWeight.w500),
+          ),
+          IconButton(
+            icon: const Icon(Icons.chevron_right),
+            onPressed: haySiguiente
+                ? () => setState(() => _currentPage++)
+                : null,
+            tooltip: 'Página siguiente',
+          ),
+          if (comprobantesAsync.isLoading)
+            const SizedBox(
+              width: 16,
+              height: 16,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildComprobantesTable(
     AsyncValue<List<CompProvHeader>> comprobantesAsync,
     AsyncValue<List<TipoComprobanteCompra>> tiposAsync,
+    AsyncValue<double>? saldoAnteriorAsync,
   ) {
     return comprobantesAsync.when(
       data: (comprobantes) {
-        if (comprobantes.isEmpty) {
+        if (comprobantes.isEmpty && _currentPage == 1) {
           return Center(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
@@ -205,7 +366,6 @@ class _CuentaCorrienteProveedorPageState
           );
         }
 
-        // Crear mapa de tipos para descripción
         final tiposMap = <int, TipoComprobanteCompra>{};
         if (tiposAsync.hasValue) {
           for (final tipo in tiposAsync.value!) {
@@ -250,7 +410,7 @@ class _CuentaCorrienteProveedorPageState
                     label: Text('Acciones',
                         style: TextStyle(fontWeight: FontWeight.bold))),
               ],
-              rows: _buildRows(comprobantes, tiposMap),
+              rows: _buildRows(comprobantes, tiposMap, saldoAnteriorAsync),
             ),
           ),
         );
@@ -272,27 +432,74 @@ class _CuentaCorrienteProveedorPageState
   List<DataRow> _buildRows(
     List<CompProvHeader> comprobantes,
     Map<int, TipoComprobanteCompra> tiposMap,
+    AsyncValue<double>? saldoAnteriorAsync,
   ) {
-    double saldoAcumulado = 0;
     final rows = <DataRow>[];
     final userRole = ref.read(userRoleProvider);
 
-    // Ordenar por fecha ascendente para calcular saldo acumulado
+    // Determinar saldo inicial de esta página
+    double saldoAcumulado = 0;
+
+    // Si hay saldo anterior (filtro por fecha), lo usamos como punto de partida
+    if (saldoAnteriorAsync != null) {
+      saldoAcumulado = saldoAnteriorAsync.value ?? 0;
+    }
+
+    // Fila de "Saldo Anterior" cuando hay fechaDesde
+    if (_fechaDesde != null) {
+      final saldoAnterior = saldoAnteriorAsync?.value;
+      rows.add(DataRow(
+        color: WidgetStateProperty.all(Colors.blue[50]),
+        cells: [
+          DataCell(Text(
+            _dateFormat.format(_fechaDesde!),
+            style: const TextStyle(fontStyle: FontStyle.italic),
+          )),
+          const DataCell(Text('—')),
+          DataCell(Text(
+            'Saldo anterior al ${_dateFormat.format(_fechaDesde!)}',
+            style: const TextStyle(
+                fontWeight: FontWeight.bold, fontStyle: FontStyle.italic),
+          )),
+          const DataCell(Text('—')),
+          const DataCell(Text('—')),
+          DataCell(
+            saldoAnterior == null
+                ? const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2))
+                : Text(
+                    _currencyFormat.format(saldoAnterior),
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: saldoAnterior > 0 ? Colors.red : Colors.green,
+                    ),
+                  ),
+          ),
+          const DataCell(Text('—')),
+          const DataCell(Text('')),
+        ],
+      ));
+    }
+
+    // Ordenar por fecha ascendente para calcular saldo acumulado correctamente
     final sorted = List<CompProvHeader>.from(comprobantes)
-      ..sort((a, b) => a.fecha.compareTo(b.fecha));
+      ..sort((a, b) {
+        final fechaCmp = a.fecha.compareTo(b.fecha);
+        if (fechaCmp != 0) return fechaCmp;
+        return (a.comprobante).compareTo(b.comprobante);
+      });
 
     for (final comp in sorted) {
       final tipo = tiposMap[comp.tipoComprobante];
       final multiplicador = tipo?.multiplicador ?? 1;
 
-      // Para proveedores (a pagar) - lógica contable:
-      // Facturas (multiplicador 1) = CRÉDITO (Haber) - aumenta lo que debemos
-      // NC/Pagos (multiplicador -1) = DÉBITO (Debe) - disminuye lo que debemos
       final importe = _soloConSaldo ? comp.saldo : comp.totalImporte;
       final haber = multiplicador == 1 ? importe : 0.0;
       final debe = multiplicador == -1 ? importe : 0.0;
 
-      saldoAcumulado += haber - debe;  // Saldo positivo = debemos
+      saldoAcumulado += haber - debe;
 
       final isPendiente = comp.saldo > 0;
       final rowColor = isPendiente ? Colors.orange[50] : null;
@@ -314,14 +521,16 @@ class _CuentaCorrienteProveedorPageState
                   if (comp.tipoFactura != null) ...[
                     const SizedBox(width: 4),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 4, vertical: 1),
                       decoration: BoxDecoration(
                         color: Colors.blue[100],
                         borderRadius: BorderRadius.circular(4),
                       ),
                       child: Text(
                         comp.tipoFactura!,
-                        style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
+                        style: const TextStyle(
+                            fontSize: 10, fontWeight: FontWeight.bold),
                       ),
                     ),
                   ],
@@ -332,13 +541,13 @@ class _CuentaCorrienteProveedorPageState
             DataCell(
               Text(
                 debe > 0 ? _currencyFormat.format(debe) : '-',
-                style: const TextStyle(color: Colors.green),  // Pago = reduce deuda
+                style: const TextStyle(color: Colors.green),
               ),
             ),
             DataCell(
               Text(
                 haber > 0 ? _currencyFormat.format(haber) : '-',
-                style: const TextStyle(color: Colors.red),  // Factura = aumenta deuda
+                style: const TextStyle(color: Colors.red),
               ),
             ),
             DataCell(
@@ -351,16 +560,20 @@ class _CuentaCorrienteProveedorPageState
               ),
             ),
             DataCell(
-              Text(comp.fecha1Venc != null ? _dateFormat.format(comp.fecha1Venc!) : '-'),
+              Text(comp.fecha1Venc != null
+                  ? _dateFormat.format(comp.fecha1Venc!)
+                  : '-'),
             ),
             DataCell(
               Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   IconButton(
-                    icon: const Icon(Icons.visibility, size: 18, color: Colors.blue),
+                    icon: const Icon(Icons.visibility,
+                        size: 18, color: Colors.blue),
                     onPressed: () {
-                      context.go('/comprobantes-proveedores/${comp.idTransaccion}');
+                      context.go(
+                          '/comprobantes-proveedores/${comp.idTransaccion}');
                     },
                     tooltip: 'Ver Detalle',
                     padding: EdgeInsets.zero,
@@ -368,9 +581,11 @@ class _CuentaCorrienteProveedorPageState
                   ),
                   const SizedBox(width: 8),
                   IconButton(
-                    icon: const Icon(Icons.edit, size: 18, color: Colors.orange),
+                    icon: const Icon(Icons.edit,
+                        size: 18, color: Colors.orange),
                     onPressed: () {
-                      context.go('/comprobantes-proveedores/${comp.idTransaccion}/editar');
+                      context.go(
+                          '/comprobantes-proveedores/${comp.idTransaccion}/editar');
                     },
                     tooltip: 'Editar',
                     padding: EdgeInsets.zero,
@@ -382,8 +597,7 @@ class _CuentaCorrienteProveedorPageState
                     IconButton(
                       icon: const Icon(Icons.print,
                           size: 18, color: Colors.teal),
-                      onPressed: () =>
-                          _reimprimirOP(comp),
+                      onPressed: () => _reimprimirOP(comp),
                       tooltip: 'Reimprimir OP',
                       padding: EdgeInsets.zero,
                       constraints: const BoxConstraints(),
@@ -531,8 +745,10 @@ class _CuentaCorrienteProveedorPageState
             FilledButton.icon(
               onPressed: () async {
                 try {
-                  final provData = ref.read(proveedorProvider(widget.proveedorId));
-                  final nombre = provData.value?.razonSocial ?? 'proveedor_${widget.proveedorId}';
+                  final provData =
+                      ref.read(proveedorProvider(widget.proveedorId));
+                  final nombre = provData.value?.razonSocial ??
+                      'proveedor_${widget.proveedorId}';
                   await pdfService.compartirOrdenPago(
                     pdf: pdf,
                     numeroOP: comp.comprobante,
