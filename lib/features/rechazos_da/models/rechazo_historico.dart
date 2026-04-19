@@ -7,6 +7,8 @@ class RechazoHistorico {
   final int entidadId;
   final String? apellido;
   final String? nombre;
+  final String? email;
+  final String? telefono;
   final double importe;
   final String? numeroTarjeta;
   final String? motivo;
@@ -21,6 +23,8 @@ class RechazoHistorico {
     required this.entidadId,
     this.apellido,
     this.nombre,
+    this.email,
+    this.telefono,
     required this.importe,
     this.numeroTarjeta,
     this.motivo,
@@ -56,6 +60,8 @@ class RechazoHistorico {
       entidadId: json['entidad_id'] as int? ?? 0,
       apellido: socio?['apellido'] as String?,
       nombre: socio?['nombre'] as String?,
+      email: socio?['email'] as String?,
+      telefono: socio?['telefono'] as String?,
       importe: (json['importe'] as num).toDouble(),
       numeroTarjeta: json['numero_tarjeta'] as String?,
       motivo: json['motivo'] as String?,

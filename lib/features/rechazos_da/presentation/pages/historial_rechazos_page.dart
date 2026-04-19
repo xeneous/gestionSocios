@@ -1,3 +1,8 @@
+// ignore: avoid_web_libraries_in_flutter
+import 'dart:html' as html;
+
+import 'package:excel/excel.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -225,7 +230,7 @@ class _HistorialRechazosPageState
 
                 return Column(
                   children: [
-                    // Contador
+                    // Contador + Exportar
                     Padding(
                       padding: const EdgeInsets.symmetric(
                           horizontal: 16, vertical: 4),
@@ -235,6 +240,17 @@ class _HistorialRechazosPageState
                             '${rechazos.length} rechazo(s)',
                             style: const TextStyle(color: Colors.grey),
                           ),
+                          const Spacer(),
+                          if (_tarjetaFiltroId != null && _periodoFiltro != null)
+                            ElevatedButton.icon(
+                              icon: const Icon(Icons.download, size: 16),
+                              label: const Text('Exportar Excel'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.deepOrange,
+                                foregroundColor: Colors.white,
+                              ),
+                              onPressed: () => _exportarExcel(rechazos),
+                            ),
                         ],
                       ),
                     ),
@@ -289,6 +305,7 @@ class _HistorialRechazosPageState
             DataColumn(label: Text('Período')),
             DataColumn(label: Text('Tarjeta')),
             DataColumn(label: Text('Socio')),
+            DataColumn(label: Text('Email')),
             DataColumn(label: Text('Importe'), numeric: true),
             DataColumn(label: Text('N° Tarjeta')),
             DataColumn(label: Text('Motivo')),
@@ -310,6 +327,7 @@ class _HistorialRechazosPageState
       DataCell(Text(periodoStr)),
       DataCell(_buildTarjetaChip(r.nombreTarjeta)),
       DataCell(Text(r.nombreCompleto)),
+      DataCell(Text(r.email ?? '-')),
       DataCell(Text(_currencyFormat.format(r.importe))),
       DataCell(Text(r.numeroTarjetaEnmascarado)),
       DataCell(
@@ -326,6 +344,81 @@ class _HistorialRechazosPageState
           ? _dateFormat.format(r.fechaRechazo!)
           : '-')),
     ]);
+  }
+
+  void _exportarExcel(List<RechazoHistorico> rechazos) {
+    final excel = Excel.createExcel();
+    final sheet = excel['Rechazos'];
+    excel.setDefaultSheet('Rechazos');
+
+    // Estilo encabezado
+    final headerStyle = CellStyle(
+      bold: true,
+      backgroundColorHex: ExcelColor.fromHexString('#FF5722'),
+      fontColorHex: ExcelColor.fromHexString('#FFFFFF'),
+    );
+
+    // Encabezados
+    final headers = [
+      'Período', 'Tarjeta', 'Socio', 'Email', 'Teléfono',
+      'Importe', 'N° Tarjeta', 'Motivo', 'Fecha Rechazo',
+    ];
+    for (var i = 0; i < headers.length; i++) {
+      final cell = sheet.cell(CellIndex.indexByColumnRow(columnIndex: i, rowIndex: 0));
+      cell.value = TextCellValue(headers[i]);
+      cell.cellStyle = headerStyle;
+    }
+
+    // Datos
+    for (var i = 0; i < rechazos.length; i++) {
+      final r = rechazos[i];
+      final anio = r.periodo ~/ 100;
+      final mes = r.periodo % 100;
+      final periodo = '${mes.toString().padLeft(2, '0')}/$anio';
+      final fecha = r.fechaRechazo != null ? _dateFormat.format(r.fechaRechazo!) : '';
+
+      final rowData = [
+        TextCellValue(periodo),
+        TextCellValue(r.nombreTarjeta),
+        TextCellValue(r.nombreCompleto),
+        TextCellValue(r.email ?? ''),
+        TextCellValue(r.telefono ?? ''),
+        DoubleCellValue(r.importe),
+        TextCellValue(r.numeroTarjetaEnmascarado),
+        TextCellValue(r.motivo ?? ''),
+        TextCellValue(fecha),
+      ];
+      for (var j = 0; j < rowData.length; j++) {
+        sheet.cell(CellIndex.indexByColumnRow(columnIndex: j, rowIndex: i + 1)).value = rowData[j];
+      }
+    }
+
+    // Anchos de columna aproximados
+    sheet.setColumnWidth(0, 10);
+    sheet.setColumnWidth(1, 14);
+    sheet.setColumnWidth(2, 28);
+    sheet.setColumnWidth(3, 30);
+    sheet.setColumnWidth(4, 16);
+    sheet.setColumnWidth(5, 14);
+    sheet.setColumnWidth(6, 22);
+    sheet.setColumnWidth(7, 35);
+    sheet.setColumnWidth(8, 16);
+
+    final anio = rechazos.first.periodo ~/ 100;
+    final mes = rechazos.first.periodo % 100;
+    final nombreArchivo =
+        'rechazos_${rechazos.first.nombreTarjeta.toLowerCase().replaceAll(' ', '_')}_${mes.toString().padLeft(2, '0')}_$anio.xlsx';
+
+    final bytes = excel.encode()!;
+    final blob = html.Blob(
+      [bytes],
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    );
+    final url = html.Url.createObjectUrlFromBlob(blob);
+    html.AnchorElement(href: url)
+      ..setAttribute('download', nombreArchivo)
+      ..click();
+    html.Url.revokeObjectUrl(url);
   }
 
   Widget _buildTarjetaChip(String nombre) {

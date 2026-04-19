@@ -101,8 +101,8 @@ class _CuentaCorrienteProveedorPageState
                 comprobantesAsync, tiposAsync, saldoAnteriorAsync),
           ),
 
-          // Paginación
-          _buildPaginacion(comprobantesAsync),
+          // Paginación (solo cuando no está el filtro soloConSaldo)
+          if (!_soloConSaldo) _buildPaginacion(comprobantesAsync),
         ],
       ),
     );

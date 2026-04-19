@@ -30,7 +30,7 @@ class HistorialRechazosService {
     if (socioIds.isNotEmpty) {
       final sociosResp = await _supabase
           .from('socios')
-          .select('id, apellido, nombre')
+          .select('id, apellido, nombre, email, telefono')
           .inFilter('id', socioIds);
       for (final s in sociosResp as List) {
         sociosMap[s['id'] as int] = s as Map<String, dynamic>;

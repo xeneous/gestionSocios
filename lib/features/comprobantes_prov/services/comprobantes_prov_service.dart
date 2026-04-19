@@ -46,16 +46,24 @@ class ComprobantesProvService {
       query = query.ilike('nro_comprobante', '%$nroComprobante%');
     }
 
-    final from = (page - 1) * pageSize;
-    final to = from + pageSize - 1;
-
-    final response = await query
+    final orderedQuery = query
         .order('fecha', ascending: false)
-        .order('comprobante', ascending: false)
-        .range(from, to);
+        .order('comprobante', ascending: false);
+
+    // Cuando soloConSaldo está activo, el filtro es client-side (saldo = total - cancelado
+    // no es una columna real). Traemos todos los registros sin paginar y filtramos.
+    // Cuando NO está activo, usamos paginación normal.
+    final List response;
+    if (soloConSaldo) {
+      response = await orderedQuery;
+    } else {
+      final from = (page - 1) * pageSize;
+      final to = from + pageSize - 1;
+      response = await orderedQuery.range(from, to);
+    }
 
     var comprobantes =
-        (response as List).map((json) => CompProvHeader.fromJson(json)).toList();
+        (response).map((json) => CompProvHeader.fromJson(json)).toList();
 
     if (soloConSaldo) {
       comprobantes = comprobantes.where((c) => c.saldo > 0).toList();
