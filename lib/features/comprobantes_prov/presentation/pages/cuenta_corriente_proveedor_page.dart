@@ -26,7 +26,7 @@ class CuentaCorrienteProveedorPage extends ConsumerStatefulWidget {
 
 class _CuentaCorrienteProveedorPageState
     extends ConsumerState<CuentaCorrienteProveedorPage> {
-  bool _soloConSaldo = true;
+  bool _soloConSaldo = false;
   DateTime? _fechaDesde;
   DateTime? _fechaHasta;
   int _currentPage = 1;
