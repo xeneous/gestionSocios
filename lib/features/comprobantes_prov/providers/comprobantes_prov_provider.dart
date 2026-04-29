@@ -184,7 +184,7 @@ class ComprobantesProvNotifier extends Notifier<AsyncValue<void>> {
     state = const AsyncValue.loading();
     try {
       final service = ref.read(comprobantesProvServiceProvider);
-      await service.eliminarComprobante(idTransaccion);
+      await service.eliminarFactura(idTransaccion);
       state = const AsyncValue.data(null);
     } catch (e, st) {
       state = AsyncValue.error(e, st);
