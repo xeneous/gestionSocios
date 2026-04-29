@@ -19,6 +19,7 @@ class ComprobantesProvService {
     DateTime? fechaHasta,
     String? nroComprobante,
     bool soloConSaldo = false,
+    bool sinPaginado = false,
     int page = 1,
     int pageSize = 100,
   }) async {
@@ -54,7 +55,7 @@ class ComprobantesProvService {
     // no es una columna real). Traemos todos los registros sin paginar y filtramos.
     // Cuando NO está activo, usamos paginación normal.
     final List response;
-    if (soloConSaldo) {
+    if (soloConSaldo || sinPaginado) {
       response = await orderedQuery;
     } else {
       final from = (page - 1) * pageSize;
@@ -252,8 +253,26 @@ class ComprobantesProvService {
     return (await getComprobante(header.idTransaccion!))!;
   }
 
-  /// Eliminar un comprobante (y sus items por cascade)
-  Future<void> eliminarComprobante(int idTransaccion) async {
+  /// Elimina un comprobante (factura/NC) de forma segura.
+  /// Lanza excepción si tiene Órdenes de Pago aplicadas — deben eliminarse primero.
+  /// El asiento contable queda huérfano ya que no hay FK directa al asiento.
+  Future<void> eliminarFactura(int idTransaccion) async {
+    // Verificar si hay OPs aplicadas a esta factura
+    final notas = await _supabase
+        .from('notas_imputacion')
+        .select('id_operacion')
+        .eq('id_transaccion', idTransaccion);
+
+    if ((notas as List).isNotEmpty) {
+      final ops = notas.map((n) => 'OP #${n['id_operacion']}').join(', ');
+      throw Exception(
+          'La factura tiene pagos aplicados ($ops). Elimine primero esas Órdenes de Pago.');
+    }
+
+    await _supabase
+        .from('comp_prov_items')
+        .delete()
+        .eq('id_transaccion', idTransaccion);
     await _supabase
         .from('comp_prov_header')
         .delete()

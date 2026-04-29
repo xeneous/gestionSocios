@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import '../../providers/comprobantes_prov_provider.dart';
+import '../../providers/orden_pago_provider.dart';
 import '../../models/comprobante_prov_model.dart';
 import '../../services/orden_pago_pdf_service.dart';
 import '../../../proveedores/providers/proveedores_provider.dart';
@@ -32,12 +33,27 @@ class _CuentaCorrienteProveedorPageState
   int _currentPage = 1;
   static const int _pageSize = 100;
 
+  static DateTime _inicioEjercicioActual() {
+    final hoy = DateTime.now();
+    final inicioEsteAnio = DateTime(hoy.year, 8, 2);
+    return hoy.compareTo(inicioEsteAnio) >= 0
+        ? inicioEsteAnio
+        : DateTime(hoy.year - 1, 8, 2);
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _fechaDesde = _inicioEjercicioActual();
+  }
+
   final _dateFormat = DateFormat('dd/MM/yyyy');
   final _currencyFormat = NumberFormat.currency(locale: 'es_AR', symbol: '\$');
 
   CompProvSearchParams get _searchParams => CompProvSearchParams(
         proveedor: widget.proveedorId,
         soloConSaldo: _soloConSaldo,
+        sinPaginado: true,
         fechaDesde: _fechaDesde,
         fechaHasta: _fechaHasta,
         page: _currentPage,
@@ -101,8 +117,6 @@ class _CuentaCorrienteProveedorPageState
                 comprobantesAsync, tiposAsync, saldoAnteriorAsync),
           ),
 
-          // Paginación (solo cuando no está el filtro soloConSaldo)
-          if (!_soloConSaldo) _buildPaginacion(comprobantesAsync),
         ],
       ),
     );
@@ -602,6 +616,17 @@ class _CuentaCorrienteProveedorPageState
                       padding: EdgeInsets.zero,
                       constraints: const BoxConstraints(),
                     ),
+                  if (userRole.esAdministrador && comp.idTransaccion != null)
+                    IconButton(
+                      icon: const Icon(Icons.delete,
+                          size: 18, color: Colors.red),
+                      onPressed: () => _eliminarComprobante(comp, multiplicador),
+                      tooltip: multiplicador == -1
+                          ? 'Eliminar Orden de Pago'
+                          : 'Eliminar Comprobante',
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                    ),
                 ],
               ),
             ),
@@ -611,6 +636,168 @@ class _CuentaCorrienteProveedorPageState
     }
 
     return rows;
+  }
+
+  Future<void> _eliminarComprobante(CompProvHeader comp, int multiplicador) async {
+    final esOP = multiplicador == -1;
+    final claveController = TextEditingController();
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Row(
+          children: [
+            const Icon(Icons.warning, color: Colors.red),
+            const SizedBox(width: 8),
+            Text(esOP ? 'Eliminar Orden de Pago' : 'Eliminar Comprobante'),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              '${esOP ? "OP" : "Comprobante"} Nro. ${comp.nroComprobante}',
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 8),
+            if (esOP) ...[
+              const Text(
+                'Se revertirán todos los pagos aplicados y se eliminará '
+                'el asiento contable, los valores de tesorería y la operación contable.',
+                style: TextStyle(fontSize: 13),
+              ),
+            ] else ...[
+              const Text(
+                'Se eliminará el comprobante y sus ítems. '
+                'Si tiene pagos aplicados, la operación será bloqueada.',
+                style: TextStyle(fontSize: 13),
+              ),
+            ],
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.red[50],
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(color: Colors.red[200]!),
+              ),
+              child: const Text(
+                'Esta acción es IRREVERSIBLE.',
+                style: TextStyle(
+                  color: Colors.red,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 13,
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            const Text('Ingrese la clave de administrador:'),
+            const SizedBox(height: 8),
+            TextField(
+              controller: claveController,
+              obscureText: true,
+              autofocus: true,
+              decoration: const InputDecoration(
+                labelText: 'Clave',
+                border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.key),
+              ),
+              onSubmitted: (_) => Navigator.pop(context, true),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Eliminar'),
+          ),
+        ],
+      ),
+    );
+
+    final claveIngresada = claveController.text;
+    claveController.dispose();
+    if (confirmed != true) return;
+
+    const adminClave = 'SAO2026';
+    if (claveIngresada != adminClave) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Clave incorrecta'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+      return;
+    }
+
+    if (!mounted) return;
+
+    // Mostrar progreso
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(
+        child: Card(
+          child: Padding(
+            padding: EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CircularProgressIndicator(),
+                SizedBox(height: 16),
+                Text('Eliminando...'),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+
+    try {
+      String mensaje;
+      if (esOP) {
+        final ordenPagoService = ref.read(ordenPagoServiceProvider);
+        final revertidas = await ordenPagoService.eliminarOrdenPago(comp.idTransaccion!);
+        mensaje = 'Orden de Pago eliminada.';
+        if (revertidas.isNotEmpty) {
+          final lista = revertidas.map((f) => f['nro_comprobante']).join(', ');
+          mensaje += '\nPagos revertidos en: $lista';
+        }
+      } else {
+        final compService = ref.read(comprobantesProvServiceProvider);
+        await compService.eliminarFactura(comp.idTransaccion!);
+        mensaje = 'Comprobante eliminado correctamente.';
+      }
+
+      if (mounted) {
+        Navigator.pop(context); // cerrar progreso
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(mensaje), backgroundColor: Colors.green),
+        );
+        // Refrescar la lista
+        setState(() => _currentPage = 1);
+        ref.invalidate(comprobantesProvSearchProvider);
+      }
+    } catch (e) {
+      if (mounted) {
+        Navigator.pop(context); // cerrar progreso
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error: ${e.toString().replaceFirst("Exception: ", "")}'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 6),
+          ),
+        );
+      }
+    }
   }
 
   Future<void> _reimprimirOP(CompProvHeader comp) async {

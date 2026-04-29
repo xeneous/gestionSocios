@@ -357,6 +357,124 @@ class OrdenPagoService {
     );
   }
 
+  /// Elimina una Orden de Pago y revierte todos sus efectos:
+  /// - Revierte cancelado en cada factura imputada
+  /// - Elimina notas_imputacion
+  /// - Elimina valores_tesoreria, operaciones_contables y su asiento contable
+  /// - Elimina comp_prov_items y comp_prov_header
+  ///
+  /// Retorna lista de facturas revertidas para mostrar al usuario.
+  Future<List<Map<String, dynamic>>> eliminarOrdenPago(int idTransaccion) async {
+    // 1. Obtener la OP
+    final opRow = await _supabase
+        .from('comp_prov_header')
+        .select('comprobante, anio_mes, fecha, total_importe')
+        .eq('id_transaccion', idTransaccion)
+        .single();
+
+    final opComprobante = opRow['comprobante'] as int;
+
+    // 2. Obtener notas_imputacion para saber qué facturas revertir
+    final notas = await _supabase
+        .from('notas_imputacion')
+        .select('id_transaccion, importe')
+        .eq('id_operacion', idTransaccion);
+
+    final facturasRevertidas = <Map<String, dynamic>>[];
+
+    // 3. Revertir cancelado en cada factura
+    for (final nota in notas as List) {
+      final idFactura = nota['id_transaccion'] as int;
+      final importe = (nota['importe'] as num).toDouble();
+
+      final facturaRow = await _supabase
+          .from('comp_prov_header')
+          .select('cancelado, nro_comprobante')
+          .eq('id_transaccion', idFactura)
+          .maybeSingle();
+
+      if (facturaRow != null) {
+        final canceladoActual = (facturaRow['cancelado'] as num?)?.toDouble() ?? 0;
+        final nuevoCancelado = (canceladoActual - importe).clamp(0.0, double.infinity);
+        await _supabase
+            .from('comp_prov_header')
+            .update({'cancelado': nuevoCancelado})
+            .eq('id_transaccion', idFactura);
+        facturasRevertidas.add({
+          'nro_comprobante': facturaRow['nro_comprobante'],
+          'importe': importe,
+        });
+      }
+    }
+
+    // 4. Eliminar notas_imputacion de esta OP
+    await _supabase
+        .from('notas_imputacion')
+        .delete()
+        .eq('id_operacion', idTransaccion);
+
+    // 5. Buscar operaciones_contables para encontrar el asiento
+    final opContable = await _supabase
+        .from('operaciones_contables')
+        .select('id, asiento_numero, asiento_anio_mes, asiento_tipo')
+        .eq('numero_comprobante', opComprobante)
+        .eq('tipo_operacion', 'ORDEN_PAGO')
+        .maybeSingle();
+
+    if (opContable != null) {
+      final operacionId = opContable['id'] as int;
+      final asientoNumero = opContable['asiento_numero'] as int?;
+      final asientoAnioMes = opContable['asiento_anio_mes'] as int?;
+      final asientoTipo = opContable['asiento_tipo'] as int?;
+
+      // 5a. Eliminar operaciones_detalle_valores_tesoreria
+      await _supabase
+          .from('operaciones_detalle_valores_tesoreria')
+          .delete()
+          .eq('operacion_id', operacionId);
+
+      // 5b. Eliminar asiento contable
+      if (asientoNumero != null && asientoAnioMes != null && asientoTipo != null) {
+        await _supabase
+            .from('asientos_items')
+            .delete()
+            .eq('asiento', asientoNumero)
+            .eq('anio_mes', asientoAnioMes)
+            .eq('tipo_asiento', asientoTipo);
+        await _supabase
+            .from('asientos_header')
+            .delete()
+            .eq('asiento', asientoNumero)
+            .eq('anio_mes', asientoAnioMes)
+            .eq('tipo_asiento', asientoTipo);
+      }
+
+      // 5c. Eliminar operaciones_contables
+      await _supabase
+          .from('operaciones_contables')
+          .delete()
+          .eq('id', operacionId);
+    }
+
+    // 6. Eliminar valores_tesoreria
+    await _supabase
+        .from('valores_tesoreria')
+        .delete()
+        .eq('idtransaccion_origen', idTransaccion);
+
+    // 7. Eliminar items y header
+    await _supabase
+        .from('comp_prov_items')
+        .delete()
+        .eq('id_transaccion', idTransaccion);
+    await _supabase
+        .from('comp_prov_header')
+        .delete()
+        .eq('id_transaccion', idTransaccion);
+
+    return facturasRevertidas;
+  }
+
   /// Obtiene el saldo total de un proveedor
   Future<Map<String, double>> getSaldoProveedor(int proveedorId) async {
     // Primero obtener los tipos de comprobante

@@ -17,6 +17,7 @@ class CompProvSearchParams {
   final DateTime? fechaHasta;
   final String? nroComprobante;
   final bool soloConSaldo;
+  final bool sinPaginado;
   final int page;
   final int pageSize;
 
@@ -27,6 +28,7 @@ class CompProvSearchParams {
     this.fechaHasta,
     this.nroComprobante,
     this.soloConSaldo = false,
+    this.sinPaginado = false,
     this.page = 1,
     this.pageSize = 100,
   });
@@ -42,6 +44,7 @@ class CompProvSearchParams {
           fechaHasta == other.fechaHasta &&
           nroComprobante == other.nroComprobante &&
           soloConSaldo == other.soloConSaldo &&
+          sinPaginado == other.sinPaginado &&
           page == other.page &&
           pageSize == other.pageSize;
 
@@ -53,6 +56,7 @@ class CompProvSearchParams {
       fechaHasta.hashCode ^
       nroComprobante.hashCode ^
       soloConSaldo.hashCode ^
+      sinPaginado.hashCode ^
       page.hashCode ^
       pageSize.hashCode;
 }
@@ -69,6 +73,7 @@ final comprobantesProvSearchProvider =
     fechaHasta: params.fechaHasta,
     nroComprobante: params.nroComprobante,
     soloConSaldo: params.soloConSaldo,
+    sinPaginado: params.sinPaginado,
     page: params.page,
     pageSize: params.pageSize,
   );
