@@ -589,7 +589,7 @@ final resumenCuentasCorrientesPaginaProvider =
 });
 
 /// Provider de estado para el filtro de solo activos
-class ResumenSoloActivosNotifier extends AutoDisposeNotifier<bool> {
+class ResumenSoloActivosNotifier extends Notifier<bool> {
   @override
   bool build() => true; // Por defecto solo activos
 
@@ -603,7 +603,7 @@ final resumenSoloActivosProvider =
 });
 
 /// Provider de estado para filtro de meses impagos
-class ResumenMesesFiltroNotifier extends AutoDisposeNotifier<int?> {
+class ResumenMesesFiltroNotifier extends Notifier<int?> {
   @override
   int? build() => null; // Sin filtro por defecto
 
@@ -617,7 +617,7 @@ final resumenMesesFiltroProvider =
 });
 
 /// Provider de estado para filtro de meses exactos (true) o >= (false)
-class ResumenMesesExactoNotifier extends AutoDisposeNotifier<bool> {
+class ResumenMesesExactoNotifier extends Notifier<bool> {
   @override
   bool build() => false; // Por defecto >= (o más)
 
@@ -631,7 +631,7 @@ final resumenMesesExactoProvider =
 });
 
 /// Provider de estado para filtro de tarjeta
-class ResumenTarjetaFiltroNotifier extends AutoDisposeNotifier<int?> {
+class ResumenTarjetaFiltroNotifier extends Notifier<int?> {
   @override
   int? build() => null; // Todas las tarjetas por defecto
 
@@ -645,7 +645,7 @@ final resumenTarjetaFiltroProvider =
 });
 
 /// Provider de estado para filtro de residentes
-class ResumenResidentesNotifier extends AutoDisposeNotifier<bool> {
+class ResumenResidentesNotifier extends Notifier<bool> {
   @override
   bool build() => false; // Todos por defecto (no solo residentes)
 
