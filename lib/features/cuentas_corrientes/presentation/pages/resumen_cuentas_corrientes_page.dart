@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart' hide Border;
+import 'package:data_table_2/data_table_2.dart';
 import 'package:flutter/material.dart' as material show Border, BorderSide;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -250,15 +251,18 @@ class ResumenCuentasCorrientesPage extends ConsumerWidget {
 
         // Tabla
         Expanded(
-          child: SingleChildScrollView(
+          child: Padding(
             padding: const EdgeInsets.all(16),
             child: Card(
-              child: SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: DataTable(
-                  headingRowColor: WidgetStateProperty.all(
-                    Theme.of(context).colorScheme.primaryContainer,
-                  ),
+              clipBehavior: Clip.antiAlias,
+              child: DataTable2(
+                fixedTopRows: 1,
+                minWidth: 1100,
+                isVerticalScrollBarVisible: true,
+                isHorizontalScrollBarVisible: true,
+                headingRowColor: WidgetStateProperty.all(
+                  Theme.of(context).colorScheme.primaryContainer,
+                ),
                   columns: const [
                     DataColumn(
                       label: Text(
@@ -447,7 +451,6 @@ class ResumenCuentasCorrientesPage extends ConsumerWidget {
                       ],
                     );
                   }).toList(),
-                ),
               ),
             ),
           ),

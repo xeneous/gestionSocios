@@ -4,6 +4,7 @@ import '../services/recibo_pdf_service.dart';
 import '../../asientos/services/asientos_service.dart';
 import '../../asientos/providers/asientos_provider.dart';
 import '../../auth/presentation/providers/auth_provider.dart';
+import 'cuentas_corrientes_provider.dart';
 
 // ============================================================================
 // PROVIDERS
@@ -168,6 +169,15 @@ class CobranzasNotifier extends Notifier<AsyncValue<void>> {
         nombrePersona: nombreCompleto,
       );
 
+      if (socioId != null) {
+        ref.invalidate(cuentasCorrientesPorSocioProvider(socioId));
+        ref.invalidate(saldoSocioProvider(socioId));
+      }
+      if (profesionalId != null) {
+        ref.invalidate(saldoProfesionalProvider(profesionalId));
+      }
+      ref.invalidate(cuentasCorrientesSearchProvider);
+
       state = const AsyncValue.data(null);
 
       return {
@@ -187,6 +197,7 @@ class CobranzasNotifier extends Notifier<AsyncValue<void>> {
     try {
       final service = ref.read(cobranzasServiceProvider);
       await service.anularRecibo(numeroRecibo);
+      ref.invalidate(cuentasCorrientesSearchProvider);
       state = const AsyncValue.data(null);
     } catch (e, st) {
       state = AsyncValue.error(e, st);

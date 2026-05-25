@@ -736,7 +736,7 @@ class _NuevaFacturaPageState extends ConsumerState<NuevaFacturaPage> {
                         ),
                         title: Text(profesional.nombreCompleto),
                         subtitle: Text(
-                            'ID: ${profesional.id} | DNI: ${profesional.numeroDocumento ?? "N/A"}'),
+                            'ID: ${profesional.id} | ${profesional.tipoDocumento ?? 'LE'}: ${profesional.numeroDocumento ?? "N/A"}'),
                         onTap: () => _seleccionarProfesional(profesional),
                       );
                     },

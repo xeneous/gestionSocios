@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../providers/socios_provider.dart';
@@ -346,21 +347,61 @@ class _SociosListPageState extends ConsumerState<SociosListPage> {
                           color: Colors.white, fontWeight: FontWeight.bold),
                     ),
                   ),
-                  title: Text(
-                    '#${socio.id} - ${socio.nombreCompleto}',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: ['A', 'H', 'T', 'V'].contains(socio.grupo)
-                          ? null
-                          : Colors.grey,
-                    ),
+                  title: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          '#${socio.id} - ${socio.nombreCompleto}',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: ['A', 'H', 'T', 'V'].contains(socio.grupo)
+                                ? null
+                                : Colors.grey,
+                          ),
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.copy, size: 15),
+                        tooltip: 'Copiar nombre',
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                        onPressed: () {
+                          Clipboard.setData(ClipboardData(text: socio.nombreCompleto));
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Nombre copiado'),
+                              duration: Duration(seconds: 1),
+                            ),
+                          );
+                        },
+                      ),
+                    ],
                   ),
                   subtitle: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       if (socio.numeroDocumento != null)
-                        Text(
-                            '${socio.tipoDocumento ?? 'DNI'}: ${socio.numeroDocumento}'),
+                        Row(
+                          children: [
+                            Text('${socio.tipoDocumento ?? 'LE'}: ${socio.numeroDocumento}'),
+                            const SizedBox(width: 4),
+                            IconButton(
+                              icon: const Icon(Icons.copy, size: 14),
+                              tooltip: 'Copiar documento',
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(),
+                              onPressed: () {
+                                Clipboard.setData(ClipboardData(text: socio.numeroDocumento!));
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('Documento copiado'),
+                                    duration: Duration(seconds: 1),
+                                  ),
+                                );
+                              },
+                            ),
+                          ],
+                        ),
                       if (socio.email != null && socio.email!.isNotEmpty)
                         Text(socio.email!),
                       if (socio.telefono != null &&

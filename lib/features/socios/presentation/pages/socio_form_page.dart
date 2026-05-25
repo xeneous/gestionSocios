@@ -52,7 +52,7 @@ class _SocioFormPageState extends ConsumerState<SocioFormPage>
   final _nombreController = TextEditingController();
   final _numeroDocumentoController = TextEditingController();
   final _cuilController = TextEditingController();
-  String _tipoDocumento = 'DNI';
+  String _tipoDocumento = 'LE';
   int? _sexo = 0;
   DateTime? _fechaNacimiento;
 
@@ -145,7 +145,7 @@ class _SocioFormPageState extends ConsumerState<SocioFormPage>
           // Datos Personales
           _apellidoController.text = socio.apellido;
           _nombreController.text = socio.nombre;
-          _tipoDocumento = socio.tipoDocumento ?? 'DNI';
+          _tipoDocumento = socio.tipoDocumento ?? 'LE';
           _numeroDocumentoController.text = socio.numeroDocumento ?? '';
           _cuilController.text = socio.cuil ?? '';
           _sexo = socio.sexo;
@@ -786,7 +786,7 @@ class _SocioFormPageState extends ConsumerState<SocioFormPage>
                 }).toList(),
                 onChanged: (value) {
                   _markFormModified();
-                  setState(() => _tipoDocumento = value ?? 'DNI');
+                  setState(() => _tipoDocumento = value ?? 'LE');
                 },
               ),
             ),

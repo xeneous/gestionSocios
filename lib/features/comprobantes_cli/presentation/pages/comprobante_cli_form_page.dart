@@ -8,7 +8,6 @@ import '../../../clientes/providers/clientes_provider.dart';
 import '../../../clientes/models/cliente_model.dart';
 import '../../../asientos/presentation/widgets/cuentas_search_dialog.dart';
 import '../../../cuentas/models/cuenta_model.dart';
-import '../../../cuentas/providers/cuentas_provider.dart';
 import '../../../../core/utils/date_picker_utils.dart';
 
 class ComprobanteCliFormPage extends ConsumerStatefulWidget {
@@ -223,30 +222,6 @@ class _ComprobanteCliFormPageState
             content: Text('Sponsor no encontrado. Verifique el código.')),
       );
       return;
-    }
-
-    // Validar que todas las cuentas contables de los items existan
-    final cuentasAsync = ref.read(cuentasProvider);
-    final cuentas = cuentasAsync.asData?.value;
-    if (cuentas != null) {
-      final cuentasValidas = cuentas.map((c) => c.cuenta).toSet();
-      final cuentasInvalidas = _items
-          .where((i) => i.cuenta != 0 && !cuentasValidas.contains(i.cuenta))
-          .map((i) => i.cuenta)
-          .toSet();
-      if (cuentasInvalidas.isNotEmpty) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                  'Las siguientes cuentas contables no existen: ${cuentasInvalidas.join(', ')}'),
-              backgroundColor: Colors.red,
-              duration: const Duration(seconds: 5),
-            ),
-          );
-        }
-        return;
-      }
     }
 
     setState(() => _isLoading = true);

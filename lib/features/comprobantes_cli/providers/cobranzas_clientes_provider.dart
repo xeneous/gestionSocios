@@ -163,6 +163,9 @@ class CobranzasClientesNotifier extends Notifier<AsyncValue<void>> {
           'asiento_tipo': AsientosService.tipoIngreso,
         }).eq('id', operacionId);
 
+        ref.invalidate(comprobantesPendientesClienteProvider(clienteId));
+        ref.invalidate(saldoClienteProvider(clienteId));
+
         state = const AsyncValue.data(null);
 
         return {
@@ -172,6 +175,8 @@ class CobranzasClientesNotifier extends Notifier<AsyncValue<void>> {
         };
       } catch (e) {
         // El recibo ya fue guardado; el asiento falló → devolvemos con warning
+        ref.invalidate(comprobantesPendientesClienteProvider(clienteId));
+        ref.invalidate(saldoClienteProvider(clienteId));
         state = const AsyncValue.data(null);
         return {
           'numero_recibo': numeroRecibo,

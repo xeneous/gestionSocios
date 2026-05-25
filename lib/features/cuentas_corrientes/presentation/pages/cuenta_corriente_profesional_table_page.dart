@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:excel/excel.dart';
 import 'package:universal_html/html.dart' as html;
+import 'package:data_table_2/data_table_2.dart';
 import '../../providers/cuentas_corrientes_provider.dart';
 import '../../providers/cobranzas_provider.dart';
 import '../../models/cuenta_corriente_completa_model.dart';
@@ -122,7 +123,7 @@ class _CuentaCorrienteProfesionalTablePageState
                         ),
                         if (p.numeroDocumento != null)
                           Text(
-                            'DNI: ${p.numeroDocumento}',
+                            '${p.tipoDocumento ?? 'LE'}: ${p.numeroDocumento}',
                             style: TextStyle(
                                 fontSize: 14, color: Colors.grey[700]),
                           ),
@@ -185,14 +186,14 @@ class _CuentaCorrienteProfesionalTablePageState
           );
         }
 
-        return SingleChildScrollView(
-          scrollDirection: Axis.vertical,
-          child: SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: DataTable(
-              columnSpacing: 20,
-              horizontalMargin: 16,
-              headingRowColor: WidgetStateProperty.all(Colors.grey[200]),
+        return DataTable2(
+          fixedTopRows: 1,
+          minWidth: 820,
+          isVerticalScrollBarVisible: true,
+          isHorizontalScrollBarVisible: true,
+          columnSpacing: 20,
+          horizontalMargin: 16,
+          headingRowColor: WidgetStateProperty.all(Colors.grey[200]),
               columns: const [
                 DataColumn(
                     label: Text('Fecha',
@@ -223,8 +224,6 @@ class _CuentaCorrienteProfesionalTablePageState
                         style: TextStyle(fontWeight: FontWeight.bold))),
               ],
               rows: _buildRows(movimientos),
-            ),
-          ),
         );
       },
       loading: () => const Center(child: CircularProgressIndicator()),

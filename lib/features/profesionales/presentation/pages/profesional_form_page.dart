@@ -271,7 +271,7 @@ class _ProfesionalFormPageState extends ConsumerState<ProfesionalFormPage> {
                                     child: TextFormField(
                                       controller: _dniController,
                                       decoration: const InputDecoration(
-                                        labelText: 'DNI',
+                                        labelText: 'LE',
                                         border: OutlineInputBorder(),
                                         prefixIcon: Icon(Icons.credit_card),
                                       ),

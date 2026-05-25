@@ -237,7 +237,7 @@ class VenCliSearchState {
       soloConSaldo;
 }
 
-class VenCliSearchStateNotifier extends Notifier<VenCliSearchState> {
+class VenCliSearchStateNotifier extends AutoDisposeNotifier<VenCliSearchState> {
   @override
   VenCliSearchState build() {
     return VenCliSearchState();
@@ -293,5 +293,5 @@ class VenCliSearchStateNotifier extends Notifier<VenCliSearchState> {
 }
 
 final venCliSearchStateProvider =
-    NotifierProvider<VenCliSearchStateNotifier, VenCliSearchState>(
+    NotifierProvider.autoDispose<VenCliSearchStateNotifier, VenCliSearchState>(
         VenCliSearchStateNotifier.new);

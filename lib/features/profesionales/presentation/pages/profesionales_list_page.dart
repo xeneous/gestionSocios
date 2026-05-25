@@ -127,7 +127,7 @@ class _ProfesionalesListPageState extends ConsumerState<ProfesionalesListPage> {
                           child: TextField(
                             controller: _dniController,
                             decoration: const InputDecoration(
-                              labelText: 'DNI',
+                              labelText: 'LE',
                               border: OutlineInputBorder(),
                               prefixIcon: Icon(Icons.credit_card),
                             ),
@@ -211,7 +211,7 @@ class _ProfesionalesListPageState extends ConsumerState<ProfesionalesListPage> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             if (profesional.numeroDocumento != null)
-                              Text('DNI: ${profesional.numeroDocumento}'),
+                              Text('${profesional.tipoDocumento ?? 'LE'}: ${profesional.numeroDocumento}'),
                             if (profesional.email != null)
                               Text('Email: ${profesional.email}'),
                             if (profesional.telefono != null)

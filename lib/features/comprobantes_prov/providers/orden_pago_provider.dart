@@ -52,6 +52,8 @@ class OrdenPagoNotifier extends Notifier<AsyncValue<void>> {
         fecha: fecha,
         operadorId: operadorId,
       );
+      ref.invalidate(comprobantesPendientesProveedorProvider(proveedorId));
+      ref.invalidate(saldoProveedorProvider(proveedorId));
       state = const AsyncValue.data(null);
       return resultado;
     } catch (e, st) {

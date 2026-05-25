@@ -166,7 +166,7 @@ class _CuentaCorrienteSocioPageState
                         ),
                         if (socio?.numeroDocumento != null)
                           Text(
-                            'DNI: ${socio.numeroDocumento}',
+                            '${socio.tipoDocumento ?? 'LE'}: ${socio.numeroDocumento}',
                             style: TextStyle(
                               color: Colors.grey[600],
                               fontSize: 14,

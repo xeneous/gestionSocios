@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import 'package:excel/excel.dart';
 import 'package:universal_html/html.dart' as html;
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:data_table_2/data_table_2.dart';
 import '../../providers/cuentas_corrientes_provider.dart';
 import '../../providers/cobranzas_provider.dart';
 import '../../models/cuenta_corriente_completa_model.dart';
@@ -150,7 +151,7 @@ class _CuentaCorrienteSocioTablePageState
                   ),
                   if (socio?.numeroDocumento != null)
                     Text(
-                      'DNI: ${socio.numeroDocumento}',
+                      '${socio.tipoDocumento ?? 'LE'}: ${socio.numeroDocumento}',
                       style: TextStyle(fontSize: 14, color: Colors.grey[700]),
                     ),
                 ],
@@ -213,14 +214,14 @@ class _CuentaCorrienteSocioTablePageState
           );
         }
 
-        return SingleChildScrollView(
-          scrollDirection: Axis.vertical,
-          child: SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: DataTable(
-              columnSpacing: 20,
-              horizontalMargin: 16,
-              headingRowColor: WidgetStateProperty.all(Colors.grey[200]),
+        return DataTable2(
+          fixedTopRows: 1,
+          minWidth: 920,
+          isVerticalScrollBarVisible: true,
+          isHorizontalScrollBarVisible: true,
+          columnSpacing: 20,
+          horizontalMargin: 16,
+          headingRowColor: WidgetStateProperty.all(Colors.grey[200]),
               columns: const [
                 DataColumn(
                     label: Text('Fecha',
@@ -254,8 +255,6 @@ class _CuentaCorrienteSocioTablePageState
                         style: TextStyle(fontWeight: FontWeight.bold))),
               ],
               rows: _buildRows(movimientos),
-            ),
-          ),
         );
       },
       loading: () => const Center(

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:data_table_2/data_table_2.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
@@ -226,7 +227,7 @@ class _CobranzasPageState extends ConsumerState<CobranzasPage> {
                               ),
                               if (p.numeroDocumento != null)
                                 Text(
-                                  'DNI: ${p.numeroDocumento}',
+                                  '${p.tipoDocumento ?? 'LE'}: ${p.numeroDocumento}',
                                   style: TextStyle(
                                       fontSize: 14, color: Colors.grey[700]),
                                 ),
@@ -250,7 +251,7 @@ class _CobranzasPageState extends ConsumerState<CobranzasPage> {
                               ),
                               if (socio.numeroDocumento != null)
                                 Text(
-                                  'DNI: ${socio.numeroDocumento}',
+                                  '${socio.tipoDocumento ?? 'LE'}: ${socio.numeroDocumento}',
                                   style: TextStyle(
                                       fontSize: 14, color: Colors.grey[700]),
                                 ),
@@ -339,14 +340,14 @@ class _CobranzasPageState extends ConsumerState<CobranzasPage> {
             ),
             // Tabla de movimientos
             Expanded(
-              child: SingleChildScrollView(
-                scrollDirection: Axis.vertical,
-                child: SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: DataTable(
-                    columnSpacing: 20,
-                    horizontalMargin: 16,
-                    headingRowColor: WidgetStateProperty.all(Colors.grey[200]),
+              child: DataTable2(
+                fixedTopRows: 1,
+                minWidth: 960,
+                isVerticalScrollBarVisible: true,
+                isHorizontalScrollBarVisible: true,
+                columnSpacing: 20,
+                horizontalMargin: 16,
+                headingRowColor: WidgetStateProperty.all(Colors.grey[200]),
                     columns: const [
                       DataColumn(
                           label: Text('Sel.',
@@ -380,9 +381,7 @@ class _CobranzasPageState extends ConsumerState<CobranzasPage> {
                               style: TextStyle(fontWeight: FontWeight.bold)),
                           numeric: true),
                     ],
-                    rows: _buildRows(movimientos),
-                  ),
-                ),
+                rows: _buildRows(movimientos),
               ),
             ),
           ],
@@ -527,31 +526,39 @@ class _CobranzasPageState extends ConsumerState<CobranzasPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
+          Wrap(
+            spacing: 16,
+            runSpacing: 8,
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               const Text(
                 'Formas de Pago',
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
-              const Spacer(),
-              Text(
-                'Total a Cobrar: \$${_getTotalSeleccionado().toStringAsFixed(2)}',
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.green,
-                ),
-              ),
-              const SizedBox(width: 16),
-              Text(
-                'Total Formas de Pago: \$${_getTotalFormasPago().toStringAsFixed(2)}',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: _getTotalFormasPago() == _getTotalSeleccionado()
-                      ? Colors.green
-                      : Colors.red,
-                ),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'A Cobrar: \$${_getTotalSeleccionado().toStringAsFixed(2)}',
+                    style: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.green,
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Text(
+                    'Pago: \$${_getTotalFormasPago().toStringAsFixed(2)}',
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.bold,
+                      color: _getTotalFormasPago() == _getTotalSeleccionado()
+                          ? Colors.green
+                          : Colors.red,
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
@@ -568,192 +575,196 @@ class _CobranzasPageState extends ConsumerState<CobranzasPage> {
                   );
                 }
 
-                return Row(
-                  children: [
-                    // Lista de formas de pago disponibles
-                    Expanded(
-                      flex: 2,
-                      child: Card(
-                        child: Column(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(12),
-                              color: Colors.blue[50],
-                              child: const Row(
-                                children: [
-                                  Icon(Icons.payment, color: Colors.blue),
-                                  SizedBox(width: 8),
-                                  Text(
-                                    'Formas de Pago Disponibles',
-                                    style:
-                                        TextStyle(fontWeight: FontWeight.bold),
+                return LayoutBuilder(
+                  builder: (context, constraints) {
+                    final disponiblesCard = Card(
+                      child: Column(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            color: Colors.blue[50],
+                            child: const Row(
+                              children: [
+                                Icon(Icons.payment, color: Colors.blue),
+                                SizedBox(width: 8),
+                                Text(
+                                  'Formas de Pago Disponibles',
+                                  style: TextStyle(fontWeight: FontWeight.bold),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Expanded(
+                            child: ListView.builder(
+                              itemCount: conceptos.length,
+                              itemBuilder: (context, index) {
+                                final concepto = conceptos[index];
+                                return ListTile(
+                                  title: Text(concepto.descripcion ?? ''),
+                                  trailing: IconButton(
+                                    icon: const Icon(Icons.add_circle,
+                                        color: Colors.green),
+                                    onPressed: () => _addFormaPago(concepto),
                                   ),
-                                ],
-                              ),
+                                );
+                              },
                             ),
-                            Expanded(
-                              child: ListView.builder(
-                                itemCount: conceptos.length,
-                                itemBuilder: (context, index) {
-                                  final concepto = conceptos[index];
-                                  return ListTile(
-                                    title: Text(concepto.descripcion ?? ''),
-                                    trailing: IconButton(
-                                      icon: const Icon(Icons.add_circle,
-                                          color: Colors.green),
-                                      onPressed: () => _addFormaPago(concepto),
-                                    ),
-                                  );
-                                },
-                              ),
-                            ),
-                          ],
-                        ),
+                          ),
+                        ],
                       ),
-                    ),
-                    const SizedBox(width: 16),
-                    // Formas de pago seleccionadas
-                    Expanded(
-                      flex: 3,
-                      child: Card(
-                        child: Column(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(12),
-                              color: Colors.green[50],
-                              child: Row(
-                                children: [
-                                  const Icon(Icons.check_circle,
-                                      color: Colors.green),
-                                  const SizedBox(width: 8),
-                                  const Text(
-                                    'Formas de Pago Seleccionadas',
-                                    style:
-                                        TextStyle(fontWeight: FontWeight.bold),
+                    );
+
+                    final seleccionadasCard = Card(
+                      child: Column(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            color: Colors.green[50],
+                            child: Row(
+                              children: [
+                                const Icon(Icons.check_circle,
+                                    color: Colors.green),
+                                const SizedBox(width: 8),
+                                const Text(
+                                  'Formas de Pago Seleccionadas',
+                                  style: TextStyle(fontWeight: FontWeight.bold),
+                                ),
+                                const Spacer(),
+                                if (_formasPago.isNotEmpty)
+                                  TextButton.icon(
+                                    onPressed: () {
+                                      setState(() => _formasPago.clear());
+                                    },
+                                    icon: const Icon(Icons.clear, size: 18),
+                                    label: const Text('Limpiar'),
                                   ),
-                                  const Spacer(),
-                                  if (_formasPago.isNotEmpty)
-                                    TextButton.icon(
-                                      onPressed: () {
-                                        setState(() => _formasPago.clear());
-                                      },
-                                      icon: const Icon(Icons.clear, size: 18),
-                                      label: const Text('Limpiar'),
-                                    ),
-                                ],
-                              ),
+                              ],
                             ),
-                            Expanded(
-                              child: _formasPago.isEmpty
-                                  ? const Center(
-                                      child: Text(
-                                        'Agregue formas de pago',
-                                        style: TextStyle(color: Colors.grey),
-                                      ),
-                                    )
-                                  : ListView.builder(
-                                      itemCount: _formasPago.length,
-                                      itemBuilder: (context, index) {
-                                        final conceptoId =
-                                            _formasPago.keys.elementAt(index);
-                                        final monto = _formasPago[conceptoId]!;
-                                        final concepto = conceptos
-                                            .where((c) => c.id == conceptoId)
-                                            .firstOrNull;
+                          ),
+                          Expanded(
+                            child: _formasPago.isEmpty
+                                ? const Center(
+                                    child: Text(
+                                      'Agregue formas de pago',
+                                      style: TextStyle(color: Colors.grey),
+                                    ),
+                                  )
+                                : ListView.builder(
+                                    itemCount: _formasPago.length,
+                                    itemBuilder: (context, index) {
+                                      final conceptoId =
+                                          _formasPago.keys.elementAt(index);
+                                      final monto = _formasPago[conceptoId]!;
+                                      final concepto = conceptos
+                                          .where((c) => c.id == conceptoId)
+                                          .firstOrNull;
 
-                                        // Obtener o crear controller para este concepto
-                                        if (!_formasPagoControllers.containsKey(conceptoId)) {
-                                          _formasPagoControllers[conceptoId] = TextEditingController(
-                                            text: monto.toStringAsFixed(2),
-                                          );
-                                        } else {
-                                          // Actualizar texto solo si cambió el monto programáticamente
-                                          final currentValue = _formasPagoControllers[conceptoId]!.text;
-                                          final expectedValue = monto.toStringAsFixed(2);
-                                          if (currentValue != expectedValue && double.tryParse(currentValue) != monto) {
-                                            _formasPagoControllers[conceptoId]!.text = expectedValue;
-                                          }
+                                      if (!_formasPagoControllers.containsKey(conceptoId)) {
+                                        _formasPagoControllers[conceptoId] = TextEditingController(
+                                          text: monto.toStringAsFixed(2),
+                                        );
+                                      } else {
+                                        final currentValue = _formasPagoControllers[conceptoId]!.text;
+                                        final expectedValue = monto.toStringAsFixed(2);
+                                        if (currentValue != expectedValue && double.tryParse(currentValue) != monto) {
+                                          _formasPagoControllers[conceptoId]!.text = expectedValue;
                                         }
+                                      }
 
-                                        return ListTile(
-                                          title: Text(
-                                              concepto?.descripcion ?? ''),
-                                          subtitle: SizedBox(
-                                            width: 150,
-                                            child: TextField(
-                                              decoration: const InputDecoration(
-                                                prefixText: '\$',
-                                                isDense: true,
-                                                border: OutlineInputBorder(),
-                                              ),
-                                              keyboardType:
-                                                  TextInputType.number,
-                                              controller: _formasPagoControllers[conceptoId],
-                                              onChanged: (value) {
-                                                final newMonto =
-                                                    double.tryParse(value);
-                                                if (newMonto != null &&
-                                                    newMonto > 0) {
-                                                  setState(() {
-                                                    _formasPago[conceptoId] =
-                                                        newMonto;
-                                                  });
-                                                }
-                                              },
+                                      return ListTile(
+                                        title: Text(concepto?.descripcion ?? ''),
+                                        subtitle: SizedBox(
+                                          width: 150,
+                                          child: TextField(
+                                            decoration: const InputDecoration(
+                                              prefixText: '\$',
+                                              isDense: true,
+                                              border: OutlineInputBorder(),
                                             ),
-                                          ),
-                                          trailing: IconButton(
-                                            icon: const Icon(Icons.delete,
-                                                color: Colors.red),
-                                            onPressed: () {
-                                              setState(() {
-                                                _formasPago.remove(conceptoId);
-                                              });
+                                            keyboardType: TextInputType.number,
+                                            controller: _formasPagoControllers[conceptoId],
+                                            onChanged: (value) {
+                                              final newMonto =
+                                                  double.tryParse(value);
+                                              if (newMonto != null &&
+                                                  newMonto > 0) {
+                                                setState(() {
+                                                  _formasPago[conceptoId] =
+                                                      newMonto;
+                                                });
+                                              }
                                             },
                                           ),
-                                        );
-                                      },
+                                        ),
+                                        trailing: IconButton(
+                                          icon: const Icon(Icons.delete,
+                                              color: Colors.red),
+                                          onPressed: () {
+                                            setState(() {
+                                              _formasPago.remove(conceptoId);
+                                            });
+                                          },
+                                        ),
+                                      );
+                                    },
+                                  ),
+                          ),
+                          // Número de recibo + Botón de generar recibo
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            child: Row(
+                              children: [
+                                SizedBox(
+                                  width: 180,
+                                  child: TextField(
+                                    controller: _numeroReciboController,
+                                    decoration: const InputDecoration(
+                                      labelText: 'Nro. Recibo',
+                                      border: OutlineInputBorder(),
+                                      prefixIcon: Icon(Icons.receipt_long),
+                                      isDense: true,
                                     ),
-                            ),
-                            // Número de recibo + Botón de generar recibo
-                            Container(
-                              padding: const EdgeInsets.all(12),
-                              child: Row(
-                                children: [
-                                  SizedBox(
-                                    width: 180,
-                                    child: TextField(
-                                      controller: _numeroReciboController,
-                                      decoration: const InputDecoration(
-                                        labelText: 'Nro. Recibo',
-                                        border: OutlineInputBorder(),
-                                        prefixIcon: Icon(Icons.receipt_long),
-                                        isDense: true,
-                                      ),
-                                      keyboardType: TextInputType.number,
+                                    keyboardType: TextInputType.number,
+                                  ),
+                                ),
+                                const SizedBox(width: 16),
+                                Expanded(
+                                  child: FilledButton.icon(
+                                    onPressed: _canGenerateRecibo()
+                                        ? _generarRecibo
+                                        : null,
+                                    icon: const Icon(Icons.receipt),
+                                    label: const Text('Generar Recibo'),
+                                    style: FilledButton.styleFrom(
+                                      minimumSize: const Size(0, 48),
                                     ),
                                   ),
-                                  const SizedBox(width: 16),
-                                  Expanded(
-                                    child: FilledButton.icon(
-                                      onPressed: _canGenerateRecibo()
-                                          ? _generarRecibo
-                                          : null,
-                                      icon: const Icon(Icons.receipt),
-                                      label: const Text('Generar Recibo'),
-                                      style: FilledButton.styleFrom(
-                                        minimumSize: const Size(0, 48),
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
+                                ),
+                              ],
                             ),
-                          ],
-                        ),
+                          ),
+                        ],
                       ),
-                    ),
-                  ],
+                    );
+
+                    if (constraints.maxWidth >= 640) {
+                      return Row(
+                        children: [
+                          Expanded(flex: 2, child: disponiblesCard),
+                          const SizedBox(width: 16),
+                          Expanded(flex: 3, child: seleccionadasCard),
+                        ],
+                      );
+                    } else {
+                      return Column(
+                        children: [
+                          SizedBox(height: 220, child: disponiblesCard),
+                          const SizedBox(height: 12),
+                          Expanded(child: seleccionadasCard),
+                        ],
+                      );
+                    }
+                  },
                 );
               },
               loading: () => const Center(child: CircularProgressIndicator()),

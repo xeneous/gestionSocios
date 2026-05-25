@@ -290,7 +290,7 @@ class SociosSearchState {
 }
 
 /// Notifier para manejar el estado de búsqueda de socios
-class SociosSearchStateNotifier extends Notifier<SociosSearchState> {
+class SociosSearchStateNotifier extends AutoDisposeNotifier<SociosSearchState> {
   @override
   SociosSearchState build() {
     return const SociosSearchState();
@@ -349,6 +349,6 @@ class SociosSearchStateNotifier extends Notifier<SociosSearchState> {
 }
 
 final sociosSearchStateProvider =
-    NotifierProvider<SociosSearchStateNotifier, SociosSearchState>(() {
+    NotifierProvider.autoDispose<SociosSearchStateNotifier, SociosSearchState>(() {
   return SociosSearchStateNotifier();
 });

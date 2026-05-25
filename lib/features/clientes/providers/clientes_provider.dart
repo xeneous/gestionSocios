@@ -199,7 +199,7 @@ class ClientesSearchState {
   bool get hasFilters => codigo.isNotEmpty || razonSocial.isNotEmpty || cuit.isNotEmpty;
 }
 
-class ClientesSearchStateNotifier extends Notifier<ClientesSearchState> {
+class ClientesSearchStateNotifier extends AutoDisposeNotifier<ClientesSearchState> {
   @override
   ClientesSearchState build() {
     return ClientesSearchState();
@@ -235,5 +235,5 @@ class ClientesSearchStateNotifier extends Notifier<ClientesSearchState> {
 }
 
 final clientesSearchStateProvider =
-    NotifierProvider<ClientesSearchStateNotifier, ClientesSearchState>(
+    NotifierProvider.autoDispose<ClientesSearchStateNotifier, ClientesSearchState>(
         ClientesSearchStateNotifier.new);

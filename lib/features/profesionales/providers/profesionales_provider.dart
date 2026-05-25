@@ -203,7 +203,7 @@ final profesionalesNotifierProvider =
 
 // Notifier para estado de búsqueda
 class ProfesionalesSearchStateNotifier
-    extends Notifier<ProfesionalesSearchParams> {
+    extends AutoDisposeNotifier<ProfesionalesSearchParams> {
   @override
   ProfesionalesSearchParams build() {
     return ProfesionalesSearchParams(soloActivos: true);
@@ -215,7 +215,7 @@ class ProfesionalesSearchStateNotifier
 }
 
 final profesionalesSearchStateProvider =
-    NotifierProvider<ProfesionalesSearchStateNotifier,
+    NotifierProvider.autoDispose<ProfesionalesSearchStateNotifier,
         ProfesionalesSearchParams>(
   ProfesionalesSearchStateNotifier.new,
 );

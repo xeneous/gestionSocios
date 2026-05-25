@@ -54,7 +54,7 @@ class Socio {
     this.id,
     required this.apellido,
     required this.nombre,
-    this.tipoDocumento = 'DNI',
+    this.tipoDocumento = 'LE',
     this.numeroDocumento,
     this.cuil,
     this.sexo,

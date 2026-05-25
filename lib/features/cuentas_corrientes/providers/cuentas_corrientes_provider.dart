@@ -589,7 +589,7 @@ final resumenCuentasCorrientesPaginaProvider =
 });
 
 /// Provider de estado para el filtro de solo activos
-class ResumenSoloActivosNotifier extends Notifier<bool> {
+class ResumenSoloActivosNotifier extends AutoDisposeNotifier<bool> {
   @override
   bool build() => true; // Por defecto solo activos
 
@@ -598,12 +598,12 @@ class ResumenSoloActivosNotifier extends Notifier<bool> {
 }
 
 final resumenSoloActivosProvider =
-    NotifierProvider<ResumenSoloActivosNotifier, bool>(() {
+    NotifierProvider.autoDispose<ResumenSoloActivosNotifier, bool>(() {
   return ResumenSoloActivosNotifier();
 });
 
 /// Provider de estado para filtro de meses impagos
-class ResumenMesesFiltroNotifier extends Notifier<int?> {
+class ResumenMesesFiltroNotifier extends AutoDisposeNotifier<int?> {
   @override
   int? build() => null; // Sin filtro por defecto
 
@@ -612,12 +612,12 @@ class ResumenMesesFiltroNotifier extends Notifier<int?> {
 }
 
 final resumenMesesFiltroProvider =
-    NotifierProvider<ResumenMesesFiltroNotifier, int?>(() {
+    NotifierProvider.autoDispose<ResumenMesesFiltroNotifier, int?>(() {
   return ResumenMesesFiltroNotifier();
 });
 
 /// Provider de estado para filtro de meses exactos (true) o >= (false)
-class ResumenMesesExactoNotifier extends Notifier<bool> {
+class ResumenMesesExactoNotifier extends AutoDisposeNotifier<bool> {
   @override
   bool build() => false; // Por defecto >= (o más)
 
@@ -626,12 +626,12 @@ class ResumenMesesExactoNotifier extends Notifier<bool> {
 }
 
 final resumenMesesExactoProvider =
-    NotifierProvider<ResumenMesesExactoNotifier, bool>(() {
+    NotifierProvider.autoDispose<ResumenMesesExactoNotifier, bool>(() {
   return ResumenMesesExactoNotifier();
 });
 
 /// Provider de estado para filtro de tarjeta
-class ResumenTarjetaFiltroNotifier extends Notifier<int?> {
+class ResumenTarjetaFiltroNotifier extends AutoDisposeNotifier<int?> {
   @override
   int? build() => null; // Todas las tarjetas por defecto
 
@@ -640,12 +640,12 @@ class ResumenTarjetaFiltroNotifier extends Notifier<int?> {
 }
 
 final resumenTarjetaFiltroProvider =
-    NotifierProvider<ResumenTarjetaFiltroNotifier, int?>(() {
+    NotifierProvider.autoDispose<ResumenTarjetaFiltroNotifier, int?>(() {
   return ResumenTarjetaFiltroNotifier();
 });
 
 /// Provider de estado para filtro de residentes
-class ResumenResidentesNotifier extends Notifier<bool> {
+class ResumenResidentesNotifier extends AutoDisposeNotifier<bool> {
   @override
   bool build() => false; // Todos por defecto (no solo residentes)
 
@@ -654,7 +654,7 @@ class ResumenResidentesNotifier extends Notifier<bool> {
 }
 
 final resumenResidentesProvider =
-    NotifierProvider<ResumenResidentesNotifier, bool>(() {
+    NotifierProvider.autoDispose<ResumenResidentesNotifier, bool>(() {
   return ResumenResidentesNotifier();
 });
 

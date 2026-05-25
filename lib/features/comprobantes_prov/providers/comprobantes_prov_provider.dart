@@ -278,7 +278,7 @@ class CompProvSearchState {
       soloConSaldo;
 }
 
-class CompProvSearchStateNotifier extends Notifier<CompProvSearchState> {
+class CompProvSearchStateNotifier extends AutoDisposeNotifier<CompProvSearchState> {
   @override
   CompProvSearchState build() {
     return CompProvSearchState();
@@ -334,5 +334,5 @@ class CompProvSearchStateNotifier extends Notifier<CompProvSearchState> {
 }
 
 final compProvSearchStateProvider =
-    NotifierProvider<CompProvSearchStateNotifier, CompProvSearchState>(
+    NotifierProvider.autoDispose<CompProvSearchStateNotifier, CompProvSearchState>(
         CompProvSearchStateNotifier.new);

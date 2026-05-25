@@ -198,7 +198,7 @@ class ProveedoresSearchState {
   bool get hasFilters => codigo.isNotEmpty || razonSocial.isNotEmpty || cuit.isNotEmpty;
 }
 
-class ProveedoresSearchStateNotifier extends Notifier<ProveedoresSearchState> {
+class ProveedoresSearchStateNotifier extends AutoDisposeNotifier<ProveedoresSearchState> {
   @override
   ProveedoresSearchState build() {
     return ProveedoresSearchState();
@@ -234,5 +234,5 @@ class ProveedoresSearchStateNotifier extends Notifier<ProveedoresSearchState> {
 }
 
 final proveedoresSearchStateProvider =
-    NotifierProvider<ProveedoresSearchStateNotifier, ProveedoresSearchState>(
+    NotifierProvider.autoDispose<ProveedoresSearchStateNotifier, ProveedoresSearchState>(
         ProveedoresSearchStateNotifier.new);

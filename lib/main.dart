@@ -6,6 +6,9 @@ import 'package:intl/date_symbol_data_local.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'app_config.dart';
 import 'core/router/app_router.dart';
+import 'features/cuentas_corrientes/providers/cuentas_corrientes_provider.dart';
+import 'features/comprobantes_prov/providers/orden_pago_provider.dart';
+import 'features/comprobantes_cli/providers/cobranzas_clientes_provider.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -15,7 +18,7 @@ Future<void> main() async {
     url: AppConfig.supabaseUrl,
     anonKey: AppConfig.supabaseAnonKey,
   );
-  
+
   runApp(
     const ProviderScope(
       child: SAOApp(),
@@ -23,13 +26,46 @@ Future<void> main() async {
   );
 }
 
-class SAOApp extends ConsumerWidget {
+class SAOApp extends ConsumerStatefulWidget {
   const SAOApp({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<SAOApp> createState() => _SAOAppState();
+}
+
+class _SAOAppState extends ConsumerState<SAOApp> with WidgetsBindingObserver {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      // Al recuperar el foco (cambio de pestaña, vuelta a la ventana):
+      // invalida todas las instancias cacheadas de los providers de datos clave.
+      ref.invalidate(cuentasCorrientesPorSocioProvider);
+      ref.invalidate(saldoSocioProvider);
+      ref.invalidate(saldoProfesionalProvider);
+      ref.invalidate(cuentasCorrientesSearchProvider);
+      ref.invalidate(comprobantesPendientesProveedorProvider);
+      ref.invalidate(saldoProveedorProvider);
+      ref.invalidate(comprobantesPendientesClienteProvider);
+      ref.invalidate(saldoClienteProvider);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final router = ref.watch(routerProvider);
-    
+
     return MaterialApp.router(
       title: 'Sistema de Gestion Sociedad Argentina de Oftalmologia',
       debugShowCheckedModeBanner: AppConfig.isDev,
@@ -50,6 +86,13 @@ class SAOApp extends ConsumerWidget {
         ),
         textTheme: GoogleFonts.interTextTheme(),
         useMaterial3: true,
+        scrollbarTheme: ScrollbarThemeData(
+          thumbVisibility: WidgetStateProperty.all(true),
+          trackVisibility: WidgetStateProperty.all(true),
+          thickness: WidgetStateProperty.all(8),
+          radius: const Radius.circular(4),
+          crossAxisMargin: 2,
+        ),
       ),
       routerConfig: router,
     );
