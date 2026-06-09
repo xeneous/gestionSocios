@@ -165,18 +165,17 @@ class DebitosAutomaticosService {
     int? tarjetaId,
   }) async {
     final cutoff = _cutoffDate(anioMes);
-    var query = _supabase
+    var filterQuery = _supabase
         .from('socios')
         .select('id, apellido, nombre, debitar_desde')
         .eq('adherido_debito', true)
         .not('numero_tarjeta', 'is', null)
         .not('debitar_desde', 'is', null)
-        .gte('debitar_desde', cutoff)
-        .order('apellido');
+        .gte('debitar_desde', cutoff);
     if (tarjetaId != null) {
-      query = query.eq('tarjeta_id', tarjetaId);
+      filterQuery = filterQuery.eq('tarjeta_id', tarjetaId);
     }
-    return (await query as List).cast<Map<String, dynamic>>();
+    return (await filterQuery.order('apellido') as List).cast<Map<String, dynamic>>();
   }
 
   /// Primer día del mes siguiente al período dado (para comparar debitar_desde)
