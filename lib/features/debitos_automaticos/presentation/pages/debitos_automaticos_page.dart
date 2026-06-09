@@ -360,6 +360,8 @@ class _DebitosAutomaticosPageState
     final currencyFormat =
         NumberFormat.currency(symbol: '\$', decimalDigits: 2);
 
+    final excluidosCount = (stats['excluidos_debitar_desde'] as int?) ?? 0;
+
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16),
       color: Colors.blue.shade50,
@@ -391,6 +393,15 @@ class _DebitosAutomaticosPageState
               label: 'Total a Debitar',
               value: currencyFormat.format(stats['total_importe']),
               color: Colors.purple,
+            ),
+            Tooltip(
+              message: 'Socios adheridos cuyo "Débita desde" es posterior al período',
+              child: _buildStatItem(
+                icon: Icons.schedule,
+                label: 'Inicio futuro',
+                value: excluidosCount.toString(),
+                color: excluidosCount > 0 ? Colors.orange : Colors.grey,
+              ),
             ),
           ],
         ),

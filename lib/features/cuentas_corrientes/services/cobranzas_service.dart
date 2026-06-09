@@ -98,14 +98,17 @@ class CobranzasService {
     throw UnimplementedError('Generación de asiento de diario pendiente de implementar');
   }
 
-  /// Anula un recibo existente
-  Future<void> anularRecibo(int numeroRecibo) async {
-    // TODO: Implementar anulación de recibo
-    // 1. Marcar valores_tesoreria como anulados
-    // 2. Revertir el campo cancelado en cuentas_corrientes
-    // 3. Generar asiento de diario de reversión
-
-    throw UnimplementedError('Anulación de recibo pendiente de implementar');
+  /// Da de baja un recibo con rollback atómico vía función PostgreSQL.
+  Future<void> anularRecibo(
+    int numeroRecibo, {
+    required String motivo,
+    int? operadorId,
+  }) async {
+    await _supabase.rpc('anular_recibo_cobranza', params: {
+      'p_numero_recibo': numeroRecibo,
+      'p_motivo': motivo,
+      'p_operador_id': operadorId,
+    });
   }
 
   /// Obtiene el detalle de un recibo

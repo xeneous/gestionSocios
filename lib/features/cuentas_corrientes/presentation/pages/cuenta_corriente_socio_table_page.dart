@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
-import 'package:excel/excel.dart';
+import 'package:excel/excel.dart' hide Border;
 import 'package:universal_html/html.dart' as html;
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:data_table_2/data_table_2.dart';
@@ -399,7 +399,17 @@ class _CuentaCorrienteSocioTablePageState
                       padding: EdgeInsets.zero,
                       constraints: const BoxConstraints(),
                     ),
-                  if (userRole.esAdministrador)
+                  if (userRole.esAdministrador &&
+                      cuenta.header.tipoComprobante == 'COB')
+                    IconButton(
+                      icon: const Icon(Icons.cancel, size: 18, color: Colors.red),
+                      onPressed: () => _bajarRecibo(cuenta),
+                      tooltip: 'Dar de Baja Recibo',
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                    ),
+                  if (userRole.esAdministrador &&
+                      cuenta.header.tipoComprobante != 'COB')
                     IconButton(
                       icon: const Icon(Icons.delete, size: 18, color: Colors.red),
                       onPressed: () => _confirmDelete(cuenta),
@@ -631,6 +641,203 @@ class _CuentaCorrienteSocioTablePageState
         ],
       ),
     );
+  }
+
+  Future<void> _bajarRecibo(CuentaCorrienteCompleta cuenta) async {
+    final nroRecibo = int.tryParse(cuenta.header.documentoNumero ?? '');
+    if (nroRecibo == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No se puede obtener el número de recibo'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    final motivoController = TextEditingController();
+    final claveController = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.warning_amber_rounded, color: Colors.red),
+            SizedBox(width: 8),
+            Text('Dar de Baja Recibo'),
+          ],
+        ),
+        content: SizedBox(
+          width: 420,
+          child: Form(
+            key: formKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.red.shade50,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.red.shade200),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Recibo Nro. $nroRecibo',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 15,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Importe: \$${(cuenta.header.importe ?? 0).toStringAsFixed(2)}',
+                      ),
+                      Text(
+                        'Fecha: ${DateFormat('dd/MM/yyyy').format(cuenta.header.fecha)}',
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 12),
+                const Text(
+                  'Esta operación es irreversible. Se revertirán todos los '
+                  'pagos asociados y se eliminará el asiento contable.',
+                  style: TextStyle(color: Colors.red, fontSize: 12),
+                ),
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: motivoController,
+                  autofocus: true,
+                  maxLines: 2,
+                  decoration: const InputDecoration(
+                    labelText: 'Motivo de la baja *',
+                    border: OutlineInputBorder(),
+                    prefixIcon: Icon(Icons.comment),
+                  ),
+                  validator: (value) {
+                    if (value == null || value.trim().isEmpty) {
+                      return 'El motivo es obligatorio';
+                    }
+                    if (value.trim().length < 5) {
+                      return 'Ingrese un motivo descriptivo';
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: claveController,
+                  obscureText: true,
+                  decoration: const InputDecoration(
+                    labelText: 'Clave de administrador *',
+                    border: OutlineInputBorder(),
+                    prefixIcon: Icon(Icons.key),
+                  ),
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return 'Ingrese la clave';
+                    }
+                    return null;
+                  },
+                ),
+              ],
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () {
+              if (formKey.currentState!.validate()) {
+                Navigator.pop(context, true);
+              }
+            },
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text('Confirmar Baja'),
+          ),
+        ],
+      ),
+    );
+
+    final motivo = motivoController.text.trim();
+    final claveIngresada = claveController.text;
+    motivoController.dispose();
+    claveController.dispose();
+
+    if (confirmed != true) return;
+
+    const adminClave = 'SAO2026';
+    if (claveIngresada != adminClave) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Clave incorrecta'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+      return;
+    }
+
+    if (!mounted) return;
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(
+        child: Card(
+          child: Padding(
+            padding: EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CircularProgressIndicator(),
+                SizedBox(height: 16),
+                Text('Procesando baja...'),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+
+    try {
+      await ref.read(cobranzasNotifierProvider.notifier).anularRecibo(
+        nroRecibo,
+        motivo: motivo,
+        socioId: widget.socioId,
+      );
+
+      if (mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Recibo Nro. $nroRecibo dado de baja correctamente'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error: $e'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 6),
+          ),
+        );
+      }
+    }
   }
 
   Future<void> _reimprimirRecibo(CuentaCorrienteCompleta cuenta) async {

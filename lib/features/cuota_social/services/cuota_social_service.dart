@@ -124,6 +124,13 @@ class CuotaSocialService {
 
     // Crear cada transacción con su detalle
     for (final item in itemsACrear) {
+      // Evitar duplicados
+      final yaExiste = await existeCuotaSocial(
+        socioId: socioId,
+        anioMes: item.anioMes,
+      );
+      if (yaExiste) continue;
+
       final fecha = ValorCuotaSocial.anioMesToDate(item.anioMes);
       final primerDia = DateTime(fecha.year, fecha.month, 1);
       final ultimoDia = DateTime(fecha.year, fecha.month + 1, 0);

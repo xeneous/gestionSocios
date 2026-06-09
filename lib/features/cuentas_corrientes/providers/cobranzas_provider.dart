@@ -190,14 +190,31 @@ class CobranzasNotifier extends Notifier<AsyncValue<void>> {
     }
   }
 
-  /// Anula un recibo existente
-  Future<void> anularRecibo(int numeroRecibo) async {
+  /// Da de baja un recibo con rollback atómico.
+  Future<void> anularRecibo(
+    int numeroRecibo, {
+    required String motivo,
+    int? socioId,
+    int? profesionalId,
+  }) async {
     state = const AsyncValue.loading();
 
     try {
       final service = ref.read(cobranzasServiceProvider);
-      await service.anularRecibo(numeroRecibo);
+      await service.anularRecibo(
+        numeroRecibo,
+        motivo: motivo,
+      );
+
+      if (socioId != null) {
+        ref.invalidate(cuentasCorrientesPorSocioProvider(socioId));
+        ref.invalidate(saldoSocioProvider(socioId));
+      }
+      if (profesionalId != null) {
+        ref.invalidate(saldoProfesionalProvider(profesionalId));
+      }
       ref.invalidate(cuentasCorrientesSearchProvider);
+
       state = const AsyncValue.data(null);
     } catch (e, st) {
       state = AsyncValue.error(e, st);

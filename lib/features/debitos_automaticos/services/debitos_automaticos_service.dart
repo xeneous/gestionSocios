@@ -27,6 +27,9 @@ class DebitosAutomaticosService {
     required int anioMes,
     int? tarjetaId,
   }) async {
+    // Solo incluir socios cuyo debitar_desde ya pasó (o es null)
+    final cutoff = _cutoffDate(anioMes);
+
     // Paso 1: Obtener socios adheridos al débito con tarjeta (paginado)
     final sociosMap = <int, Map<String, dynamic>>{};
     const sociosPageSize = 1000;
@@ -38,7 +41,8 @@ class DebitosAutomaticosService {
           .from('socios')
           .select('id, apellido, nombre, numero_tarjeta, tarjeta_id')
           .eq('adherido_debito', true)
-          .not('numero_tarjeta', 'is', null);
+          .not('numero_tarjeta', 'is', null)
+          .or('debitar_desde.is.null,debitar_desde.lt.$cutoff');
 
       if (tarjetaId != null) {
         sociosQuery = sociosQuery.eq('tarjeta_id', tarjetaId);
@@ -131,12 +135,37 @@ class DebitosAutomaticosService {
       (sum, item) => sum + item.importe,
     );
 
+    // Socios adheridos que aún no alcanzan su fecha de inicio de débito
+    final cutoff = _cutoffDate(anioMes);
+    var exclQuery = _supabase
+        .from('socios')
+        .select('id')
+        .eq('adherido_debito', true)
+        .not('numero_tarjeta', 'is', null)
+        .not('debitar_desde', 'is', null)
+        .gte('debitar_desde', cutoff);
+    if (tarjetaId != null) {
+      exclQuery = exclQuery.eq('tarjeta_id', tarjetaId);
+    }
+    final exclResult = await exclQuery;
+    final excluidosCount = (exclResult as List).length;
+
     return {
       'total_registros': items.length,
       'tarjetas_validas': tarjetasValidas,
       'tarjetas_invalidas': tarjetasInvalidas,
       'total_importe': totalImporte,
+      'excluidos_debitar_desde': excluidosCount,
     };
+  }
+
+  /// Primer día del mes siguiente al período dado (para comparar debitar_desde)
+  String _cutoffDate(int anioMes) {
+    final year = anioMes ~/ 100;
+    final month = anioMes % 100;
+    final next = DateTime(year, month + 1, 1);
+    return '${next.year.toString().padLeft(4, '0')}-'
+        '${next.month.toString().padLeft(2, '0')}-01';
   }
 
   /// Registra contablemente una presentación de débitos automáticos
