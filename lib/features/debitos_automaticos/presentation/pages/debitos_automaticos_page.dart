@@ -395,12 +395,18 @@ class _DebitosAutomaticosPageState
               color: Colors.purple,
             ),
             Tooltip(
-              message: 'Socios adheridos cuyo "Débita desde" es posterior al período',
-              child: _buildStatItem(
-                icon: Icons.schedule,
-                label: 'Inicio futuro',
-                value: excluidosCount.toString(),
-                color: excluidosCount > 0 ? Colors.orange : Colors.grey,
+              message: excluidosCount > 0
+                  ? 'Ver detalle — socios adheridos cuyo "Débita desde" aún no llegó'
+                  : 'Sin socios con inicio futuro',
+              child: InkWell(
+                onTap: excluidosCount > 0 ? _mostrarDetalleExcluidos : null,
+                borderRadius: BorderRadius.circular(8),
+                child: _buildStatItem(
+                  icon: Icons.schedule,
+                  label: 'Inicio futuro',
+                  value: excluidosCount.toString(),
+                  color: excluidosCount > 0 ? Colors.orange : Colors.grey,
+                ),
               ),
             ),
           ],
@@ -1058,6 +1064,97 @@ class _DebitosAutomaticosPageState
         );
       }
     }
+  }
+
+  Future<void> _mostrarDetalleExcluidos() async {
+    final anioMes = _fechaSeleccionada.year * 100 + _fechaSeleccionada.month;
+    final service = ref.read(debitosAutomaticosServiceProvider);
+
+    showDialog(
+      context: context,
+      builder: (ctx) => FutureBuilder<List<Map<String, dynamic>>>(
+        future: service.getExcluidosPorDebitarDesde(
+          anioMes: anioMes,
+          tarjetaId: _tarjetaSeleccionada,
+        ),
+        builder: (ctx, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const AlertDialog(
+              content: SizedBox(
+                height: 100,
+                child: Center(child: CircularProgressIndicator()),
+              ),
+            );
+          }
+          if (snapshot.hasError) {
+            return AlertDialog(
+              title: const Text('Error'),
+              content: Text(snapshot.error.toString()),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  child: const Text('Cerrar'),
+                ),
+              ],
+            );
+          }
+
+          final socios = snapshot.data ?? [];
+
+          return AlertDialog(
+            title: const Row(
+              children: [
+                Icon(Icons.schedule, color: Colors.orange),
+                SizedBox(width: 8),
+                Text('Socios con inicio futuro'),
+              ],
+            ),
+            content: SizedBox(
+              width: 520,
+              child: socios.isEmpty
+                  ? const Text('No hay socios excluidos por fecha de inicio.')
+                  : SingleChildScrollView(
+                      child: DataTable(
+                        headingRowColor: WidgetStateProperty.all(
+                          Colors.orange.shade50,
+                        ),
+                        columns: const [
+                          DataColumn(label: Text('Nº Socio')),
+                          DataColumn(label: Text('Apellido y Nombre')),
+                          DataColumn(label: Text('Débita desde')),
+                        ],
+                        rows: socios.map((s) {
+                          final debitarDesde =
+                              DateTime.parse(s['debitar_desde'] as String);
+                          return DataRow(cells: [
+                            DataCell(Text(s['id'].toString())),
+                            DataCell(
+                              Text('${s['apellido']}, ${s['nombre']}'),
+                            ),
+                            DataCell(
+                              Text(
+                                DateFormat('MM/yyyy').format(debitarDesde),
+                                style: const TextStyle(
+                                  color: Colors.orange,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          ]);
+                        }).toList(),
+                      ),
+                    ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Cerrar'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
   }
 
   /// Registra contablemente la presentación de débito automático
