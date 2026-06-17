@@ -260,6 +260,16 @@ class ComprobantesCliService {
     };
   }
 
+  /// Elimina un comprobante de sponsor vía función PostgreSQL atómica.
+  /// Guarda snapshot en comprobantes_eliminados antes de borrar.
+  /// Lanza excepción si el comprobante tiene cobros aplicados.
+  Future<void> eliminarFactura(int idTransaccion, String motivo) async {
+    await _supabase.rpc('eliminar_comprobante_venta', params: {
+      'p_id_transaccion': idTransaccion,
+      'p_motivo': motivo,
+    });
+  }
+
   /// Genera el asiento contable para un comprobante de ventas/sponsors.
   ///
   /// Usa el campo [signo] de [tip_vent_mod_header] para determinar sentido:

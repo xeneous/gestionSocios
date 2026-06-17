@@ -254,29 +254,14 @@ class ComprobantesProvService {
   }
 
   /// Elimina un comprobante (factura/NC) de forma segura.
+  /// Elimina un comprobante de proveedor vía función PostgreSQL atómica.
+  /// Guarda snapshot en comprobantes_eliminados antes de borrar.
   /// Lanza excepción si tiene Órdenes de Pago aplicadas — deben eliminarse primero.
-  /// El asiento contable queda huérfano ya que no hay FK directa al asiento.
-  Future<void> eliminarFactura(int idTransaccion) async {
-    // Verificar si hay OPs aplicadas a esta factura
-    final notas = await _supabase
-        .from('notas_imputacion')
-        .select('id_operacion')
-        .eq('id_transaccion', idTransaccion);
-
-    if ((notas as List).isNotEmpty) {
-      final ops = notas.map((n) => 'OP #${n['id_operacion']}').join(', ');
-      throw Exception(
-          'La factura tiene pagos aplicados ($ops). Elimine primero esas Órdenes de Pago.');
-    }
-
-    await _supabase
-        .from('comp_prov_items')
-        .delete()
-        .eq('id_transaccion', idTransaccion);
-    await _supabase
-        .from('comp_prov_header')
-        .delete()
-        .eq('id_transaccion', idTransaccion);
+  Future<void> eliminarFactura(int idTransaccion, String motivo) async {
+    await _supabase.rpc('eliminar_comprobante_compra', params: {
+      'p_id_transaccion': idTransaccion,
+      'p_motivo': motivo,
+    });
   }
 
   /// Obtener tipos de comprobante de compras

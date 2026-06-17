@@ -372,6 +372,16 @@ class _CuentaCorrienteClientePageState
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(),
                   ),
+                  if (multiplicador == 1) ...[
+                    const SizedBox(width: 8),
+                    IconButton(
+                      icon: const Icon(Icons.delete_forever, size: 18, color: Colors.red),
+                      onPressed: () => _eliminarComprobante(comp),
+                      tooltip: 'Dar de Baja',
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -381,5 +391,213 @@ class _CuentaCorrienteClientePageState
     }
 
     return rows;
+  }
+
+  Future<void> _eliminarComprobante(VenCliHeader comp) async {
+    // Bloquear si tiene cobros aplicados
+    if (comp.cancelado > 0) {
+      await showDialog(
+        context: context,
+        builder: (_) => AlertDialog(
+          title: const Row(
+            children: [
+              Icon(Icons.block, color: Colors.red),
+              SizedBox(width: 8),
+              Text('No se puede dar de baja'),
+            ],
+          ),
+          content: const Text(
+            'No se puede dar de baja un comprobante cancelado total o parcialmente.\n\n'
+            'Primero debe dar de baja el comprobante de cobro asociado.',
+          ),
+          actions: [
+            FilledButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Entendido'),
+            ),
+          ],
+        ),
+      );
+      return;
+    }
+
+    final motivoController = TextEditingController();
+    final claveController = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.warning_amber_rounded, color: Colors.red),
+            SizedBox(width: 8),
+            Text('Dar de Baja Comprobante'),
+          ],
+        ),
+        content: SizedBox(
+          width: 420,
+          child: Form(
+            key: formKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.red.shade50,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.red.shade200),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        comp.nroComprobante ?? 'S/N',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 15,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text('Importe: \$${comp.totalImporte.toStringAsFixed(2)}'),
+                      Text('Fecha: ${DateFormat('dd/MM/yyyy').format(comp.fecha)}'),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 12),
+                const Text(
+                  'Se eliminará el comprobante, sus ítems y el asiento contable. '
+                  'Queda registro en auditoría.',
+                  style: TextStyle(fontSize: 12, color: Colors.red),
+                ),
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: motivoController,
+                  autofocus: true,
+                  maxLines: 2,
+                  decoration: const InputDecoration(
+                    labelText: 'Motivo de la baja *',
+                    border: OutlineInputBorder(),
+                    prefixIcon: Icon(Icons.comment),
+                  ),
+                  validator: (v) {
+                    if (v == null || v.trim().length < 5) {
+                      return 'Ingrese un motivo descriptivo';
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: claveController,
+                  obscureText: true,
+                  decoration: const InputDecoration(
+                    labelText: 'Clave de administrador *',
+                    border: OutlineInputBorder(),
+                    prefixIcon: Icon(Icons.key),
+                  ),
+                  validator: (v) {
+                    if (v == null || v.isEmpty) return 'Ingrese la clave';
+                    return null;
+                  },
+                ),
+              ],
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () {
+              if (formKey.currentState!.validate()) {
+                Navigator.pop(context, true);
+              }
+            },
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text('Confirmar Baja'),
+          ),
+        ],
+      ),
+    );
+
+    final motivo = motivoController.text.trim();
+    final claveIngresada = claveController.text;
+    motivoController.dispose();
+    claveController.dispose();
+
+    if (confirmed != true) return;
+
+    const adminClave = 'SAO2026';
+    if (claveIngresada != adminClave) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Clave incorrecta'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+      return;
+    }
+
+    if (!mounted) return;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(
+        child: Card(
+          child: Padding(
+            padding: EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CircularProgressIndicator(),
+                SizedBox(height: 16),
+                Text('Procesando baja...'),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+
+    try {
+      await ref
+          .read(comprobantesCliServiceProvider)
+          .eliminarFactura(comp.idTransaccion!, motivo);
+
+      if (mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Comprobante ${comp.nroComprobante ?? ""} dado de baja correctamente',
+            ),
+            backgroundColor: Colors.green,
+          ),
+        );
+        setState(() => _soloConSaldo = _soloConSaldo);
+        ref.invalidate(comprobantesCliSearchProvider);
+      }
+    } catch (e) {
+      if (mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+                'Error: ${e.toString().replaceFirst("Exception: ", "")}'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 6),
+          ),
+        );
+      }
+    }
   }
 }

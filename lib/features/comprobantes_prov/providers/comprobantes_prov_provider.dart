@@ -180,11 +180,11 @@ class ComprobantesProvNotifier extends Notifier<AsyncValue<void>> {
     }
   }
 
-  Future<void> eliminarComprobante(int idTransaccion) async {
+  Future<void> eliminarComprobante(int idTransaccion, String motivo) async {
     state = const AsyncValue.loading();
     try {
       final service = ref.read(comprobantesProvServiceProvider);
-      await service.eliminarFactura(idTransaccion);
+      await service.eliminarFactura(idTransaccion, motivo);
       state = const AsyncValue.data(null);
     } catch (e, st) {
       state = AsyncValue.error(e, st);
