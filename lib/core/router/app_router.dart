@@ -49,6 +49,7 @@ import '../../features/comprobantes_prov/presentation/pages/saldos_proveedores_p
 import '../../features/asientos/presentation/pages/mayor_cuentas_page.dart';
 import '../../features/tesoreria/presentation/pages/tesoreria_diaria_page.dart';
 import '../../features/socios/presentation/pages/listado_residentes_page.dart';
+import '../../features/socios/presentation/pages/padron_electoral_page.dart';
 import '../../features/profesionales/presentation/pages/profesionales_list_page.dart';
 import '../../features/profesionales/presentation/pages/profesional_form_page.dart';
 import '../../features/profesionales/presentation/pages/cobranzas_select_profesional_page.dart';
@@ -569,6 +570,12 @@ final routerProvider = Provider<GoRouter>((ref) {
             pageSizeInicial: pageSize,
           );
         },
+      ),
+      // Padrón Electoral
+      GoRoute(
+        path: '/padron-electoral',
+        name: 'padron-electoral',
+        builder: (context, state) => const PadronElectoralPage(),
       ),
       // Profesionales
       GoRoute(

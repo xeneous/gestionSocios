@@ -106,6 +106,13 @@ class AppDrawer extends ConsumerWidget {
               ),
               _buildMenuItem(
                 context: context,
+                icon: Icons.how_to_vote,
+                title: 'Padrón Electoral',
+                route: '/padron-electoral',
+                currentRoute: currentRoute,
+              ),
+              _buildMenuItem(
+                context: context,
                 icon: Icons.receipt,
                 title: 'Facturar Conceptos',
                 route: '/facturacion-conceptos',
@@ -442,6 +449,7 @@ class AppDrawer extends ConsumerWidget {
   bool _isSociosSection(String route) {
     return route.startsWith('/socios') ||
         route == '/listado-residentes' ||
+        route == '/padron-electoral' ||
         route.startsWith('/facturacion-conceptos') ||
         (route.startsWith('/cobranzas') &&
             !route.startsWith('/cobranzas-clientes') &&

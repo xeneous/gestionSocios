@@ -28,6 +28,7 @@ final allQuickAccessItems = <QuickAccessItem>[
   // Socios
   QuickAccessItem(id: 'socios', label: 'Socios', icon: Icons.people, route: '/socios', color: Colors.blue, category: _socios),
   QuickAccessItem(id: 'residentes', label: 'Residentes', icon: Icons.medical_services, route: '/listado-residentes', color: Colors.teal, category: _socios),
+  QuickAccessItem(id: 'padron_electoral', label: 'Padrón Electoral', icon: Icons.how_to_vote, route: '/padron-electoral', color: Colors.teal, category: _socios),
   QuickAccessItem(id: 'facturar', label: 'Facturar Conceptos', icon: Icons.receipt, route: '/facturacion-conceptos', color: Colors.blue, category: _socios),
   QuickAccessItem(id: 'cobranzas', label: 'Cobranzas Socios', icon: Icons.payments, route: '/cobranzas', color: Colors.blue, category: _socios),
   QuickAccessItem(id: 'ctas_ctes', label: 'Control Ctas Ctes', icon: Icons.account_balance_wallet, route: '/resumen-cuentas-corrientes', color: Colors.blue, category: _socios),
