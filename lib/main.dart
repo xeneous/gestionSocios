@@ -49,6 +49,12 @@ class _SAOAppState extends ConsumerState<SAOApp> with WidgetsBindingObserver {
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
+      // Si la pestaña estuvo inactiva, el refresh automático del token
+      // puede no haberse disparado a tiempo (throttling de timers en
+      // background). Forzamos un refresh proactivo para evitar que la
+      // sesión se pierda y el usuario sea expulsado de un formulario.
+      _refreshSessionSilently();
+
       // Al recuperar el foco (cambio de pestaña, vuelta a la ventana):
       // invalida todas las instancias cacheadas de los providers de datos clave.
       ref.invalidate(cuentasCorrientesPorSocioProvider);
@@ -59,6 +65,15 @@ class _SAOAppState extends ConsumerState<SAOApp> with WidgetsBindingObserver {
       ref.invalidate(saldoProveedorProvider);
       ref.invalidate(comprobantesPendientesClienteProvider);
       ref.invalidate(saldoClienteProvider);
+    }
+  }
+
+  Future<void> _refreshSessionSilently() async {
+    try {
+      await Supabase.instance.client.auth.refreshSession();
+    } catch (_) {
+      // Si falla (sin sesión, refresh token inválido, sin red), el guard
+      // de cambios sin guardar / redirect a login se encargan del resto.
     }
   }
 

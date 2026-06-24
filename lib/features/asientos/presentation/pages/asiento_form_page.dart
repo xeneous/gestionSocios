@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -5,11 +6,13 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import '../../providers/asientos_provider.dart';
 import '../../models/asiento_model.dart';
+import '../../services/asiento_draft_service.dart';
 import '../../../cuentas/providers/cuentas_provider.dart';
 import '../../../cuentas/models/cuenta_model.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../widgets/cuentas_search_dialog.dart';
 import '../../../../core/utils/date_picker_utils.dart';
+import '../../../../core/providers/unsaved_changes_provider.dart';
 
 class AsientoFormPage extends ConsumerStatefulWidget {
   final int? asiento;
@@ -34,39 +37,55 @@ class _AsientoFormPageState extends ConsumerState<AsientoFormPage> {
   
   List<AsientoItemRow> _items = [];
   bool _isLoading = false;
+  bool _isLoadingData = false;
+  bool _formModified = false;
   DateTime _selectedDate = DateTime.now();
+  Timer? _draftSaveTimer;
+  final _draftService = AsientoDraftService();
+
+  // Se captura en initState porque en dispose() el `ref` del widget ya
+  // está marcado como disposed por el framework y `ref.read(...)` lanza
+  // una excepción; con la referencia al notifier guardada de antemano
+  // se puede seguir notificando el cierre sin pasar por `ref`.
+  late final UnsavedChangesNotifier _unsavedChangesNotifier;
+
+  String get _draftKey =>
+      widget.asiento != null && widget.anioMes != null && widget.tipoAsiento != null
+          ? AsientoDraftService.keyEdicion(
+              widget.asiento!, widget.anioMes!, widget.tipoAsiento!)
+          : AsientoDraftService.keyNuevo();
 
   @override
   void initState() {
     super.initState();
+    _unsavedChangesNotifier = ref.read(unsavedChangesProvider.notifier);
     _fechaController.text = DateFormat('dd/MM/yyyy').format(_selectedDate);
 
-    // Listener para habilitar/deshabilitar botón guardar cuando cambia el detalle
-    _detalleController.addListener(() {
-      setState(() {
-        // Trigger rebuild to update button state
-      });
-    });
+    // Listener para marcar el formulario como modificado (y habilitar/
+    // deshabilitar el botón guardar) cuando cambia el detalle.
+    _detalleController.addListener(_markFormModified);
 
     // Si es edición, cargar datos
     if (widget.asiento != null && widget.anioMes != null && widget.tipoAsiento != null) {
       _loadAsientoData();
     } else {
       _addNewItem();
+      WidgetsBinding.instance.addPostFrameCallback((_) => _checkForDraft());
     }
   }
 
   Future<void> _loadAsientoData() async {
+    _isLoadingData = true;
     try {
       final asientoCompleto = await ref.read(asientosNotifierProvider.notifier)
           .getAsientoById(widget.asiento!, widget.anioMes!, widget.tipoAsiento!);
-      
+
       if (asientoCompleto != null && mounted) {
         setState(() {
           _selectedDate = asientoCompleto.header.fecha;
           _fechaController.text = DateFormat('dd/MM/yyyy').format(_selectedDate);
           _detalleController.text = asientoCompleto.header.detalle ?? '';
-          
+
           // Cargar items
           _items = asientoCompleto.items.asMap().entries.map((entry) {
             final item = entry.value;
@@ -92,16 +111,140 @@ class _AsientoFormPageState extends ConsumerState<AsientoFormPage> {
           SnackBar(content: Text('Error al cargar asiento: $e')),
         );
       }
+    } finally {
+      _isLoadingData = false;
+      if (mounted) {
+        _checkForDraft();
+      }
     }
+  }
+
+  /// Marca el formulario como modificado (ignora cambios durante la carga
+  /// inicial o la restauración de un borrador) y programa el guardado
+  /// debounced del borrador en almacenamiento local.
+  void _markFormModified() {
+    if (_isLoadingData) return;
+    setState(() {
+      _formModified = true;
+    });
+    _unsavedChangesNotifier.set(true);
+    _draftSaveTimer?.cancel();
+    _draftSaveTimer = Timer(const Duration(milliseconds: 700), _saveDraft);
+  }
+
+  Future<void> _saveDraft() async {
+    final items = _items
+        .where((item) =>
+            item.cuentaId != null ||
+            item.debe > 0 ||
+            item.haber > 0 ||
+            item.observacion.isNotEmpty)
+        .map((item) => {
+              'cuentaId': item.cuentaId,
+              'cuentaDescripcion': item.cuentaDescripcion,
+              'debe': item.debe,
+              'haber': item.haber,
+              'observacion': item.observacion,
+            })
+        .toList();
+
+    if (items.isEmpty && _detalleController.text.isEmpty) {
+      await _draftService.clearDraft(_draftKey);
+      return;
+    }
+
+    await _draftService.saveDraft(_draftKey, {
+      'fecha': _selectedDate.toIso8601String().split('T')[0],
+      'detalle': _detalleController.text,
+      'items': items,
+    });
+  }
+
+  Future<void> _checkForDraft() async {
+    final draft = await _draftService.loadDraft(_draftKey);
+    if (draft == null || !mounted) return;
+
+    final fecha = draft['fecha'] as String?;
+    final items = (draft['items'] as List?) ?? [];
+
+    final confirmar = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Borrador encontrado'),
+        content: Text(
+          'Se encontró un borrador sin guardar${fecha != null ? ' del $fecha' : ''} '
+          'con ${items.length} línea(s). ¿Desea recuperarlo?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Descartar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Recuperar'),
+          ),
+        ],
+      ),
+    );
+
+    if (!mounted) return;
+
+    if (confirmar == true) {
+      _applyDraft(draft);
+    } else {
+      await _draftService.clearDraft(_draftKey);
+    }
+  }
+
+  void _applyDraft(Map<String, dynamic> draft) {
+    _isLoadingData = true;
+    setState(() {
+      final fecha = draft['fecha'] as String?;
+      if (fecha != null) {
+        _selectedDate = DateTime.parse(fecha);
+        _fechaController.text = DateFormat('dd/MM/yyyy').format(_selectedDate);
+      }
+      _detalleController.text = draft['detalle'] as String? ?? '';
+
+      for (final item in _items) {
+        item.dispose();
+      }
+      final draftItems = (draft['items'] as List?) ?? [];
+      _items = draftItems.asMap().entries.map((entry) {
+        final data = entry.value as Map<String, dynamic>;
+        final row = AsientoItemRow(
+          item: entry.key + 1,
+          cuentaId: data['cuentaId'] as int?,
+          cuentaDescripcion: data['cuentaDescripcion'] as String?,
+          debe: (data['debe'] as num?)?.toDouble() ?? 0.0,
+          haber: (data['haber'] as num?)?.toDouble() ?? 0.0,
+          observacion: data['observacion'] as String? ?? '',
+        );
+        row.cuentaController.text = data['cuentaId']?.toString() ?? '';
+        row.debeController.text = row.debe > 0 ? row.debe.toStringAsFixed(2) : '';
+        row.haberController.text = row.haber > 0 ? row.haber.toStringAsFixed(2) : '';
+        row.observacionController.text = row.observacion;
+        return row;
+      }).toList();
+      if (_items.isEmpty) {
+        _items.add(AsientoItemRow(item: 1));
+      }
+    });
+    _isLoadingData = false;
+    _unsavedChangesNotifier.set(true);
+    _formModified = true;
   }
 
   @override
   void dispose() {
+    _draftSaveTimer?.cancel();
     _fechaController.dispose();
     _detalleController.dispose();
     for (var item in _items) {
       item.dispose();
     }
+    _unsavedChangesNotifier.set(false);
     super.dispose();
   }
 
@@ -123,6 +266,7 @@ class _AsientoFormPageState extends ConsumerState<AsientoFormPage> {
           _items[i].item = i + 1;
         }
       });
+      _markFormModified();
     }
   }
 
@@ -208,6 +352,7 @@ class _AsientoFormPageState extends ConsumerState<AsientoFormPage> {
       item.cuentaDescripcion = cuenta.descripcion;
       item.cuentaController.text = cuenta.cuenta.toString();
     });
+    _markFormModified();
     item.debeFocus.requestFocus();
   }
 
@@ -223,6 +368,7 @@ class _AsientoFormPageState extends ConsumerState<AsientoFormPage> {
         item.cuentaDescripcion = selected.descripcion;
         item.cuentaController.text = selected.cuenta.toString();
       });
+      _markFormModified();
       item.debeFocus.requestFocus();
     }
   }
@@ -320,6 +466,10 @@ class _AsientoFormPageState extends ConsumerState<AsientoFormPage> {
       } else {
         await ref.read(asientosNotifierProvider.notifier).createAsiento(asientoCompleto);
       }
+
+      await _draftService.clearDraft(_draftKey);
+      _formModified = false;
+      _unsavedChangesNotifier.set(false);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -492,6 +642,7 @@ class _AsientoFormPageState extends ConsumerState<AsientoFormPage> {
                                                       item.cuentaId = null;
                                                       item.cuentaDescripcion = null;
                                                     });
+                                                    _markFormModified();
                                                   },
                                                 ),
                                               ),
@@ -556,6 +707,7 @@ class _AsientoFormPageState extends ConsumerState<AsientoFormPage> {
                                                   item.haberController.clear();
                                                 }
                                               });
+                                              _markFormModified();
                                             },
                                           ),
                                         ),
@@ -589,6 +741,7 @@ class _AsientoFormPageState extends ConsumerState<AsientoFormPage> {
                                                   item.debeController.clear();
                                                 }
                                               });
+                                              _markFormModified();
                                             },
                                           ),
                                         ),
@@ -607,6 +760,7 @@ class _AsientoFormPageState extends ConsumerState<AsientoFormPage> {
                                               // Si el asiento no está balanceado, agregar nueva línea
                                               if (!_isBalanced && item.cuentaId != null && (item.debe > 0 || item.haber > 0)) {
                                                 _addNewItem();
+                                                _markFormModified();
                                                 // Dar foco a la nueva línea
                                                 Future.delayed(const Duration(milliseconds: 100), () {
                                                   if (_items.isNotEmpty) {
@@ -617,6 +771,7 @@ class _AsientoFormPageState extends ConsumerState<AsientoFormPage> {
                                             },
                                             onChanged: (value) {
                                               item.observacion = value;
+                                              _markFormModified();
                                             },
                                           ),
                                         ),
@@ -653,7 +808,10 @@ class _AsientoFormPageState extends ConsumerState<AsientoFormPage> {
                         Row(
                           children: [
                             TextButton.icon(
-                              onPressed: _addNewItem,
+                              onPressed: () {
+                                _addNewItem();
+                                _markFormModified();
+                              },
                               icon: const Icon(Icons.add),
                               label: const Text('Agregar Línea'),
                             ),
@@ -701,7 +859,36 @@ class _AsientoFormPageState extends ConsumerState<AsientoFormPage> {
                           mainAxisAlignment: MainAxisAlignment.end,
                           children: [
                             TextButton(
-                              onPressed: () => context.go('/asientos'),
+                              onPressed: () async {
+                                if (!_formModified) {
+                                  context.go('/asientos');
+                                  return;
+                                }
+                                final confirmar = await showDialog<bool>(
+                                  context: context,
+                                  builder: (context) => AlertDialog(
+                                    title: const Text('Confirmar'),
+                                    content: const Text(
+                                        '¿Desea salir sin guardar los cambios?'),
+                                    actions: [
+                                      TextButton(
+                                        onPressed: () =>
+                                            Navigator.pop(context, false),
+                                        child: const Text('No'),
+                                      ),
+                                      FilledButton(
+                                        onPressed: () =>
+                                            Navigator.pop(context, true),
+                                        child: const Text('Sí, salir'),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                                if (confirmar == true && context.mounted) {
+                                  unawaited(_draftService.clearDraft(_draftKey));
+                                  context.go('/asientos');
+                                }
+                              },
                               child: const Text('Cancelar'),
                             ),
                             const SizedBox(width: 16),

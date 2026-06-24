@@ -1,6 +1,9 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../providers/unsaved_changes_provider.dart';
 import '../../features/auth/presentation/pages/login_page.dart';
+import '../../features/auth/presentation/widgets/reauth_dialog.dart';
 import '../../features/dashboard/presentation/pages/dashboard_page.dart';
 import '../../features/auth/presentation/providers/auth_provider.dart';
 import '../../features/cuentas/presentation/pages/cuentas_list_page.dart';
@@ -64,18 +67,72 @@ import '../../features/reimpresion/presentation/pages/reimpresion_page.dart';
 import '../../features/auth/presentation/providers/user_role_provider.dart';
 import '../../features/auth/presentation/providers/usuarios_provider.dart';
 
+/// Navigator key compartido con el GoRouter para poder mostrar diálogos
+/// (ej. reautenticación) por encima de la pantalla actual sin depender
+/// de un BuildContext local.
+final rootNavigatorKey = GlobalKey<NavigatorState>();
+
+/// Notifica a GoRouter cuando debe re-evaluar el redirect, sin recrear
+/// la instancia del router (recrearla destruye el árbol de navegación
+/// y pierde el estado de cualquier formulario abierto, ej. al refrescarse
+/// el token de sesión en segundo plano).
+class _GoRouterRefreshNotifier extends ChangeNotifier {
+  void notify() => notifyListeners();
+}
+
+final _goRouterRefreshNotifierProvider = Provider<_GoRouterRefreshNotifier>((ref) {
+  final notifier = _GoRouterRefreshNotifier();
+  bool reauthDialogShowing = false;
+
+  ref.listen(authStateProvider, (previous, next) {
+    notifier.notify();
+
+    final hadSession = previous?.value?.session != null;
+    final hasSessionNow = next.value?.session != null;
+    final hasUnsavedChanges = ref.read(unsavedChangesProvider);
+
+    if (hadSession && !hasSessionNow && hasUnsavedChanges && !reauthDialogShowing) {
+      final email = previous?.value?.session?.user.email;
+      final context = rootNavigatorKey.currentContext;
+      if (context != null) {
+        reauthDialogShowing = true;
+        showDialog<void>(
+          context: context,
+          barrierDismissible: false,
+          builder: (_) => ReauthDialog(email: email),
+        ).then((_) => reauthDialogShowing = false);
+      }
+    }
+  });
+  ref.listen(userRoleProvider, (_, __) => notifier.notify());
+  ref.listen(currentUserProfileProvider, (_, __) => notifier.notify());
+  ref.listen(unsavedChangesProvider, (_, __) => notifier.notify());
+  ref.onDispose(notifier.dispose);
+  return notifier;
+});
+
 final routerProvider = Provider<GoRouter>((ref) {
-  final authState = ref.watch(authStateProvider);
-  final userRole = ref.watch(userRoleProvider);
-  final userProfileAsync = ref.watch(currentUserProfileProvider);
+  final refreshNotifier = ref.watch(_goRouterRefreshNotifierProvider);
 
   return GoRouter(
+    navigatorKey: rootNavigatorKey,
     initialLocation: '/login',
+    refreshListenable: refreshNotifier,
     redirect: (context, state) {
+      final authState = ref.read(authStateProvider);
+      final userRole = ref.read(userRoleProvider);
+      final userProfileAsync = ref.read(currentUserProfileProvider);
+
       final isLoggedIn = authState.value?.session != null;
       final isLoginRoute = state.matchedLocation == '/login';
 
       if (!isLoggedIn && !isLoginRoute) {
+        // No expulsar si hay un formulario con cambios sin guardar: el
+        // listener de arriba ya mostró un diálogo para reautenticar sin
+        // perder lo que el usuario estaba cargando.
+        if (ref.read(unsavedChangesProvider)) {
+          return null;
+        }
         return '/login';
       }
 

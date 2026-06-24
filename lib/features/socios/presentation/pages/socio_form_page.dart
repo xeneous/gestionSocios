@@ -17,6 +17,7 @@ import '../../providers/categorias_residente_provider.dart';
 import '../../models/categoria_residente_model.dart';
 import '../../providers/lugares_residencia_provider.dart';
 import '../widgets/concepto_search_dialog.dart';
+import '../../../../core/providers/unsaved_changes_provider.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../../auth/presentation/providers/user_role_provider.dart';
 import '../../providers/conceptos_socio_provider.dart';
@@ -52,7 +53,7 @@ class _SocioFormPageState extends ConsumerState<SocioFormPage>
   final _nombreController = TextEditingController();
   final _numeroDocumentoController = TextEditingController();
   final _cuilController = TextEditingController();
-  String _tipoDocumento = 'LE';
+  String _tipoDocumento = 'DNI';
   int? _sexo = 0;
   DateTime? _fechaNacimiento;
 
@@ -93,15 +94,23 @@ class _SocioFormPageState extends ConsumerState<SocioFormPage>
   bool _isLoadingData = false;
   bool _formModified = false;
 
+  // Se captura en initState porque en dispose() el `ref` del widget ya
+  // está marcado como disposed por el framework y `ref.read(...)` lanza
+  // una excepción; con la referencia al notifier guardada de antemano
+  // se puede seguir notificando el cierre sin pasar por `ref`.
+  late final UnsavedChangesNotifier _unsavedChangesNotifier;
+
   /// Marca el formulario como modificado (ignora cambios durante carga inicial)
   void _markFormModified() {
     if (!_isLoadingData) {
       _formModified = true;
+      _unsavedChangesNotifier.set(true);
     }
   }
 
   @override
   void initState() {
+    _unsavedChangesNotifier = ref.read(unsavedChangesProvider.notifier);
     super.initState();
     _tabController = TabController(length: 7, vsync: this);
 
@@ -145,7 +154,7 @@ class _SocioFormPageState extends ConsumerState<SocioFormPage>
           // Datos Personales
           _apellidoController.text = socio.apellido;
           _nombreController.text = socio.nombre;
-          _tipoDocumento = socio.tipoDocumento ?? 'LE';
+          _tipoDocumento = socio.tipoDocumento ?? 'DNI';
           _numeroDocumentoController.text = socio.numeroDocumento ?? '';
           _cuilController.text = socio.cuil ?? '';
           _sexo = socio.sexo;
@@ -217,6 +226,7 @@ class _SocioFormPageState extends ConsumerState<SocioFormPage>
     _emailAlternativoController.dispose();
     _lugarResidenciaController.dispose();
     _numeroTarjetaController.dispose();
+    _unsavedChangesNotifier.set(false);
     super.dispose();
   }
 
@@ -431,7 +441,8 @@ class _SocioFormPageState extends ConsumerState<SocioFormPage>
           if (widget.socioId != null && !esFichaSocios)
             IconButton(
               icon: const Icon(Icons.account_balance_wallet),
-              onPressed: () => context.go('/socios/${widget.socioId}/cuenta-corriente'),
+              onPressed: () =>
+                  context.go('/socios/${widget.socioId}/cuenta-corriente'),
               tooltip: 'Cuenta Corriente',
             ),
           if (!esFichaSocios)
@@ -786,7 +797,7 @@ class _SocioFormPageState extends ConsumerState<SocioFormPage>
                 }).toList(),
                 onChanged: (value) {
                   _markFormModified();
-                  setState(() => _tipoDocumento = value ?? 'LE');
+                  setState(() => _tipoDocumento = value ?? 'DNI');
                 },
               ),
             ),
@@ -3019,7 +3030,7 @@ class _SocioFormPageState extends ConsumerState<SocioFormPage>
         color: Colors.white,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.1),
+            color: Colors.black.withValues(alpha: 0.1),
             blurRadius: 4,
             offset: const Offset(0, -2),
           ),
