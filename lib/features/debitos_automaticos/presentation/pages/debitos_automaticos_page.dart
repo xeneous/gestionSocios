@@ -361,6 +361,7 @@ class _DebitosAutomaticosPageState
         NumberFormat.currency(symbol: '\$', decimalDigits: 2);
 
     final excluidosCount = (stats['excluidos_debitar_desde'] as int?) ?? 0;
+    final excluidosGrupoCount = (stats['excluidos_grupo'] as int?) ?? 0;
 
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16),
@@ -406,6 +407,22 @@ class _DebitosAutomaticosPageState
                   label: 'Inicio futuro',
                   value: excluidosCount.toString(),
                   color: excluidosCount > 0 ? Colors.orange : Colors.grey,
+                ),
+              ),
+            ),
+            Tooltip(
+              message: excluidosGrupoCount > 0
+                  ? 'Ver detalle — socios adheridos renunciados o fallecidos, excluidos del débito'
+                  : 'Sin socios renunciados o fallecidos adheridos',
+              child: InkWell(
+                onTap:
+                    excluidosGrupoCount > 0 ? _mostrarDetalleExcluidosGrupo : null,
+                borderRadius: BorderRadius.circular(8),
+                child: _buildStatItem(
+                  icon: Icons.person_off,
+                  label: 'Renunciado/Fallecido',
+                  value: excluidosGrupoCount.toString(),
+                  color: excluidosGrupoCount > 0 ? Colors.red : Colors.grey,
                 ),
               ),
             ),
@@ -1136,6 +1153,95 @@ class _DebitosAutomaticosPageState
                                 DateFormat('MM/yyyy').format(debitarDesde),
                                 style: const TextStyle(
                                   color: Colors.orange,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          ]);
+                        }).toList(),
+                      ),
+                    ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Cerrar'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  Future<void> _mostrarDetalleExcluidosGrupo() async {
+    final service = ref.read(debitosAutomaticosServiceProvider);
+
+    showDialog(
+      context: context,
+      builder: (ctx) => FutureBuilder<List<Map<String, dynamic>>>(
+        future: service.getExcluidosPorGrupo(
+          tarjetaId: _tarjetaSeleccionada,
+        ),
+        builder: (ctx, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const AlertDialog(
+              content: SizedBox(
+                height: 100,
+                child: Center(child: CircularProgressIndicator()),
+              ),
+            );
+          }
+          if (snapshot.hasError) {
+            return AlertDialog(
+              title: const Text('Error'),
+              content: Text(snapshot.error.toString()),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  child: const Text('Cerrar'),
+                ),
+              ],
+            );
+          }
+
+          final socios = snapshot.data ?? [];
+
+          return AlertDialog(
+            title: const Row(
+              children: [
+                Icon(Icons.person_off, color: Colors.red),
+                SizedBox(width: 8),
+                Text('Socios renunciados/fallecidos'),
+              ],
+            ),
+            content: SizedBox(
+              width: 520,
+              child: socios.isEmpty
+                  ? const Text(
+                      'No hay socios excluidos por renuncia o fallecimiento.')
+                  : SingleChildScrollView(
+                      child: DataTable(
+                        headingRowColor: WidgetStateProperty.all(
+                          Colors.red.shade50,
+                        ),
+                        columns: const [
+                          DataColumn(label: Text('Nº Socio')),
+                          DataColumn(label: Text('Apellido y Nombre')),
+                          DataColumn(label: Text('Grupo')),
+                        ],
+                        rows: socios.map((s) {
+                          final grupo = s['grupo'] as String?;
+                          return DataRow(cells: [
+                            DataCell(Text(s['id'].toString())),
+                            DataCell(
+                              Text('${s['apellido']}, ${s['nombre']}'),
+                            ),
+                            DataCell(
+                              Text(
+                                grupo == 'R' ? 'Renunciado' : 'Fallecido',
+                                style: const TextStyle(
+                                  color: Colors.red,
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),

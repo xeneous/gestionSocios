@@ -99,15 +99,24 @@ class RechazosDaNotifier extends Notifier<RechazosDaState> {
     }
   }
 
-  /// Cambia el estado de selección de un resultado individual.
+  /// Cambia el estado de selección de un resultado. Como varias líneas
+  /// pueden pertenecer al mismo DA combinado (mismo grupoKey), se alternan
+  /// todas juntas: nunca se puede confirmar la mitad de un grupo.
   void toggleSeleccion(int index) {
-    final nuevos = List<RechazoDAResultado>.from(state.resultados);
-    nuevos[index] = RechazoDAResultado(
-      rechazo: nuevos[index].rechazo,
-      idtransaccionDA: nuevos[index].idtransaccionDA,
-      socioNombre: nuevos[index].socioNombre,
-      seleccionado: !nuevos[index].seleccionado,
-    );
+    final grupoKey = state.resultados[index].grupoKey;
+    final nuevoValor = !state.resultados[index].seleccionado;
+    final nuevos = state.resultados.map((r) {
+      if (r.grupoKey != grupoKey) return r;
+      return RechazoDAResultado(
+        rechazo: r.rechazo,
+        idtransaccionCS: r.idtransaccionCS,
+        socioNombre: r.socioNombre,
+        grupoEncontrado: r.grupoEncontrado,
+        lineasEnGrupo: r.lineasEnGrupo,
+        grupoKey: r.grupoKey,
+        seleccionado: nuevoValor,
+      );
+    }).toList();
     state = state.copyWith(resultados: nuevos);
   }
 
@@ -115,8 +124,11 @@ class RechazosDaNotifier extends Notifier<RechazosDaState> {
   void toggleTodos(bool seleccionar) {
     final nuevos = state.resultados.map((r) => RechazoDAResultado(
           rechazo: r.rechazo,
-          idtransaccionDA: r.idtransaccionDA,
+          idtransaccionCS: r.idtransaccionCS,
           socioNombre: r.socioNombre,
+          grupoEncontrado: r.grupoEncontrado,
+          lineasEnGrupo: r.lineasEnGrupo,
+          grupoKey: r.grupoKey,
           seleccionado: r.daEncontrado ? seleccionar : false,
         )).toList();
     state = state.copyWith(resultados: nuevos);

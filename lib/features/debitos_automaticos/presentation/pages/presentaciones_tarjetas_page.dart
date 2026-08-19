@@ -1,8 +1,15 @@
+import 'dart:io';
+
+import 'package:excel/excel.dart' as xl;
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:universal_html/html.dart' as html;
+import '../../../../core/utils/date_picker_utils.dart';
 import '../../../../core/utils/web_utils.dart';
 import '../../models/presentacion_tarjeta.dart';
 import '../../providers/presentaciones_tarjetas_provider.dart';
@@ -25,6 +32,49 @@ class _PresentacionesTarjetasPageState
   final _dateFormat = DateFormat('dd/MM/yyyy');
   final _currencyFormat =
       NumberFormat.currency(locale: 'es_AR', symbol: '\$', decimalDigits: 2);
+
+  final _busquedaTarjetaController = TextEditingController();
+  String? _numeroTarjetaBuscado;
+  DateTime? _periodoDesde;
+  DateTime? _periodoHasta;
+
+  @override
+  void dispose() {
+    _busquedaTarjetaController.dispose();
+    super.dispose();
+  }
+
+  void _buscarPorTarjeta() {
+    final valor = _busquedaTarjetaController.text.trim();
+    setState(() => _numeroTarjetaBuscado = valor.isEmpty ? null : valor);
+  }
+
+  void _limpiarBusqueda() {
+    setState(() {
+      _busquedaTarjetaController.clear();
+      _numeroTarjetaBuscado = null;
+      _periodoDesde = null;
+      _periodoHasta = null;
+    });
+  }
+
+  int? get _periodoDesdeInt => _periodoDesde == null
+      ? null
+      : _periodoDesde!.year * 100 + _periodoDesde!.month;
+
+  int? get _periodoHastaInt => _periodoHasta == null
+      ? null
+      : _periodoHasta!.year * 100 + _periodoHasta!.month;
+
+  Future<void> _seleccionarPeriodoDesde() async {
+    final fecha = await pickDate(context, _periodoDesde ?? DateTime.now());
+    if (fecha != null) setState(() => _periodoDesde = fecha);
+  }
+
+  Future<void> _seleccionarPeriodoHasta() async {
+    final fecha = await pickDate(context, _periodoHasta ?? DateTime.now());
+    if (fecha != null) setState(() => _periodoHasta = fecha);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -50,7 +100,323 @@ class _PresentacionesTarjetasPageState
         ],
       ),
       drawer: const AppDrawer(currentRoute: '/presentaciones-tarjetas'),
-      body: presentacionesAsync.when(
+      body: Column(
+        children: [
+          // ── Buscador por N° de tarjeta ───────────────────────────────────
+          Card(
+            margin: const EdgeInsets.fromLTRB(12, 12, 12, 0),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _busquedaTarjetaController,
+                      decoration: const InputDecoration(
+                        labelText: 'Buscar por N° de tarjeta',
+                        hintText: 'Ej: 4937020001788817',
+                        prefixIcon: Icon(Icons.credit_card),
+                        isDense: true,
+                        border: OutlineInputBorder(),
+                      ),
+                      onSubmitted: (_) => _buscarPorTarjeta(),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  FilledButton.icon(
+                    onPressed: _buscarPorTarjeta,
+                    icon: const Icon(Icons.search),
+                    label: const Text('Buscar'),
+                  ),
+                  if (_numeroTarjetaBuscado != null) ...[
+                    const SizedBox(width: 8),
+                    TextButton.icon(
+                      onPressed: _limpiarBusqueda,
+                      icon: const Icon(Icons.clear),
+                      label: const Text('Limpiar'),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+          Expanded(
+            child: _numeroTarjetaBuscado != null
+                ? _buildResultadoBusquedaTarjeta(_numeroTarjetaBuscado!)
+                : _buildListaPresentaciones(presentacionesAsync),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildResultadoBusquedaTarjeta(String numeroTarjeta) {
+    final resultadoAsync = ref.watch(buscarPorTarjetaProvider(numeroTarjeta));
+    final mesFmt = DateFormat('MM/yyyy');
+
+    return resultadoAsync.when(
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (e, _) => Center(child: Text('Error: $e')),
+      data: (todosLosMovimientos) {
+        if (todosLosMovimientos.isEmpty) {
+          return const Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.credit_card_off, size: 48, color: Colors.grey),
+                SizedBox(height: 8),
+                Text('No se encontraron movimientos para esa tarjeta'),
+              ],
+            ),
+          );
+        }
+
+        final desde = _periodoDesdeInt;
+        final hasta = _periodoHastaInt;
+        final movimientos = todosLosMovimientos.where((m) {
+          if (desde != null && m.periodo < desde) return false;
+          if (hasta != null && m.periodo > hasta) return false;
+          return true;
+        }).toList();
+
+        final socios = movimientos.map((m) => m.socioId).toSet().length;
+        final totalCobrado = movimientos
+            .where((m) => !m.rechazado)
+            .fold<double>(0.0, (sum, m) => sum + m.importe);
+        final totalRechazado = movimientos
+            .where((m) => m.rechazado)
+            .fold<double>(0.0, (sum, m) => sum + m.importe);
+
+        return Column(
+          children: [
+            // ── Filtro de período (desde / hasta) ──────────────────────────
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+              child: Row(
+                children: [
+                  const Text('Período:',
+                      style: TextStyle(fontWeight: FontWeight.bold)),
+                  const SizedBox(width: 12),
+                  InkWell(
+                    onTap: _seleccionarPeriodoDesde,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.grey.shade400),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(_periodoDesde != null
+                          ? 'Desde ${mesFmt.format(_periodoDesde!)}'
+                          : 'Desde...'),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  InkWell(
+                    onTap: _seleccionarPeriodoHasta,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.grey.shade400),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(_periodoHasta != null
+                          ? 'Hasta ${mesFmt.format(_periodoHasta!)}'
+                          : 'Hasta...'),
+                    ),
+                  ),
+                  if (_periodoDesde != null || _periodoHasta != null) ...[
+                    const SizedBox(width: 8),
+                    TextButton.icon(
+                      onPressed: () => setState(() {
+                        _periodoDesde = null;
+                        _periodoHasta = null;
+                      }),
+                      icon: const Icon(Icons.clear, size: 16),
+                      label: const Text('Limpiar período'),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            if (movimientos.isEmpty)
+              const Expanded(
+                child: Center(
+                  child: Text(
+                      'No hay movimientos en el rango de período seleccionado'),
+                ),
+              )
+            else ...[
+              Container(
+                width: double.infinity,
+                color: Colors.purple.shade50,
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Wrap(
+                        spacing: 24,
+                        runSpacing: 8,
+                        children: [
+                          Text('$socios socio(s) con esta tarjeta',
+                              style:
+                                  const TextStyle(fontWeight: FontWeight.bold)),
+                          Text(
+                              'Cobrado: ${_currencyFormat.format(totalCobrado)}',
+                              style: const TextStyle(
+                                  color: Colors.green,
+                                  fontWeight: FontWeight.bold)),
+                          Text(
+                              'Rechazado: ${_currencyFormat.format(totalRechazado)}',
+                              style: const TextStyle(
+                                  color: Colors.red,
+                                  fontWeight: FontWeight.bold)),
+                        ],
+                      ),
+                    ),
+                    OutlinedButton.icon(
+                      onPressed: () =>
+                          _exportarExcelBusqueda(numeroTarjeta, movimientos),
+                      icon: const Icon(Icons.download, size: 18),
+                      label: const Text('Exportar Excel'),
+                    ),
+                  ],
+                ),
+              ),
+              Expanded(
+                child: SingleChildScrollView(
+                  child: SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: DataTable(
+                      columnSpacing: 20,
+                      headingRowColor:
+                          WidgetStateProperty.all(Colors.purple.shade50),
+                      columns: const [
+                        DataColumn(label: Text('Socio ID')),
+                        DataColumn(label: Text('Apellido y Nombre')),
+                        DataColumn(label: Text('Período')),
+                        DataColumn(label: Text('Importe'), numeric: true),
+                        DataColumn(label: Text('Estado')),
+                      ],
+                      rows: movimientos.map((m) {
+                        final anio = m.periodo ~/ 100;
+                        final mes = m.periodo % 100;
+                        final periodoStr =
+                            '${mes.toString().padLeft(2, '0')}/$anio';
+                        return DataRow(cells: [
+                          DataCell(Text(m.socioId.toString())),
+                          DataCell(Text(m.nombreCompleto)),
+                          DataCell(Text(periodoStr)),
+                          DataCell(Text(_currencyFormat.format(m.importe))),
+                          DataCell(Chip(
+                            label: Text(
+                              m.rechazado ? 'Rechazado' : 'Cobrado',
+                              style: const TextStyle(
+                                  fontSize: 11, color: Colors.white),
+                            ),
+                            backgroundColor:
+                                m.rechazado ? Colors.red : Colors.green,
+                            padding: EdgeInsets.zero,
+                            materialTapTargetSize:
+                                MaterialTapTargetSize.shrinkWrap,
+                          )),
+                        ]);
+                      }).toList(),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _exportarExcelBusqueda(
+      String numeroTarjeta, List<DetalleTarjetaBusqueda> movimientos) async {
+    final excel = xl.Excel.createExcel();
+    final sheet = excel['Movimientos'];
+    excel.setDefaultSheet('Movimientos');
+
+    final headerStyle = xl.CellStyle(
+      bold: true,
+      backgroundColorHex: xl.ExcelColor.fromHexString('#7B1FA2'),
+      fontColorHex: xl.ExcelColor.fromHexString('#FFFFFF'),
+    );
+
+    final headers = [
+      'Socio ID', 'Apellido y Nombre', 'Período', 'Importe', 'Estado',
+    ];
+    for (var i = 0; i < headers.length; i++) {
+      final cell =
+          sheet.cell(xl.CellIndex.indexByColumnRow(columnIndex: i, rowIndex: 0));
+      cell.value = xl.TextCellValue(headers[i]);
+      cell.cellStyle = headerStyle;
+    }
+
+    for (var i = 0; i < movimientos.length; i++) {
+      final m = movimientos[i];
+      final anio = m.periodo ~/ 100;
+      final mes = m.periodo % 100;
+      final periodoStr = '${mes.toString().padLeft(2, '0')}/$anio';
+      final row = i + 1;
+
+      sheet.cell(xl.CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: row))
+          .value = xl.IntCellValue(m.socioId);
+      sheet.cell(xl.CellIndex.indexByColumnRow(columnIndex: 1, rowIndex: row))
+          .value = xl.TextCellValue(m.nombreCompleto);
+      sheet.cell(xl.CellIndex.indexByColumnRow(columnIndex: 2, rowIndex: row))
+          .value = xl.TextCellValue(periodoStr);
+      sheet.cell(xl.CellIndex.indexByColumnRow(columnIndex: 3, rowIndex: row))
+          .value = xl.DoubleCellValue(m.importe);
+      sheet.cell(xl.CellIndex.indexByColumnRow(columnIndex: 4, rowIndex: row))
+          .value = xl.TextCellValue(m.rechazado ? 'Rechazado' : 'Cobrado');
+    }
+
+    sheet.setColumnWidth(0, 10);
+    sheet.setColumnWidth(1, 28);
+    sheet.setColumnWidth(2, 10);
+    sheet.setColumnWidth(3, 12);
+    sheet.setColumnWidth(4, 12);
+
+    final bytes = excel.encode();
+    if (bytes == null) return;
+
+    final nombreArchivo = 'Movimientos_Tarjeta_$numeroTarjeta.xlsx';
+
+    if (kIsWeb) {
+      final blob = html.Blob(
+        [bytes],
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      );
+      final url = html.Url.createObjectUrlFromBlob(blob);
+      html.AnchorElement(href: url)
+        ..setAttribute('download', nombreArchivo)
+        ..click();
+      html.Url.revokeObjectUrl(url);
+    } else {
+      final directory = await getDownloadsDirectory();
+      if (directory == null) return;
+      final file = File('${directory.path}/$nombreArchivo');
+      await file.writeAsBytes(bytes);
+    }
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Excel generado: $nombreArchivo'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    }
+  }
+
+  Widget _buildListaPresentaciones(
+      AsyncValue<List<PresentacionTarjeta>> presentacionesAsync) {
+    return presentacionesAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(
           child: Column(
@@ -182,8 +548,7 @@ class _PresentacionesTarjetasPageState
             ],
           );
         },
-      ),
-    );
+      );
   }
 
   Widget _buildTabla(List<PresentacionTarjeta> presentaciones) {

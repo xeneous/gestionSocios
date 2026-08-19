@@ -30,6 +30,10 @@ class RechazoMastercardItem {
     return '$yyyy$mm';
   }
 
+  /// Clave de agrupación: todas las líneas de un mismo socio/entidad/período
+  /// corresponden a un único DA combinado en cuenta corriente.
+  String get grupoKey => '$entidadId|$socioId|$documentoNumero';
+
   /// Elimina el formato Excel CSV: ="12345" → 12345
   static String _limpiar(String valor) {
     String v = valor.trim();
@@ -93,19 +97,25 @@ class RechazoMastercardItem {
 
 class RechazoMastercardResultado {
   final RechazoMastercardItem item;
-  final int? idtransaccionDA; // null si no se encontró el DA (solo aplica a rechazos)
+  final int? idtransaccionCS; // idtransaccion de la CS original a revertir (null = no resuelta; no aplica a observados)
   final String? socioNombre;
+  final String grupoKey;
+  final bool grupoEncontrado; // true si TODAS las líneas del grupo matchearon (siempre true para observados)
+  final int lineasEnGrupo;
   bool seleccionado;
 
   RechazoMastercardResultado({
     required this.item,
-    required this.idtransaccionDA,
+    required this.idtransaccionCS,
     required this.socioNombre,
+    required this.grupoEncontrado,
+    required this.lineasEnGrupo,
+    String? grupoKey,
     this.seleccionado = true,
-  });
+  }) : grupoKey = grupoKey ?? item.grupoKey;
 
   /// Para observados siempre "encontrado" (no necesitan DA en CC).
-  /// Para rechazos, depende de si se encontró el DA.
-  bool get daEncontrado =>
-      item.esObservado ? true : idtransaccionDA != null;
+  /// Para rechazos, depende de si matchearon todas las líneas del grupo.
+  bool get daEncontrado => item.esObservado ? true : grupoEncontrado;
+  bool get esGrupoCombinado => !item.esObservado && lineasEnGrupo > 1;
 }

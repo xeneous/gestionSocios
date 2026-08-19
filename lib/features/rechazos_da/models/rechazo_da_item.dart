@@ -27,6 +27,10 @@ class RechazoDAItem {
   String get motivoCompleto =>
       motivoDescripcion.isNotEmpty ? '$motivoCodigo $motivoDescripcion' : motivoCodigo;
 
+  /// Clave de agrupación: todas las líneas de un mismo socio/entidad/período
+  /// corresponden a un único DA combinado en cuenta corriente.
+  String get grupoKey => '$entidadId|$socioId|$documentoNumero';
+
   /// Parsea una línea del archivo RDEBLIQC y retorna un RechazoDAItem,
   /// o null si la línea no es un rechazo real.
   static RechazoDAItem? parsearLinea(String linea) {
@@ -90,19 +94,32 @@ class RechazoDAItem {
   }
 }
 
-/// Resultado de cruzar un RechazoDAItem con la CC (DA encontrado o no)
+/// Resultado de cruzar un RechazoDAItem con la CC (CS original encontrada o no).
+///
+/// Varias líneas del archivo pueden compartir el mismo [grupoKey] cuando la
+/// tarjeta informa el rechazo de un DA combinado desglosado por CS original
+/// (ej: un DA de 35000 = CS 18000 + CS 17000, informado como 2 líneas). En
+/// ese caso [grupoEncontrado] y la selección se manejan de forma atómica
+/// para todo el grupo, nunca por línea individual.
 class RechazoDAResultado {
   final RechazoDAItem rechazo;
-  final int? idtransaccionDA;   // idtransaccion del DA encontrado en CC (null = no encontrado)
+  final int? idtransaccionCS;   // idtransaccion de la CS original a revertir (null = no resuelta)
   final String? socioNombre;    // nombre del socio para mostrar
+  final String grupoKey;        // == rechazo.grupoKey
+  final bool grupoEncontrado;   // true solo si TODAS las líneas del grupo matchearon
+  final int lineasEnGrupo;      // cantidad de líneas del archivo en este mismo grupo
   bool seleccionado;
 
   RechazoDAResultado({
     required this.rechazo,
-    required this.idtransaccionDA,
+    required this.idtransaccionCS,
     required this.socioNombre,
+    required this.grupoEncontrado,
+    required this.lineasEnGrupo,
+    String? grupoKey,
     this.seleccionado = true,
-  });
+  }) : grupoKey = grupoKey ?? rechazo.grupoKey;
 
-  bool get daEncontrado => idtransaccionDA != null;
+  bool get daEncontrado => grupoEncontrado;
+  bool get esGrupoCombinado => lineasEnGrupo > 1;
 }

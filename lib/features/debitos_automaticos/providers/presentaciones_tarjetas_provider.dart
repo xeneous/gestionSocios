@@ -47,3 +47,13 @@ final detallePresentacionProvider =
     return service.getDetalle(params.tarjetaId, params.periodo);
   },
 );
+
+/// Provider para buscar movimientos por número de tarjeta a través de
+/// todas las presentaciones históricas
+final buscarPorTarjetaProvider =
+    FutureProvider.family<List<DetalleTarjetaBusqueda>, String>(
+  (ref, numeroTarjeta) async {
+    final service = ref.watch(historialPresentacionesServiceProvider);
+    return service.buscarPorNumeroTarjeta(numeroTarjeta);
+  },
+);

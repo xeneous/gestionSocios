@@ -39,7 +39,7 @@ class DebitosAutomaticosService {
     while (sociosHasMore) {
       var sociosQuery = _supabase
           .from('socios')
-          .select('id, apellido, nombre, numero_tarjeta, tarjeta_id')
+          .select('id, apellido, nombre, numero_tarjeta, tarjeta_id, grupo')
           .eq('adherido_debito', true)
           .not('numero_tarjeta', 'is', null)
           .or('debitar_desde.is.null,debitar_desde.lt.$cutoff');
@@ -53,6 +53,9 @@ class DebitosAutomaticosService {
       final sociosList = sociosResponse as List;
 
       for (final s in sociosList) {
+        // No debitar a socios renunciados (grupo 'R') o fallecidos (grupo 'F')
+        final grupo = s['grupo'] as String?;
+        if (grupo == 'R' || grupo == 'F') continue;
         sociosMap[s['id'] as int] = s as Map<String, dynamic>;
       }
       sociosHasMore = sociosList.length == sociosPageSize;
@@ -150,12 +153,26 @@ class DebitosAutomaticosService {
     final exclResult = await exclQuery;
     final excluidosCount = (exclResult as List).length;
 
+    // Socios adheridos renunciados o fallecidos (grupo 'R' o 'F')
+    var exclGrupoQuery = _supabase
+        .from('socios')
+        .select('id')
+        .eq('adherido_debito', true)
+        .not('numero_tarjeta', 'is', null)
+        .inFilter('grupo', ['R', 'F']);
+    if (tarjetaId != null) {
+      exclGrupoQuery = exclGrupoQuery.eq('tarjeta_id', tarjetaId);
+    }
+    final exclGrupoResult = await exclGrupoQuery;
+    final excluidosGrupoCount = (exclGrupoResult as List).length;
+
     return {
       'total_registros': items.length,
       'tarjetas_validas': tarjetasValidas,
       'tarjetas_invalidas': tarjetasInvalidas,
       'total_importe': totalImporte,
       'excluidos_debitar_desde': excluidosCount,
+      'excluidos_grupo': excluidosGrupoCount,
     };
   }
 
@@ -172,6 +189,22 @@ class DebitosAutomaticosService {
         .not('numero_tarjeta', 'is', null)
         .not('debitar_desde', 'is', null)
         .gte('debitar_desde', cutoff);
+    if (tarjetaId != null) {
+      filterQuery = filterQuery.eq('tarjeta_id', tarjetaId);
+    }
+    return (await filterQuery.order('apellido') as List).cast<Map<String, dynamic>>();
+  }
+
+  /// Socios adheridos excluidos por estar renunciados (grupo 'R') o fallecidos (grupo 'F')
+  Future<List<Map<String, dynamic>>> getExcluidosPorGrupo({
+    int? tarjetaId,
+  }) async {
+    var filterQuery = _supabase
+        .from('socios')
+        .select('id, apellido, nombre, grupo')
+        .eq('adherido_debito', true)
+        .not('numero_tarjeta', 'is', null)
+        .inFilter('grupo', ['R', 'F']);
     if (tarjetaId != null) {
       filterQuery = filterQuery.eq('tarjeta_id', tarjetaId);
     }

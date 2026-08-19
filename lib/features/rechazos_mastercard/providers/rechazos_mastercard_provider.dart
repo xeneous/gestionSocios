@@ -131,15 +131,30 @@ class RechazosMastercardNotifier extends Notifier<RechazosMastercardState> {
     }
   }
 
+  /// Alterna la selección. Los rechazos que comparten grupoKey (mismo DA
+  /// combinado, desglosado por la tarjeta en varias líneas) se alternan
+  /// todos juntos: nunca se puede confirmar la mitad de un grupo. Los
+  /// observados (no dependen de un DA) se alternan individualmente.
   void toggleSeleccion(int indexEnResultados) {
-    final nuevos = List<RechazoMastercardResultado>.from(state.resultados);
-    final r = nuevos[indexEnResultados];
-    nuevos[indexEnResultados] = RechazoMastercardResultado(
-      item: r.item,
-      idtransaccionDA: r.idtransaccionDA,
-      socioNombre: r.socioNombre,
-      seleccionado: !r.seleccionado,
-    );
+    final tocado = state.resultados[indexEnResultados];
+    final nuevoValor = !tocado.seleccionado;
+
+    final nuevos = state.resultados.map((r) {
+      final mismoItem = identical(r.item, tocado.item);
+      final mismoGrupo = tocado.item.esRechazo &&
+          r.item.esRechazo &&
+          r.grupoKey == tocado.grupoKey;
+      if (!mismoItem && !mismoGrupo) return r;
+      return RechazoMastercardResultado(
+        item: r.item,
+        idtransaccionCS: r.idtransaccionCS,
+        socioNombre: r.socioNombre,
+        grupoEncontrado: r.grupoEncontrado,
+        lineasEnGrupo: r.lineasEnGrupo,
+        grupoKey: r.grupoKey,
+        seleccionado: nuevoValor,
+      );
+    }).toList();
     state = state.copyWith(resultados: nuevos);
   }
 
@@ -148,8 +163,11 @@ class RechazosMastercardNotifier extends Notifier<RechazosMastercardState> {
       if (!r.item.esRechazo) return r;
       return RechazoMastercardResultado(
         item: r.item,
-        idtransaccionDA: r.idtransaccionDA,
+        idtransaccionCS: r.idtransaccionCS,
         socioNombre: r.socioNombre,
+        grupoEncontrado: r.grupoEncontrado,
+        lineasEnGrupo: r.lineasEnGrupo,
+        grupoKey: r.grupoKey,
         seleccionado: r.daEncontrado ? seleccionar : false,
       );
     }).toList();
@@ -161,8 +179,11 @@ class RechazosMastercardNotifier extends Notifier<RechazosMastercardState> {
       if (!r.item.esObservado) return r;
       return RechazoMastercardResultado(
         item: r.item,
-        idtransaccionDA: r.idtransaccionDA,
+        idtransaccionCS: r.idtransaccionCS,
         socioNombre: r.socioNombre,
+        grupoEncontrado: r.grupoEncontrado,
+        lineasEnGrupo: r.lineasEnGrupo,
+        grupoKey: r.grupoKey,
         seleccionado: seleccionar,
       );
     }).toList();

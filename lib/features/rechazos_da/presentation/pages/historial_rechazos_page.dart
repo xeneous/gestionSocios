@@ -29,6 +29,15 @@ class _HistorialRechazosPageState
   int _currentPage = 1;
   static const int _pageSize = 15;
 
+  final _socioFiltroController = TextEditingController();
+  String _socioFiltro = '';
+
+  @override
+  void dispose() {
+    _socioFiltroController.dispose();
+    super.dispose();
+  }
+
   final _dateFormat = DateFormat('dd/MM/yyyy');
   final _currencyFormat =
       NumberFormat.currency(locale: 'es_AR', symbol: '\$', decimalDigits: 2);
@@ -86,6 +95,33 @@ class _HistorialRechazosPageState
                 runSpacing: 8,
                 crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
+                  // Socio
+                  SizedBox(
+                    width: 240,
+                    child: TextField(
+                      controller: _socioFiltroController,
+                      decoration: InputDecoration(
+                        labelText: 'Socio',
+                        hintText: 'Apellido o nombre',
+                        isDense: true,
+                        prefixIcon: const Icon(Icons.search, size: 18),
+                        suffixIcon: _socioFiltro.isEmpty
+                            ? null
+                            : IconButton(
+                                icon: const Icon(Icons.clear, size: 16),
+                                onPressed: () => setState(() {
+                                  _socioFiltroController.clear();
+                                  _socioFiltro = '';
+                                  _currentPage = 1;
+                                }),
+                              ),
+                      ),
+                      onChanged: (v) => setState(() {
+                        _socioFiltro = v;
+                        _currentPage = 1;
+                      }),
+                    ),
+                  ),
                   // Tarjeta
                   Row(
                     mainAxisSize: MainAxisSize.min,
@@ -208,7 +244,15 @@ class _HistorialRechazosPageState
                   ],
                 ),
               ),
-              data: (rechazos) {
+              data: (rechazosSinFiltrar) {
+                final filtroSocio = _socioFiltro.trim().toLowerCase();
+                final rechazos = filtroSocio.isEmpty
+                    ? rechazosSinFiltrar
+                    : rechazosSinFiltrar
+                        .where((r) =>
+                            r.nombreCompleto.toLowerCase().contains(filtroSocio))
+                        .toList();
+
                 if (rechazos.isEmpty) {
                   return const Center(
                     child: Column(

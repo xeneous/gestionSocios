@@ -15,7 +15,22 @@ class RechazosDaPage extends ConsumerWidget {
     final state = ref.watch(rechazosDaProvider);
     final notifier = ref.read(rechazosDaProvider.notifier);
 
-    return Scaffold(
+    final procesando = state.estado == RechazosDaEstado.buscando ||
+        state.estado == RechazosDaEstado.registrando;
+
+    return PopScope(
+      canPop: !procesando,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Esperá a que termine el procesamiento'),
+              duration: Duration(seconds: 2),
+            ),
+          );
+        }
+      },
+      child: Scaffold(
       appBar: AppBar(
         title: const Text('Rechazos Débito Automático'),
         actions: [
@@ -23,17 +38,18 @@ class RechazosDaPage extends ConsumerWidget {
             IconButton(
               icon: const Icon(Icons.refresh),
               tooltip: 'Nuevo archivo',
-              onPressed: notifier.reiniciar,
+              onPressed: procesando ? null : notifier.reiniciar,
             ),
           IconButton(
             icon: const Icon(Icons.home),
             tooltip: 'Inicio',
-            onPressed: () => context.go('/'),
+            onPressed: procesando ? null : () => context.go('/'),
           ),
           IconButton(
             icon: const Icon(Icons.open_in_new),
             tooltip: 'Abrir en nueva pestaña',
-            onPressed: () => abrirEnNuevaPestana('/rechazos-da'),
+            onPressed:
+                procesando ? null : () => abrirEnNuevaPestana('/rechazos-da'),
           ),
         ],
       ),
@@ -49,6 +65,7 @@ class RechazosDaPage extends ConsumerWidget {
           _PanelCompletado(state: state, notifier: notifier),
         RechazosDaEstado.error => _PanelError(state: state, notifier: notifier),
       },
+    ),
     );
   }
 }
@@ -331,6 +348,22 @@ class _PanelResultados extends StatelessWidget {
                                       fontSize: 11, color: Colors.green),
                                 ),
                               ),
+                            if (r.esGrupoCombinado) ...[
+                              const SizedBox(width: 8),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: Colors.blue.shade50,
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: Text(
+                                  'DA combinado (${r.lineasEnGrupo} cuotas)',
+                                  style: TextStyle(
+                                      fontSize: 11, color: Colors.blue.shade800),
+                                ),
+                              ),
+                            ],
                           ],
                         ),
                       ],

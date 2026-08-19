@@ -1,0 +1,6 @@
+pg_dump postgresql://postgres.ojbdljecdvjgsbthouvf:Cr0m0s0ma_SA0@aws-0-us-west-2.pooler.supabase.com:6543/postgres
+
+"C:\Program Files\PostgreSQL\18\bin\pg_dump.exe" "postgresql://postgres.ojbdljecdvjgsbthouvf:Cr0m0s0ma_SA0@aws-0-us-west-2.pooler.supabase.com:6543/postgres" --table=socios --table=provincias --table=paises --table=sexos --table=grupos_agrupados --table=tarjetas --table=profesionales --table=observaciones_socios -f backup_ficha_socios_completa.sql
+
+
+

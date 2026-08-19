@@ -97,3 +97,26 @@ class DetallePresentacion {
     return '****-****-****-$ultimos';
   }
 }
+
+/// Un movimiento (presentado/cobrado o rechazado) de un socio para un número
+/// de tarjeta puntual, resultado de buscar por N° de tarjeta a través de
+/// todas las presentaciones históricas.
+class DetalleTarjetaBusqueda {
+  final int socioId;
+  final String apellido;
+  final String nombre;
+  final int periodo;
+  final double importe;
+  final bool rechazado;
+
+  DetalleTarjetaBusqueda({
+    required this.socioId,
+    required this.apellido,
+    required this.nombre,
+    required this.periodo,
+    required this.importe,
+    required this.rechazado,
+  });
+
+  String get nombreCompleto => '$apellido, $nombre'.trim();
+}

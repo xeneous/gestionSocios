@@ -15,42 +15,60 @@ class RechazosMastercardPage extends ConsumerWidget {
     final state = ref.watch(rechazosMastercardProvider);
     final notifier = ref.read(rechazosMastercardProvider.notifier);
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Rechazos Mastercard'),
-        actions: [
-          if (state.estado != RechazosMastercardEstado.inicial)
-            IconButton(
-              icon: const Icon(Icons.refresh),
-              tooltip: 'Nuevo archivo',
-              onPressed: notifier.reiniciar,
+    final procesando = state.estado == RechazosMastercardEstado.buscando ||
+        state.estado == RechazosMastercardEstado.registrando;
+
+    return PopScope(
+      canPop: !procesando,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Esperá a que termine el procesamiento'),
+              duration: Duration(seconds: 2),
             ),
-          IconButton(
-            icon: const Icon(Icons.home),
-            tooltip: 'Inicio',
-            onPressed: () => context.go('/'),
-          ),
-          IconButton(
-            icon: const Icon(Icons.open_in_new),
-            tooltip: 'Abrir en nueva pestaña',
-            onPressed: () => abrirEnNuevaPestana('/rechazos-mastercard'),
-          ),
-        ],
-      ),
-      body: switch (state.estado) {
-        RechazosMastercardEstado.inicial =>
-          _PanelSeleccionArchivo(notifier: notifier),
-        RechazosMastercardEstado.buscando => const _PanelCargando(
-            mensaje: 'Buscando débitos en cuenta corriente...'),
-        RechazosMastercardEstado.registrando =>
-          const _PanelCargando(mensaje: 'Procesando...'),
-        RechazosMastercardEstado.listo =>
-          _PanelResultados(state: state, notifier: notifier),
-        RechazosMastercardEstado.completado =>
-          _PanelCompletado(state: state, notifier: notifier),
-        RechazosMastercardEstado.error =>
-          _PanelError(state: state, notifier: notifier),
+          );
+        }
       },
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('Rechazos Mastercard'),
+          actions: [
+            if (state.estado != RechazosMastercardEstado.inicial)
+              IconButton(
+                icon: const Icon(Icons.refresh),
+                tooltip: 'Nuevo archivo',
+                onPressed: procesando ? null : notifier.reiniciar,
+              ),
+            IconButton(
+              icon: const Icon(Icons.home),
+              tooltip: 'Inicio',
+              onPressed: procesando ? null : () => context.go('/'),
+            ),
+            IconButton(
+              icon: const Icon(Icons.open_in_new),
+              tooltip: 'Abrir en nueva pestaña',
+              onPressed: procesando
+                  ? null
+                  : () => abrirEnNuevaPestana('/rechazos-mastercard'),
+            ),
+          ],
+        ),
+        body: switch (state.estado) {
+          RechazosMastercardEstado.inicial =>
+            _PanelSeleccionArchivo(notifier: notifier),
+          RechazosMastercardEstado.buscando => const _PanelCargando(
+              mensaje: 'Buscando débitos en cuenta corriente...'),
+          RechazosMastercardEstado.registrando =>
+            const _PanelCargando(mensaje: 'Procesando...'),
+          RechazosMastercardEstado.listo =>
+            _PanelResultados(state: state, notifier: notifier),
+          RechazosMastercardEstado.completado =>
+            _PanelCompletado(state: state, notifier: notifier),
+          RechazosMastercardEstado.error =>
+            _PanelError(state: state, notifier: notifier),
+        },
+      ),
     );
   }
 }
@@ -536,6 +554,22 @@ class _TabRechazos extends StatelessWidget {
                               ),
                             ),
                           ),
+                          if (r.esGrupoCombinado) ...[
+                            const SizedBox(width: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: Colors.blue.shade50,
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Text(
+                                'DA combinado (${r.lineasEnGrupo} cuotas)',
+                                style: TextStyle(
+                                    fontSize: 11, color: Colors.blue.shade800),
+                              ),
+                            ),
+                          ],
                         ],
                       ),
                     ],

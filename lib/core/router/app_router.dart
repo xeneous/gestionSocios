@@ -377,7 +377,27 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/presentaciones-tarjetas/detalle',
         name: 'presentaciones-tarjetas-detalle',
         builder: (context, state) {
-          final presentacion = state.extra as PresentacionTarjeta;
+          final presentacion = state.extra;
+          if (presentacion is! PresentacionTarjeta) {
+            // extra no sobrevive a un refresh del navegador en Flutter Web
+            return Scaffold(
+              appBar: AppBar(title: const Text('Detalle de presentación')),
+              body: Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text(
+                        'No se encontró la presentación. Volvé al listado y abrila de nuevo.'),
+                    const SizedBox(height: 16),
+                    ElevatedButton(
+                      onPressed: () => context.go('/presentaciones-tarjetas'),
+                      child: const Text('Volver al listado'),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }
           return DetallePresentacionPage(presentacion: presentacion);
         },
       ),
