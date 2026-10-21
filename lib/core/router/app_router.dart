@@ -50,6 +50,7 @@ import '../../features/parametros/presentation/pages/parametros_contables_page.d
 import '../../features/comprobantes_cli/presentation/pages/saldos_clientes_page.dart';
 import '../../features/comprobantes_prov/presentation/pages/saldos_proveedores_page.dart';
 import '../../features/asientos/presentation/pages/mayor_cuentas_page.dart';
+import '../../features/asientos/presentation/pages/sumas_saldos_page.dart';
 import '../../features/tesoreria/presentation/pages/tesoreria_diaria_page.dart';
 import '../../features/socios/presentation/pages/listado_residentes_page.dart';
 import '../../features/socios/presentation/pages/padron_electoral_page.dart';
@@ -620,6 +621,12 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/mayor-cuentas',
         name: 'mayor-cuentas',
         builder: (context, state) => const MayorCuentasPage(),
+      ),
+      // Sumas y Saldos Contable
+      GoRoute(
+        path: '/sumas-saldos',
+        name: 'sumas-saldos',
+        builder: (context, state) => const SumasSaldosPage(),
       ),
       // Parámetros Contables
       GoRoute(

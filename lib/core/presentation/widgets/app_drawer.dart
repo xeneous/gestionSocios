@@ -321,6 +321,13 @@ class AppDrawer extends ConsumerWidget {
               ),
               _buildMenuItem(
                 context: context,
+                icon: Icons.balance,
+                title: 'Sumas y Saldos',
+                route: '/sumas-saldos',
+                currentRoute: currentRoute,
+              ),
+              _buildMenuItem(
+                context: context,
                 icon: Icons.list_alt,
                 title: 'Plan de Cuentas',
                 route: '/cuentas',
@@ -494,6 +501,7 @@ class AppDrawer extends ConsumerWidget {
   bool _isContabilidadSection(String route) {
     return route.startsWith('/asientos') ||
         route == '/mayor-cuentas' ||
+        route == '/sumas-saldos' ||
         route.startsWith('/cuentas') ||
         route == '/parametros-contables' ||
         route == '/tesoreria-diaria';

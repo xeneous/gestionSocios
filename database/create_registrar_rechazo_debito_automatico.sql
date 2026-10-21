@@ -59,7 +59,7 @@ DECLARE
   v_fecha_rechazo      DATE;
   v_idtransaccion_cs   BIGINT;
   v_idtransaccion_rda  BIGINT;
-  v_cs                 RECORD;
+  v_cs                 RECORD; -- solo para verificar existencia
   v_insertados         INTEGER := 0;
 BEGIN
   IF p_rechazos IS NULL OR jsonb_array_length(p_rechazos) = 0 THEN
@@ -78,19 +78,14 @@ BEGIN
     v_fecha_rechazo  := (v_rechazo->>'fecha_rechazo')::DATE;
     v_idtransaccion_cs := (v_rechazo->>'idtransaccion_cs')::BIGINT;
 
-    -- 1. Verificar y revertir la CS original
-    SELECT idtransaccion, cancelado INTO v_cs
+    -- 1. Verificar que la CS original existe (no se modifica: queda cancelada por el DA)
+    SELECT idtransaccion INTO v_cs
     FROM public.cuentas_corrientes
     WHERE idtransaccion = v_idtransaccion_cs;
 
     IF NOT FOUND THEN
       RAISE EXCEPTION 'Transacción original % no encontrada', v_idtransaccion_cs;
     END IF;
-
-    UPDATE public.cuentas_corrientes
-    SET cancelado  = GREATEST(0, COALESCE(v_cs.cancelado, 0) - v_importe),
-        updated_at = NOW()
-    WHERE idtransaccion = v_idtransaccion_cs;
 
     -- 2. Insertar el comprobante RDA
     INSERT INTO public.cuentas_corrientes (
@@ -154,7 +149,7 @@ END;
 $$;
 
 COMMENT ON FUNCTION public.registrar_rechazo_debito_automatico IS
-'Registra de forma 100% atómica uno o más rechazos de débito automático: revierte el cancelado de la CS original, crea el comprobante RDA, copia el detalle y registra la auditoría en rechazos_tarjetas. Todo o nada.';
+'Registra de forma 100% atómica uno o más rechazos de débito automático: verifica la CS original (que queda cancelada por el DA, sin modificarse), crea el comprobante RDA como deuda pendiente, copia el detalle y registra la auditoría en rechazos_tarjetas. Todo o nada.';
 
 -- ============================================================================
 -- EJEMPLO DE USO:
