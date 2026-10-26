@@ -399,7 +399,7 @@ class _SumasSaldosPageState extends ConsumerState<SumasSaldosPage> {
               FilledButton.icon(
                 onPressed: () => _descargarExcel(filas),
                 icon: const Icon(Icons.download),
-                label: const Text('Descargar CSV'),
+                label: const Text('Descargar Excel'),
               ),
             ],
           ),

@@ -328,6 +328,13 @@ class AppDrawer extends ConsumerWidget {
               ),
               _buildMenuItem(
                 context: context,
+                icon: Icons.bug_report,
+                title: 'Diagnóstico Asientos',
+                route: '/diagnostico-asientos',
+                currentRoute: currentRoute,
+              ),
+              _buildMenuItem(
+                context: context,
                 icon: Icons.list_alt,
                 title: 'Plan de Cuentas',
                 route: '/cuentas',
@@ -502,6 +509,7 @@ class AppDrawer extends ConsumerWidget {
     return route.startsWith('/asientos') ||
         route == '/mayor-cuentas' ||
         route == '/sumas-saldos' ||
+        route == '/diagnostico-asientos' ||
         route.startsWith('/cuentas') ||
         route == '/parametros-contables' ||
         route == '/tesoreria-diaria';

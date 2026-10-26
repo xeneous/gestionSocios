@@ -51,6 +51,7 @@ import '../../features/comprobantes_cli/presentation/pages/saldos_clientes_page.
 import '../../features/comprobantes_prov/presentation/pages/saldos_proveedores_page.dart';
 import '../../features/asientos/presentation/pages/mayor_cuentas_page.dart';
 import '../../features/asientos/presentation/pages/sumas_saldos_page.dart';
+import '../../features/asientos/presentation/pages/diagnostico_asientos_page.dart';
 import '../../features/tesoreria/presentation/pages/tesoreria_diaria_page.dart';
 import '../../features/socios/presentation/pages/listado_residentes_page.dart';
 import '../../features/socios/presentation/pages/padron_electoral_page.dart';
@@ -627,6 +628,12 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/sumas-saldos',
         name: 'sumas-saldos',
         builder: (context, state) => const SumasSaldosPage(),
+      ),
+      // Diagnóstico de Asientos
+      GoRoute(
+        path: '/diagnostico-asientos',
+        name: 'diagnostico-asientos',
+        builder: (context, state) => const DiagnosticoAsientosPage(),
       ),
       // Parámetros Contables
       GoRoute(

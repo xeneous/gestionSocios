@@ -1,4 +1,4 @@
-import 'dart:convert';
+import 'package:excel/excel.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -207,47 +207,94 @@ class _MayorCuentasPageState extends ConsumerState<MayorCuentasPage> {
           acumulado: _acumulado,
         );
 
-  void _descargarCSV(MayorCuentaResult mayor) {
-    final buffer = StringBuffer();
+  void _descargarExcel(MayorCuentaResult mayor) {
+    final excel = Excel.createExcel();
+    excel.rename('Sheet1', 'Mayor');
+    final sheet = excel['Mayor'];
 
-    // Encabezado
-    buffer.writeln('Cuenta:,$_cuentaSeleccionada,${_cuentaDescripcion ?? ""}');
-    buffer.writeln('Período:,${_dateFormat.format(_fechaDesde)},al,${_dateFormat.format(_fechaHasta)}');
-    buffer.writeln('');
-    buffer.writeln('Fecha,Asiento,Detalle,Debe,Haber,Saldo');
+    final headerStyle = CellStyle(
+      bold: true,
+      backgroundColorHex: ExcelColor.blue,
+      fontColorHex: ExcelColor.white,
+    );
+    final saldoInicialStyle = CellStyle(
+      bold: true,
+      backgroundColorHex: ExcelColor.fromHexString('#DDEEFF'),
+      fontColorHex: ExcelColor.fromHexString('#003399'),
+    );
+    final totalStyle = CellStyle(
+      bold: true,
+      backgroundColorHex: ExcelColor.fromHexString('#D9D9D9'),
+    );
 
+    void cell(int col, int row, CellValue val, [CellStyle? style]) {
+      final c = sheet.cell(CellIndex.indexByColumnRow(columnIndex: col, rowIndex: row));
+      c.value = val;
+      if (style != null) c.cellStyle = style;
+    }
+
+    // Fila 0: título
+    cell(0, 0, TextCellValue('Mayor de Cuenta'));
+    cell(1, 0, TextCellValue('$_cuentaSeleccionada — ${_cuentaDescripcion ?? ""}'));
+    // Fila 1: período
+    cell(0, 1, TextCellValue('Período:'));
+    cell(1, 1, TextCellValue('${_dateFormat.format(_fechaDesde)} al ${_dateFormat.format(_fechaHasta)}'));
+    cell(3, 1, TextCellValue(_acumulado ? 'Con saldo inicial acumulado' : 'Solo período seleccionado'));
+
+    // Fila 3: encabezados de columnas
+    const colHeaders = ['Fecha', 'Asiento', 'Detalle', 'Debe', 'Haber', 'Saldo'];
+    for (var i = 0; i < colHeaders.length; i++) {
+      cell(i, 3, TextCellValue(colHeaders[i]), headerStyle);
+    }
+
+    int row = 4;
     double saldoAcumulado = mayor.saldoInicial;
 
-    // Saldo inicial si es acumulado
+    // Saldo inicial
     if (_acumulado && mayor.saldoInicial != 0) {
-      buffer.writeln('${_dateFormat.format(_fechaDesde)},-,SALDO INICIAL,,,${mayor.saldoInicial.toStringAsFixed(2)}');
+      cell(0, row, TextCellValue(_dateFormat.format(_fechaDesde)), saldoInicialStyle);
+      cell(1, row, TextCellValue('-'), saldoInicialStyle);
+      cell(2, row, TextCellValue('SALDO INICIAL'), saldoInicialStyle);
+      cell(3, row, TextCellValue(''), saldoInicialStyle);
+      cell(4, row, TextCellValue(''), saldoInicialStyle);
+      cell(5, row, DoubleCellValue(mayor.saldoInicial), saldoInicialStyle);
+      row++;
     }
 
     // Movimientos
     for (final mov in mayor.movimientos) {
       saldoAcumulado += mov.debe - mov.haber;
-      final detalleEscapado = mov.detalle.replaceAll('"', '""');
-      buffer.writeln('${_dateFormat.format(mov.fecha)},${mov.asiento},"$detalleEscapado",${mov.debe.toStringAsFixed(2)},${mov.haber.toStringAsFixed(2)},${saldoAcumulado.toStringAsFixed(2)}');
+      cell(0, row, TextCellValue(_dateFormat.format(mov.fecha)));
+      cell(1, row, IntCellValue(mov.asiento));
+      cell(2, row, TextCellValue(mov.detalle));
+      cell(3, row, mov.debe > 0 ? DoubleCellValue(mov.debe) : TextCellValue(''));
+      cell(4, row, mov.haber > 0 ? DoubleCellValue(mov.haber) : TextCellValue(''));
+      cell(5, row, DoubleCellValue(saldoAcumulado));
+      row++;
     }
 
     // Totales
-    buffer.writeln('');
-    buffer.writeln('TOTALES,,,${mayor.totalDebe.toStringAsFixed(2)},${mayor.totalHaber.toStringAsFixed(2)},${mayor.saldoFinal.toStringAsFixed(2)}');
+    cell(0, row, TextCellValue('TOTALES'), totalStyle);
+    cell(1, row, TextCellValue(''), totalStyle);
+    cell(2, row, TextCellValue(''), totalStyle);
+    cell(3, row, DoubleCellValue(mayor.totalDebe), totalStyle);
+    cell(4, row, DoubleCellValue(mayor.totalHaber), totalStyle);
+    cell(5, row, DoubleCellValue(mayor.saldoFinal), totalStyle);
 
-    // Crear blob y descargar
-    final bytes = utf8.encode(buffer.toString());
-    final blob = html.Blob([bytes], 'text/csv;charset=utf-8');
+    final bytes = excel.encode();
+    if (bytes == null) return;
+
+    final fileName =
+        'mayor_${_cuentaSeleccionada}_${DateFormat('yyyyMMdd').format(_fechaDesde)}_${DateFormat('yyyyMMdd').format(_fechaHasta)}.xlsx';
+    final blob = html.Blob([bytes]);
     final url = html.Url.createObjectUrlFromBlob(blob);
-
-    final anchor = html.AnchorElement(href: url)
-      ..setAttribute('download', 'mayor_${_cuentaSeleccionada}_${DateFormat('yyyyMMdd').format(DateTime.now())}.csv')
-      ..click();
-
+    (html.AnchorElement(href: url)
+      ..setAttribute('download', fileName)
+      ..click());
     html.Url.revokeObjectUrl(url);
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Archivo descargado')),
-    );
+    ScaffoldMessenger.of(context)
+        .showSnackBar(const SnackBar(content: Text('Archivo Excel descargado')));
   }
 
   @override
@@ -425,9 +472,9 @@ class _MayorCuentasPageState extends ConsumerState<MayorCuentasPage> {
                   ),
                   const SizedBox(width: 16),
                   FilledButton.icon(
-                    onPressed: mayor.movimientos.isEmpty ? null : () => _descargarCSV(mayor),
+                    onPressed: mayor.movimientos.isEmpty ? null : () => _descargarExcel(mayor),
                     icon: const Icon(Icons.download),
-                    label: const Text('Descargar CSV'),
+                    label: const Text('Descargar Excel'),
                   ),
                 ],
               ),
