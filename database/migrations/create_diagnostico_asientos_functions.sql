@@ -60,3 +60,6 @@ CREATE OR REPLACE FUNCTION get_cuentas_inexistentes_en_asientos(
   GROUP BY i.cuenta_id
   ORDER BY i.cuenta_id;
 $$;
+
+
+
