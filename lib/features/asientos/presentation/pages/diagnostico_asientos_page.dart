@@ -401,7 +401,11 @@ class _DiagnosticoAsientosPageState
                       numeric: true),
                 ],
                 rows: filas.map((f) {
-                  return DataRow(cells: [
+                  return DataRow(
+                    onSelectChanged: (_) => context.go(
+                      '/asientos/${f.asiento}/${f.anioMes}/${f.tipoAsiento}',
+                    ),
+                    cells: [
                     DataCell(Text(f.asiento.toString(),
                         style: const TextStyle(fontWeight: FontWeight.bold))),
                     DataCell(Text(_dateFmt.format(f.fecha))),

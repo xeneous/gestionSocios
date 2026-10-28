@@ -18,20 +18,21 @@ CREATE OR REPLACE FUNCTION get_asientos_desbalanceados(
   SELECT
     h.asiento,
     h.anio_mes,
-    h.fecha,
+    MIN(h.fecha)   AS fecha,
     h.tipo_asiento,
-    h.detalle,
+    MIN(h.detalle) AS detalle,
     COALESCE(SUM(i.debe),  0) AS total_debe,
     COALESCE(SUM(i.haber), 0) AS total_haber,
     ABS(COALESCE(SUM(i.debe), 0) - COALESCE(SUM(i.haber), 0)) AS diferencia
   FROM asientos_header h
   LEFT JOIN asientos_items i
-    ON i.asiento  = h.asiento
-   AND i.anio_mes = h.anio_mes
+    ON i.anio_mes     = h.anio_mes
+   AND i.tipo_asiento = h.tipo_asiento
+   AND i.asiento      = h.asiento
   WHERE h.fecha BETWEEN p_fecha_desde AND p_fecha_hasta
-  GROUP BY h.id, h.asiento, h.anio_mes, h.fecha, h.tipo_asiento, h.detalle
+  GROUP BY h.anio_mes, h.tipo_asiento, h.asiento
   HAVING ABS(COALESCE(SUM(i.debe), 0) - COALESCE(SUM(i.haber), 0)) >= 0.01
-  ORDER BY h.fecha, h.asiento;
+  ORDER BY h.anio_mes, h.tipo_asiento, h.asiento;
 $$;
 
 -- 2. Cuenta_id usados en asientos_items que no existen en la tabla cuentas
