@@ -1,3 +1,7 @@
+// ignore: avoid_web_libraries_in_flutter
+import 'dart:html' as html;
+
+import 'package:excel/excel.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -355,6 +359,7 @@ class _DiagnosticoAsientosPageState
           color: Colors.orange[700]!,
           mensaje:
               '${filas.length} asiento(s) con diferencia entre Debe y Haber',
+          onExportar: () => _exportarExcelDesbalanceados(filas),
         ),
         Expanded(
           child: SingleChildScrollView(
@@ -521,10 +526,72 @@ class _DiagnosticoAsientosPageState
 
   // ---------- Helpers ----------
 
+  void _exportarExcelDesbalanceados(List<AsientoDesbalanceado> filas) {
+    final excel = Excel.createExcel();
+    final sheet = excel['Desbalanceados'];
+    excel.setDefaultSheet('Desbalanceados');
+
+    final headerStyle = CellStyle(
+      bold: true,
+      backgroundColorHex: ExcelColor.fromHexString('#E65100'),
+      fontColorHex: ExcelColor.fromHexString('#FFFFFF'),
+    );
+
+    final headers = [
+      'Asiento', 'Fecha', 'Tipo', 'Detalle', 'Total Debe', 'Total Haber', 'Diferencia',
+    ];
+    for (var i = 0; i < headers.length; i++) {
+      final cell = sheet.cell(CellIndex.indexByColumnRow(columnIndex: i, rowIndex: 0));
+      cell.value = TextCellValue(headers[i]);
+      cell.cellStyle = headerStyle;
+    }
+
+    final dateFmt = DateFormat('dd/MM/yyyy');
+    for (var i = 0; i < filas.length; i++) {
+      final f = filas[i];
+      final rowData = <CellValue>[
+        IntCellValue(f.asiento),
+        TextCellValue(dateFmt.format(f.fecha)),
+        TextCellValue(AsientoDesbalanceado.nombreTipo(f.tipoAsiento)),
+        TextCellValue(f.detalle),
+        DoubleCellValue(f.totalDebe),
+        DoubleCellValue(f.totalHaber),
+        DoubleCellValue(f.diferencia),
+      ];
+      for (var j = 0; j < rowData.length; j++) {
+        sheet.cell(CellIndex.indexByColumnRow(columnIndex: j, rowIndex: i + 1)).value = rowData[j];
+      }
+    }
+
+    sheet.setColumnWidth(0, 10);
+    sheet.setColumnWidth(1, 14);
+    sheet.setColumnWidth(2, 12);
+    sheet.setColumnWidth(3, 40);
+    sheet.setColumnWidth(4, 18);
+    sheet.setColumnWidth(5, 18);
+    sheet.setColumnWidth(6, 18);
+
+    final desde = _dateFmt.format(_fechaDesde).replaceAll('/', '-');
+    final hasta = _dateFmt.format(_fechaHasta).replaceAll('/', '-');
+    final nombreArchivo = 'asientos_desbalanceados_${desde}_${hasta}.xlsx';
+
+    final bytes = excel.encode()!;
+    final blob = html.Blob(
+      [bytes],
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    );
+    final url = html.Url.createObjectUrlFromBlob(blob);
+    html.AnchorElement(href: url)
+      ..setAttribute('download', nombreArchivo)
+      ..click();
+    html.Url.revokeObjectUrl(url);
+  }
+
   Widget _buildResumenBanner({
     required IconData icon,
     required Color color,
     required String mensaje,
+    VoidCallback? onExportar,
   }) {
     return Container(
       width: double.infinity,
@@ -540,6 +607,13 @@ class _DiagnosticoAsientosPageState
               style: TextStyle(fontWeight: FontWeight.bold, color: color),
             ),
           ),
+          if (onExportar != null)
+            TextButton.icon(
+              onPressed: onExportar,
+              icon: const Icon(Icons.download, size: 18),
+              label: const Text('Exportar Excel'),
+              style: TextButton.styleFrom(foregroundColor: color),
+            ),
         ],
       ),
     );
