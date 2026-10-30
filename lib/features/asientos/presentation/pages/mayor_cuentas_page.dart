@@ -73,55 +73,25 @@ class MayorCuentaResult {
 final mayorCuentaProvider = FutureProvider.family<MayorCuentaResult, MayorCuentaParams>((ref, params) async {
   final supabase = ref.watch(supabaseProvider);
 
-  final fechaDesdeStr = params.fechaDesde.toIso8601String().split('T')[0];
-  final fechaHastaStr = params.fechaHasta.toIso8601String().split('T')[0];
+  final result = await supabase.rpc('get_mayor_cuenta', params: {
+    'p_cuenta': params.cuenta,
+    'p_fecha_desde': params.fechaDesde.toIso8601String().split('T')[0],
+    'p_fecha_hasta': params.fechaHasta.toIso8601String().split('T')[0],
+    'p_con_apertura': params.acumulado,
+  }) as Map<String, dynamic>;
 
-  // Calcular saldo inicial si es acumulado
-  double saldoInicial = 0;
-  if (params.acumulado) {
-    final saldosAnterioresResponse = await supabase
-        .from('asientos_items')
-        .select('''
-          debe,
-          haber,
-          asientos_header!inner(fecha)
-        ''')
-        .eq('cuenta_id', params.cuenta)
-        .lt('asientos_header.fecha', fechaDesdeStr)
-        .limit(100000);
+  final saldoInicial = (result['saldo_inicial'] as num?)?.toDouble() ?? 0;
+  final rawMovimientos = result['movimientos'] as List? ?? [];
 
-    for (final mov in saldosAnterioresResponse as List) {
-      final debe = (mov['debe'] as num?)?.toDouble() ?? 0;
-      final haber = (mov['haber'] as num?)?.toDouble() ?? 0;
-      saldoInicial += debe - haber;
-    }
-  }
-
-  // Obtener movimientos del período
-  final movimientosResponse = await supabase
-      .from('asientos_items')
-      .select('''
-        debe,
-        haber,
-        asientos_header!inner(fecha, asiento, detalle)
-      ''')
-      .eq('cuenta_id', params.cuenta)
-      .gte('asientos_header.fecha', fechaDesdeStr)
-      .lte('asientos_header.fecha', fechaHastaStr)
-      .order('asientos_header(fecha)', ascending: true)
-      .limit(100000);
-
-  final movimientos = <MovimientoCuenta>[];
-  for (final mov in movimientosResponse as List) {
-    final header = mov['asientos_header'] as Map<String, dynamic>;
-    movimientos.add(MovimientoCuenta(
-      fecha: DateTime.parse(header['fecha'] as String),
-      asiento: header['asiento'] as int,
-      detalle: header['detalle'] as String? ?? '',
-      debe: (mov['debe'] as num?)?.toDouble() ?? 0,
-      haber: (mov['haber'] as num?)?.toDouble() ?? 0,
-    ));
-  }
+  final movimientos = rawMovimientos.map((row) {
+    return MovimientoCuenta(
+      fecha: DateTime.parse(row['fecha'] as String),
+      asiento: row['asiento'] as int,
+      detalle: row['detalle'] as String? ?? '',
+      debe: (row['debe'] as num?)?.toDouble() ?? 0,
+      haber: (row['haber'] as num?)?.toDouble() ?? 0,
+    );
+  }).toList();
 
   return MayorCuentaResult(
     saldoInicial: saldoInicial,
