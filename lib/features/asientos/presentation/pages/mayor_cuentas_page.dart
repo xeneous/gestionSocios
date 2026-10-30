@@ -87,7 +87,8 @@ final mayorCuentaProvider = FutureProvider.family<MayorCuentaResult, MayorCuenta
           asientos_header!inner(fecha)
         ''')
         .eq('cuenta_id', params.cuenta)
-        .lt('asientos_header.fecha', fechaDesdeStr);
+        .lt('asientos_header.fecha', fechaDesdeStr)
+        .limit(100000);
 
     for (final mov in saldosAnterioresResponse as List) {
       final debe = (mov['debe'] as num?)?.toDouble() ?? 0;
@@ -107,7 +108,8 @@ final mayorCuentaProvider = FutureProvider.family<MayorCuentaResult, MayorCuenta
       .eq('cuenta_id', params.cuenta)
       .gte('asientos_header.fecha', fechaDesdeStr)
       .lte('asientos_header.fecha', fechaHastaStr)
-      .order('asientos_header(fecha)', ascending: true);
+      .order('asientos_header(fecha)', ascending: true)
+      .limit(100000);
 
   final movimientos = <MovimientoCuenta>[];
   for (final mov in movimientosResponse as List) {
