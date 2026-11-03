@@ -86,7 +86,8 @@ class CobranzasClientesNotifier extends Notifier<AsyncValue<void>> {
       final operacionId = resultado['operacion_id'] as int;
       final totalCobrado = formasPago.values.fold(0.0, (a, b) => a + b);
 
-      // 2. Intentar generar asiento contable
+      // 2. Intentar generar asiento contable (con la fecha elegida por el usuario)
+      final fechaAsiento = fecha ?? DateTime.now();
       try {
         // Obtener CUENTA_SPONSORS desde parámetros
         final paramResponse = await supabase
@@ -148,7 +149,7 @@ class CobranzasClientesNotifier extends Notifier<AsyncValue<void>> {
         // Crear asiento tipo Ingreso (1)
         final numeroAsiento = await asientosService.crearAsiento(
           tipoAsiento: AsientosService.tipoIngreso,
-          fecha: DateTime.now(),
+          fecha: fechaAsiento,
           detalle: 'Recibo Cli Nro. $numeroRecibo - $nombreCompleto',
           items: itemsAsiento,
           numeroComprobante: numeroRecibo,
@@ -156,7 +157,7 @@ class CobranzasClientesNotifier extends Notifier<AsyncValue<void>> {
         );
 
         // Actualizar operaciones_contables con el asiento generado
-        final anioMes = DateTime.now().year * 100 + DateTime.now().month;
+        final anioMes = fechaAsiento.year * 100 + fechaAsiento.month;
         await supabase.from('operaciones_contables').update({
           'asiento_numero': numeroAsiento,
           'asiento_anio_mes': anioMes,
