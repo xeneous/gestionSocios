@@ -167,6 +167,8 @@ class _MayorCuentasPageState extends ConsumerState<MayorCuentasPage> {
       );
       return;
     }
+    // Descarta el resultado cacheado para que "Consultar" siempre lea de la base.
+    ref.invalidate(mayorCuentaProvider(_params!));
     setState(() => _hasSearched = true);
   }
 

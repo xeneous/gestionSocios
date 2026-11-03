@@ -125,7 +125,11 @@ class _SumasSaldosPageState extends ConsumerState<SumasSaldosPage> {
     if (d != null) setState(() => _fechaHasta = d);
   }
 
-  void _consultar() => setState(() => _hasSearched = true);
+  void _consultar() {
+    // Descarta el resultado cacheado para que "Consultar" siempre lea de la base.
+    ref.invalidate(sumasSaldosProvider(_params));
+    setState(() => _hasSearched = true);
+  }
 
   SumasSaldosParams get _params => SumasSaldosParams(
         fechaDesde: _fechaDesde,

@@ -67,6 +67,8 @@ class _AsientosListPageState extends ConsumerState<AsientosListPage> {
       );
       return;
     }
+    // Descarta el resultado cacheado para que "Buscar" siempre lea de la base.
+    ref.invalidate(asientosSearchProvider(_searchParams));
     setState(() => _hasSearched = true);
   }
 

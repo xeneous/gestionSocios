@@ -175,7 +175,12 @@ class _DiagnosticoAsientosPageState
   DiagnosticoParams get _params =>
       DiagnosticoParams(fechaDesde: _fechaDesde, fechaHasta: _fechaHasta);
 
-  void _consultar() => setState(() => _hasSearched = true);
+  void _consultar() {
+    // Descarta los resultados cacheados para que "Consultar" siempre lea de la base.
+    ref.invalidate(asientosDesbalanceadosProvider(_params));
+    ref.invalidate(cuentasInexistentesProvider(_params));
+    setState(() => _hasSearched = true);
+  }
 
   Future<void> _pickDesde() async {
     final d = await pickDate(context, _fechaDesde);
