@@ -75,7 +75,8 @@ String _isoDate(DateTime d) => d.toIso8601String().split('T')[0];
 
 final listadoRecibosProvider =
     FutureProvider.family<List<ReciboListadoFila>, ListadoRecibosParams>(
-        (ref, params) async {
+        // Sin reintentos automáticos: si falla, que se vea el error en pantalla
+        retry: (retryCount, error) => null, (ref, params) async {
   final supabase = ref.watch(supabaseProvider);
 
   final tiposOperacion = switch (params.tipo) {
@@ -128,16 +129,21 @@ final listadoRecibosProvider =
   // 3. Nombres de socios, profesionales y sponsors (razón social)
   Future<Map<int, String>> nombres(String tabla, Set<int> ids) async {
     final map = <int, String>{};
+    // Los sponsors están en `clientes`, que se identifica por `codigo` (no por `id`)
     final esSponsor = tabla == 'clientes';
+    final colId = esSponsor ? 'codigo' : 'id';
     for (final chunk in _chunks(ids.toList(), 200)) {
       final res = (await supabase
               .from(tabla)
-              .select(esSponsor ? 'id, razon_social' : 'id, apellido, nombre')
-              .inFilter('id', chunk) as List)
+              .select(esSponsor
+                  ? 'codigo, razon_social'
+                  : 'id, apellido, nombre')
+              .inFilter(colId, chunk) as List)
           .cast<Map<String, dynamic>>();
       for (final r in res) {
         if (esSponsor) {
-          map[r['id'] as int] = (r['razon_social'] as String?)?.trim() ?? '';
+          map[r['codigo'] as int] =
+              (r['razon_social'] as String?)?.trim() ?? '';
           continue;
         }
         final ap = (r['apellido'] as String?)?.trim() ?? '';
