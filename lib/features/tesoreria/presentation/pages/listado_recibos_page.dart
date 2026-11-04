@@ -73,52 +73,147 @@ Iterable<List<T>> _chunks<T>(List<T> list, int size) sync* {
 
 String _isoDate(DateTime d) => d.toIso8601String().split('T')[0];
 
+/// Lee TODAS las filas de una consulta paginando. El servidor corta cada respuesta en su
+/// máximo (que puede ser menor al pedido), por eso se avanza por lo recibido y se sigue
+/// hasta que llega una página vacía. La consulta debe tener un orden estable.
+Future<List<Map<String, dynamic>>> _fetchAll(
+    Future<List<dynamic>> Function(int from, int to) page) async {
+  const pedido = 1000;
+  final out = <Map<String, dynamic>>[];
+  while (true) {
+    final r = (await page(out.length, out.length + pedido - 1))
+        .cast<Map<String, dynamic>>();
+    if (r.isEmpty) break;
+    out.addAll(r);
+  }
+  return out;
+}
+
 final listadoRecibosProvider =
     FutureProvider.family<List<ReciboListadoFila>, ListadoRecibosParams>(
         // Sin reintentos automáticos: si falla, que se vea el error en pantalla
         retry: (retryCount, error) => null, (ref, params) async {
   final supabase = ref.watch(supabaseProvider);
 
-  final tiposOperacion = switch (params.tipo) {
-    TipoListadoRecibos.socios => ['COBRANZA_SOCIO'],
-    TipoListadoRecibos.profesionales => ['COBRANZA_PROFESIONAL'],
-    TipoListadoRecibos.sponsors => ['COBRANZA_SPONSOR'],
-    TipoListadoRecibos.todos => [
-        'COBRANZA_SOCIO',
-        'COBRANZA_PROFESIONAL',
-        'COBRANZA_SPONSOR'
-      ],
-  };
+  final desde = _isoDate(params.fechaDesde);
+  final hasta = _isoDate(params.fechaHasta);
+  final incluyeSocios = params.tipo == TipoListadoRecibos.socios ||
+      params.tipo == TipoListadoRecibos.todos;
+  final incluyeProf = params.tipo == TipoListadoRecibos.profesionales ||
+      params.tipo == TipoListadoRecibos.todos;
+  final incluyeSponsors = params.tipo == TipoListadoRecibos.sponsors ||
+      params.tipo == TipoListadoRecibos.todos;
 
-  // 1. Recibos del período (paginado: Supabase devuelve como máximo 1000 filas)
-  final ops = <Map<String, dynamic>>[];
-  const pageSize = 1000;
-  for (var from = 0;; from += pageSize) {
-    final page = (await supabase
-            .from('operaciones_contables')
-            .select('id, tipo_operacion, entidad_id, numero_comprobante, fecha, total')
-            .inFilter('tipo_operacion', tiposOperacion)
-            .gte('fecha', _isoDate(params.fechaDesde))
-            .lte('fecha', _isoDate(params.fechaHasta))
-            .order('fecha')
-            .order('numero_comprobante')
-            .order('id')
-            .range(from, from + pageSize - 1) as List)
-        .cast<Map<String, dynamic>>();
-    ops.addAll(page);
-    if (page.length < pageSize) break;
+  // 1. Recibos del período. Cada "base" tiene: tipo_operacion, entidad_id, numero,
+  //    fecha, total y opIds (operaciones que aportan sus valores de tesorería).
+  //    - Socios / profesionales: la fecha es la del COB en la cuenta corriente
+  //      (la fecha que cargó el usuario).
+  //    - Sponsors: operaciones_contables (se graba con la misma fecha del recibo).
+  final bases = <Map<String, dynamic>>[];
+
+  for (final esSocio in [true, false]) {
+    if (esSocio ? !incluyeSocios : !incluyeProf) continue;
+    final cobs = await _fetchAll((from, to) async => await supabase
+        .from('cuentas_corrientes')
+        .select(
+            'idtransaccion, fecha, documento_numero, importe, socio_id, profesional_id')
+        .eq('tipo_comprobante', 'COB')
+        .eq('entidad_id', esSocio ? 0 : 1)
+        .gte('fecha', desde)
+        .lte('fecha', hasta)
+        .order('fecha')
+        .order('idtransaccion')
+        .range(from, to));
+    for (final c in cobs) {
+      bases.add({
+        'tipo_operacion': esSocio ? 'COBRANZA_SOCIO' : 'COBRANZA_PROFESIONAL',
+        'entidad_id': (esSocio ? c['socio_id'] : c['profesional_id']) as int? ?? 0,
+        'numero': int.tryParse(c['documento_numero']?.toString() ?? ''),
+        'fecha': c['fecha'],
+        'total': c['importe'],
+        'opIds': <int>[],
+      });
+    }
   }
-  if (ops.isEmpty) return [];
+
+  if (incluyeSponsors) {
+    final opsSponsor = await _fetchAll((from, to) async => await supabase
+        .from('operaciones_contables')
+        .select('id, entidad_id, numero_comprobante, fecha, total')
+        .eq('tipo_operacion', 'COBRANZA_SPONSOR')
+        .gte('fecha', desde)
+        .lte('fecha', hasta)
+        .order('fecha')
+        .order('numero_comprobante')
+        .order('id')
+        .range(from, to));
+    for (final o in opsSponsor) {
+      bases.add({
+        'tipo_operacion': 'COBRANZA_SPONSOR',
+        'entidad_id': o['entidad_id'] as int,
+        'numero': o['numero_comprobante'],
+        'fecha': o['fecha'],
+        'total': o['total'],
+        'opIds': <int>[o['id'] as int],
+      });
+    }
+  }
+  if (bases.isEmpty) return [];
+
+  // 1b. Operaciones de los COB de socios/profesionales (por numero + persona) para
+  //     obtener sus valores de tesorería.
+  final numerosCob = bases
+      .where((b) => b['tipo_operacion'] != 'COBRANZA_SPONSOR' && b['numero'] != null)
+      .map((b) => b['numero'] as int)
+      .toSet()
+      .toList();
+  final opsPorClave = <String, List<int>>{};
+  for (final chunk in _chunks(numerosCob, 200)) {
+    final res = await _fetchAll((from, to) async => await supabase
+        .from('operaciones_contables')
+        .select('id, tipo_operacion, entidad_id, numero_comprobante')
+        .inFilter('tipo_operacion', ['COBRANZA_SOCIO', 'COBRANZA_PROFESIONAL'])
+        .inFilter('numero_comprobante', chunk)
+        .order('id')
+        .range(from, to));
+    for (final o in res) {
+      final k =
+          '${o['tipo_operacion']}|${o['entidad_id']}|${o['numero_comprobante']}';
+      opsPorClave.putIfAbsent(k, () => []).add(o['id'] as int);
+    }
+  }
+  // Si una persona tiene varios COB con el mismo número, se emparejan por orden con sus
+  // operaciones; si las cantidades no coinciden, las operaciones se muestran en el primero.
+  final basesPorClave = <String, List<Map<String, dynamic>>>{};
+  for (final b in bases) {
+    if (b['tipo_operacion'] == 'COBRANZA_SPONSOR' || b['numero'] == null) continue;
+    final k = '${b['tipo_operacion']}|${b['entidad_id']}|${b['numero']}';
+    basesPorClave.putIfAbsent(k, () => []).add(b);
+  }
+  basesPorClave.forEach((k, bs) {
+    final opsK = opsPorClave[k] ?? const <int>[];
+    if (opsK.isEmpty) return;
+    if (opsK.length == bs.length) {
+      for (var i = 0; i < bs.length; i++) {
+        (bs[i]['opIds'] as List<int>).add(opsK[i]);
+      }
+    } else {
+      (bs.first['opIds'] as List<int>).addAll(opsK);
+    }
+  });
 
   // 2. Valores de tesorería de cada recibo (con su concepto y cuenta contable)
   final valoresPorOp = <int, List<Map<String, dynamic>>>{};
-  for (final ids in _chunks(ops.map((o) => o['id'] as int).toList(), 200)) {
-    final res = (await supabase
-            .from('operaciones_detalle_valores_tesoreria')
-            .select(
-                'operacion_id, valores_tesoreria(importe, conceptos_tesoreria(descripcion, imputacion_contable))')
-            .inFilter('operacion_id', ids) as List)
-        .cast<Map<String, dynamic>>();
+  final todosOpIds = bases.expand((b) => b['opIds'] as List<int>).toSet().toList();
+  for (final ids in _chunks(todosOpIds, 200)) {
+    final res = await _fetchAll((from, to) async => await supabase
+        .from('operaciones_detalle_valores_tesoreria')
+        .select(
+            'operacion_id, valor_tesoreria_id, valores_tesoreria(importe, conceptos_tesoreria(descripcion, imputacion_contable))')
+        .inFilter('operacion_id', ids)
+        .order('operacion_id')
+        .order('valor_tesoreria_id')
+        .range(from, to));
     for (final r in res) {
       final v = r['valores_tesoreria'] as Map<String, dynamic>?;
       if (v == null) continue;
@@ -133,13 +228,12 @@ final listadoRecibosProvider =
     final esSponsor = tabla == 'clientes';
     final colId = esSponsor ? 'codigo' : 'id';
     for (final chunk in _chunks(ids.toList(), 200)) {
-      final res = (await supabase
-              .from(tabla)
-              .select(esSponsor
-                  ? 'codigo, razon_social'
-                  : 'id, apellido, nombre')
-              .inFilter(colId, chunk) as List)
-          .cast<Map<String, dynamic>>();
+      final res = await _fetchAll((from, to) async => await supabase
+          .from(tabla)
+          .select(esSponsor ? 'codigo, razon_social' : 'id, apellido, nombre')
+          .inFilter(colId, chunk)
+          .order(colId)
+          .range(from, to));
       for (final r in res) {
         if (esSponsor) {
           map[r['codigo'] as int] =
@@ -154,24 +248,14 @@ final listadoRecibosProvider =
     return map;
   }
 
-  final socios = await nombres(
-      'socios',
-      ops
-          .where((o) => o['tipo_operacion'] == 'COBRANZA_SOCIO')
-          .map((o) => o['entidad_id'] as int)
-          .toSet());
-  final profesionales = await nombres(
-      'profesionales',
-      ops
-          .where((o) => o['tipo_operacion'] == 'COBRANZA_PROFESIONAL')
-          .map((o) => o['entidad_id'] as int)
-          .toSet());
-  final sponsors = await nombres(
-      'clientes',
-      ops
-          .where((o) => o['tipo_operacion'] == 'COBRANZA_SPONSOR')
-          .map((o) => o['entidad_id'] as int)
-          .toSet());
+  Set<int> idsDe(String tipoOp) => bases
+      .where((b) => b['tipo_operacion'] == tipoOp)
+      .map((b) => b['entidad_id'] as int)
+      .toSet();
+  final socios = await nombres('socios', idsDe('COBRANZA_SOCIO'));
+  final profesionales =
+      await nombres('profesionales', idsDe('COBRANZA_PROFESIONAL'));
+  final sponsors = await nombres('clientes', idsDe('COBRANZA_SPONSOR'));
 
   // 4. Descripción de las cuentas contables
   final cuentasUsadas = <int>{};
@@ -185,11 +269,12 @@ final listadoRecibosProvider =
   }
   final cuentasDesc = <int, String>{};
   for (final chunk in _chunks(cuentasUsadas.toList(), 200)) {
-    final res = (await supabase
-            .from('cuentas')
-            .select('cuenta, descripcion')
-            .inFilter('cuenta', chunk) as List)
-        .cast<Map<String, dynamic>>();
+    final res = await _fetchAll((from, to) async => await supabase
+        .from('cuentas')
+        .select('cuenta, descripcion')
+        .inFilter('cuenta', chunk)
+        .order('cuenta')
+        .range(from, to));
     for (final r in res) {
       cuentasDesc[r['cuenta'] as int] = r['descripcion'] as String? ?? '';
     }
@@ -197,7 +282,7 @@ final listadoRecibosProvider =
 
   // 5. Armar filas
   final filas = <ReciboListadoFila>[];
-  for (final o in ops) {
+  for (final o in bases) {
     final tipoOp = o['tipo_operacion'] as String;
     final entidadId = o['entidad_id'] as int;
     final nombre = (switch (tipoOp) {
@@ -207,13 +292,15 @@ final listadoRecibosProvider =
         }) ??
         '(sin datos #$entidadId)';
     final fecha = DateTime.parse(o['fecha'].toString());
-    final nro = o['numero_comprobante'] as int?;
+    final nro = o['numero'] as int?;
     final tipo = switch (tipoOp) {
       'COBRANZA_SOCIO' => 'Socio',
       'COBRANZA_PROFESIONAL' => 'Profesional',
       _ => 'Sponsor',
     };
-    final valores = valoresPorOp[o['id'] as int] ?? const [];
+    final valores = [
+      for (final id in o['opIds'] as List<int>) ...?valoresPorOp[id],
+    ];
 
     if (valores.isEmpty) {
       // Recibo sin valor registrado: se muestra igual para poder conciliarlo
@@ -246,6 +333,16 @@ final listadoRecibosProvider =
       ));
     }
   }
+  // Orden estable por fecha y número de recibo (sort de Dart es estable en la práctica
+  // para listas pequeñas; el desempate por tipo y nombre evita saltos entre consultas)
+  filas.sort((a, b) {
+    final c = a.fecha.compareTo(b.fecha);
+    if (c != 0) return c;
+    final n = (a.numeroRecibo ?? 0).compareTo(b.numeroRecibo ?? 0);
+    if (n != 0) return n;
+    final t = a.tipo.compareTo(b.tipo);
+    return t != 0 ? t : a.nombre.compareTo(b.nombre);
+  });
   return filas;
 });
 
