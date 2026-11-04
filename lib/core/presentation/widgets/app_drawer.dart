@@ -349,6 +349,13 @@ class AppDrawer extends ConsumerWidget {
               ),
               _buildMenuItem(
                 context: context,
+                icon: Icons.receipt_long,
+                title: 'Listado de Recibos',
+                route: '/listado-recibos',
+                currentRoute: currentRoute,
+              ),
+              _buildMenuItem(
+                context: context,
                 icon: Icons.settings,
                 title: 'Parámetros Contables',
                 route: '/parametros-contables',
@@ -512,7 +519,8 @@ class AppDrawer extends ConsumerWidget {
         route == '/diagnostico-asientos' ||
         route.startsWith('/cuentas') ||
         route == '/parametros-contables' ||
-        route == '/tesoreria-diaria';
+        route == '/tesoreria-diaria' ||
+        route == '/listado-recibos';
   }
 
   /// Verifica si la ruta actual pertenece a la sección Administración

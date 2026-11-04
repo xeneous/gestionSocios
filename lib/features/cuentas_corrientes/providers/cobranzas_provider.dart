@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../services/cobranzas_service.dart';
 import '../services/recibo_pdf_service.dart';
@@ -160,14 +161,37 @@ class CobranzasNotifier extends Notifier<AsyncValue<void>> {
       }
 
       // 3. Generar asiento usando AsientosService
+      final fechaAsiento = DateTime.now();
       final numeroAsiento = await asientosService.crearAsiento(
         tipoAsiento: AsientosService.tipoIngreso, // Tipo 1 = Ingreso
-        fecha: DateTime.now(),
+        fecha: fechaAsiento,
         detalle: 'Recibo Nro. $nroRecibo',
         items: itemsAsiento,
         numeroComprobante: nroRecibo,
         nombrePersona: nombreCompleto,
       );
+
+      // 4. Vincular el recibo con su asiento por número (trazabilidad).
+      //    El recibo y el asiento ya están grabados: si el vínculo falla no se
+      //    corta el flujo (se completa luego con el script de vínculos).
+      try {
+        final vinculados = await supabase
+            .from('operaciones_contables')
+            .update({
+              'asiento_numero': numeroAsiento,
+              'asiento_anio_mes': fechaAsiento.year * 100 + fechaAsiento.month,
+              'asiento_tipo': AsientosService.tipoIngreso,
+            })
+            .eq('tipo_operacion',
+                profesionalId != null ? 'COBRANZA_PROFESIONAL' : 'COBRANZA_SOCIO')
+            .eq('numero_comprobante', nroRecibo)
+            .select('id');
+        if (vinculados.isEmpty) {
+          debugPrint('No se pudo vincular recibo $nroRecibo con asiento $numeroAsiento');
+        }
+      } catch (e) {
+        debugPrint('Error al vincular recibo $nroRecibo con asiento $numeroAsiento: $e');
+      }
 
       if (socioId != null) {
         ref.invalidate(cuentasCorrientesPorSocioProvider(socioId));

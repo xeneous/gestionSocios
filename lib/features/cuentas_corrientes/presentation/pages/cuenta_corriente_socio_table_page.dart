@@ -402,9 +402,11 @@ class _CuentaCorrienteSocioTablePageState
                   if (userRole.esAdministrador &&
                       cuenta.header.tipoComprobante == 'COB')
                     IconButton(
-                      icon: const Icon(Icons.cancel, size: 18, color: Colors.red),
-                      onPressed: () => _bajarRecibo(cuenta),
-                      tooltip: 'Dar de Baja Recibo',
+                      icon: const Icon(Icons.cancel, size: 18, color: Colors.grey),
+                      // Baja de recibos suspendida: la función actual opera por número de
+                      // recibo y hay números repetidos (ver database/trazabilidad_02_*.sql).
+                      onPressed: null,
+                      tooltip: 'Baja de recibos suspendida temporalmente',
                       padding: EdgeInsets.zero,
                       constraints: const BoxConstraints(),
                     ),
@@ -643,6 +645,7 @@ class _CuentaCorrienteSocioTablePageState
     );
   }
 
+  // ignore: unused_element -- baja de recibos suspendida; se reactiva con trazabilidad_02
   Future<void> _bajarRecibo(CuentaCorrienteCompleta cuenta) async {
     final nroRecibo = int.tryParse(cuenta.header.documentoNumero ?? '');
     if (nroRecibo == null) {

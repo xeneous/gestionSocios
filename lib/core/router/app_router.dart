@@ -53,6 +53,7 @@ import '../../features/asientos/presentation/pages/mayor_cuentas_page.dart';
 import '../../features/asientos/presentation/pages/sumas_saldos_page.dart';
 import '../../features/asientos/presentation/pages/diagnostico_asientos_page.dart';
 import '../../features/tesoreria/presentation/pages/tesoreria_diaria_page.dart';
+import '../../features/tesoreria/presentation/pages/listado_recibos_page.dart';
 import '../../features/socios/presentation/pages/listado_residentes_page.dart';
 import '../../features/socios/presentation/pages/padron_electoral_page.dart';
 import '../../features/profesionales/presentation/pages/profesionales_list_page.dart';
@@ -646,6 +647,12 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/tesoreria-diaria',
         name: 'tesoreria-diaria',
         builder: (context, state) => const TesoreriaDiariaPage(),
+      ),
+      // Listado de Recibos (socios / profesionales)
+      GoRoute(
+        path: '/listado-recibos',
+        name: 'listado-recibos',
+        builder: (context, state) => const ListadoRecibosPage(),
       ),
       // Listado de Residentes
       GoRoute(
