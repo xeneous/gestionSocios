@@ -41,7 +41,7 @@ class ReciboListadoFila {
 // Params + Provider
 // ---------------------------------------------------------------------------
 
-enum TipoListadoRecibos { todos, socios, profesionales }
+enum TipoListadoRecibos { todos, socios, profesionales, sponsors }
 
 class ListadoRecibosParams {
   final DateTime fechaDesde;
@@ -81,7 +81,12 @@ final listadoRecibosProvider =
   final tiposOperacion = switch (params.tipo) {
     TipoListadoRecibos.socios => ['COBRANZA_SOCIO'],
     TipoListadoRecibos.profesionales => ['COBRANZA_PROFESIONAL'],
-    TipoListadoRecibos.todos => ['COBRANZA_SOCIO', 'COBRANZA_PROFESIONAL'],
+    TipoListadoRecibos.sponsors => ['COBRANZA_SPONSOR'],
+    TipoListadoRecibos.todos => [
+        'COBRANZA_SOCIO',
+        'COBRANZA_PROFESIONAL',
+        'COBRANZA_SPONSOR'
+      ],
   };
 
   // 1. Recibos del período (paginado: Supabase devuelve como máximo 1000 filas)
@@ -120,16 +125,21 @@ final listadoRecibosProvider =
     }
   }
 
-  // 3. Nombres de socios y profesionales
+  // 3. Nombres de socios, profesionales y sponsors (razón social)
   Future<Map<int, String>> nombres(String tabla, Set<int> ids) async {
     final map = <int, String>{};
+    final esSponsor = tabla == 'clientes';
     for (final chunk in _chunks(ids.toList(), 200)) {
       final res = (await supabase
               .from(tabla)
-              .select('id, apellido, nombre')
+              .select(esSponsor ? 'id, razon_social' : 'id, apellido, nombre')
               .inFilter('id', chunk) as List)
           .cast<Map<String, dynamic>>();
       for (final r in res) {
+        if (esSponsor) {
+          map[r['id'] as int] = (r['razon_social'] as String?)?.trim() ?? '';
+          continue;
+        }
         final ap = (r['apellido'] as String?)?.trim() ?? '';
         final no = (r['nombre'] as String?)?.trim() ?? '';
         map[r['id'] as int] = [ap, no].where((s) => s.isNotEmpty).join(', ');
@@ -148,6 +158,12 @@ final listadoRecibosProvider =
       'profesionales',
       ops
           .where((o) => o['tipo_operacion'] == 'COBRANZA_PROFESIONAL')
+          .map((o) => o['entidad_id'] as int)
+          .toSet());
+  final sponsors = await nombres(
+      'clientes',
+      ops
+          .where((o) => o['tipo_operacion'] == 'COBRANZA_SPONSOR')
           .map((o) => o['entidad_id'] as int)
           .toSet());
 
@@ -176,13 +192,21 @@ final listadoRecibosProvider =
   // 5. Armar filas
   final filas = <ReciboListadoFila>[];
   for (final o in ops) {
-    final esSocio = o['tipo_operacion'] == 'COBRANZA_SOCIO';
+    final tipoOp = o['tipo_operacion'] as String;
     final entidadId = o['entidad_id'] as int;
-    final nombre = (esSocio ? socios[entidadId] : profesionales[entidadId]) ??
+    final nombre = (switch (tipoOp) {
+          'COBRANZA_SOCIO' => socios[entidadId],
+          'COBRANZA_PROFESIONAL' => profesionales[entidadId],
+          _ => sponsors[entidadId],
+        }) ??
         '(sin datos #$entidadId)';
     final fecha = DateTime.parse(o['fecha'].toString());
     final nro = o['numero_comprobante'] as int?;
-    final tipo = esSocio ? 'Socio' : 'Profesional';
+    final tipo = switch (tipoOp) {
+      'COBRANZA_SOCIO' => 'Socio',
+      'COBRANZA_PROFESIONAL' => 'Profesional',
+      _ => 'Sponsor',
+    };
     final valores = valoresPorOp[o['id'] as int] ?? const [];
 
     if (valores.isEmpty) {
@@ -276,7 +300,8 @@ class _ListadoRecibosPageState extends ConsumerState<ListadoRecibosPage> {
   String get _tipoTexto => switch (_consulta?.tipo ?? _tipo) {
         TipoListadoRecibos.socios => 'Socios',
         TipoListadoRecibos.profesionales => 'Profesionales',
-        TipoListadoRecibos.todos => 'Socios y profesionales',
+        TipoListadoRecibos.sponsors => 'Sponsors',
+        TipoListadoRecibos.todos => 'Socios, profesionales y sponsors',
       };
 
   void _descargarExcel(List<ReciboListadoFila> filas) {
@@ -465,6 +490,9 @@ class _ListadoRecibosPageState extends ConsumerState<ListadoRecibosPage> {
                     ButtonSegment(
                         value: TipoListadoRecibos.profesionales,
                         label: Text('Profesionales')),
+                    ButtonSegment(
+                        value: TipoListadoRecibos.sponsors,
+                        label: Text('Sponsors')),
                   ],
                   selected: {_tipo},
                   onSelectionChanged: (s) => setState(() => _tipo = s.first),
