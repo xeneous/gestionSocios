@@ -9,6 +9,7 @@ import 'package:intl/intl.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../../../core/presentation/widgets/app_drawer.dart';
 import '../../../../core/utils/date_picker_utils.dart';
+import '../../../../core/providers/periodo_trabajo_provider.dart';
 
 // ---------------------------------------------------------------------------
 // Modelos
@@ -160,9 +161,9 @@ class _DiagnosticoAsientosPageState
   @override
   void initState() {
     super.initState();
-    final now = DateTime.now();
-    _fechaDesde = DateTime(now.year, 1, 1);
-    _fechaHasta = DateTime(now.year, now.month + 1, 0);
+    final periodo = ref.read(periodoTrabajoProvider);
+    _fechaDesde = periodo.desde;
+    _fechaHasta = periodo.hasta;
     _tabController = TabController(length: 2, vsync: this);
   }
 
@@ -184,12 +185,18 @@ class _DiagnosticoAsientosPageState
 
   Future<void> _pickDesde() async {
     final d = await pickDate(context, _fechaDesde);
-    if (d != null) setState(() => _fechaDesde = d);
+    if (d != null) {
+      setState(() => _fechaDesde = d);
+      ref.read(periodoTrabajoProvider.notifier).setDesde(d);
+    }
   }
 
   Future<void> _pickHasta() async {
     final d = await pickDate(context, _fechaHasta);
-    if (d != null) setState(() => _fechaHasta = d);
+    if (d != null) {
+      setState(() => _fechaHasta = d);
+      ref.read(periodoTrabajoProvider.notifier).setHasta(d);
+    }
   }
 
   @override

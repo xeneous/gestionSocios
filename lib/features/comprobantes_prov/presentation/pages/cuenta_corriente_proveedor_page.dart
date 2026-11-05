@@ -1,7 +1,11 @@
+import 'package:excel/excel.dart'
+    show Excel, CellStyle, ExcelColor, CellIndex, CellValue, TextCellValue, DoubleCellValue;
 import 'package:flutter/material.dart';
+import 'package:universal_html/html.dart' as html;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import '../../../../core/providers/periodo_trabajo_provider.dart';
 import '../../providers/comprobantes_prov_provider.dart';
 import '../../providers/orden_pago_provider.dart';
 import '../../models/comprobante_prov_model.dart';
@@ -33,18 +37,12 @@ class _CuentaCorrienteProveedorPageState
   int _currentPage = 1;
   static const int _pageSize = 100;
 
-  static DateTime _inicioEjercicioActual() {
-    final hoy = DateTime.now();
-    final inicioEsteAnio = DateTime(hoy.year, 8, 2);
-    return hoy.compareTo(inicioEsteAnio) >= 0
-        ? inicioEsteAnio
-        : DateTime(hoy.year - 1, 8, 2);
-  }
-
   @override
   void initState() {
     super.initState();
-    _fechaDesde = _inicioEjercicioActual();
+    final periodo = ref.read(periodoTrabajoProvider);
+    _fechaDesde = periodo.desde;
+    _fechaHasta = periodo.hasta;
   }
 
   final _dateFormat = DateFormat('dd/MM/yyyy');
@@ -86,6 +84,18 @@ class _CuentaCorrienteProveedorPageState
         ),
         actions: [
           IconButton(
+            icon: const Icon(Icons.table_view),
+            tooltip: 'Exportar a Excel',
+            onPressed: comprobantesAsync.hasValue
+                ? () => _exportarExcel(
+                      proveedorAsync.value,
+                      comprobantesAsync.value!,
+                      tiposAsync.value ?? const [],
+                      saldoAnteriorAsync?.value,
+                    )
+                : null,
+          ),
+          IconButton(
             icon: const Icon(Icons.home),
             tooltip: 'Inicio',
             onPressed: () => context.go('/'),
@@ -102,7 +112,8 @@ class _CuentaCorrienteProveedorPageState
       body: Column(
         children: [
           // Header con info del proveedor y saldo
-          _buildInfoHeader(proveedorAsync, comprobantesAsync, saldoAnteriorAsync),
+          _buildInfoHeader(
+              proveedorAsync, comprobantesAsync, saldoAnteriorAsync, tiposAsync),
 
           const Divider(height: 1),
 
@@ -120,6 +131,144 @@ class _CuentaCorrienteProveedorPageState
         ],
       ),
     );
+  }
+
+  void _exportarExcel(
+    dynamic prov,
+    List<CompProvHeader> comprobantes,
+    List<TipoComprobanteCompra> tipos,
+    double? saldoAnterior,
+  ) {
+    final tiposMap = {for (final t in tipos) t.codigo: t};
+    final excel = Excel.createExcel();
+    excel.rename('Sheet1', 'Cuenta Corriente');
+    final sheet = excel['Cuenta Corriente'];
+
+    final headerStyle = CellStyle(
+      bold: true,
+      backgroundColorHex: ExcelColor.fromHexString('#1F4E79'),
+      fontColorHex: ExcelColor.fromHexString('#FFFFFF'),
+    );
+    final saldoAntStyle = CellStyle(
+      bold: true,
+      backgroundColorHex: ExcelColor.fromHexString('#DDEEFF'),
+    );
+    final totalStyle = CellStyle(
+      bold: true,
+      backgroundColorHex: ExcelColor.fromHexString('#D9D9D9'),
+    );
+
+    void cell(int col, int row, CellValue val, [CellStyle? style]) {
+      final c = sheet.cell(
+          CellIndex.indexByColumnRow(columnIndex: col, rowIndex: row));
+      c.value = val;
+      if (style != null) c.cellStyle = style;
+    }
+
+    cell(0, 0, TextCellValue('Cuenta Corriente Proveedor'));
+    cell(1, 0, TextCellValue('${prov?.codigo ?? ''} - ${prov?.razonSocial ?? ''}'));
+    cell(0, 1, TextCellValue('CUIT:'));
+    cell(1, 1, TextCellValue(prov?.cuit ?? ''));
+    cell(0, 2, TextCellValue('Período:'));
+    cell(
+        1,
+        2,
+        TextCellValue(
+            '${_fechaDesde != null ? _dateFormat.format(_fechaDesde!) : 'Inicio'}'
+            ' al '
+            '${_fechaHasta != null ? _dateFormat.format(_fechaHasta!) : 'Hoy'}'));
+    if (_soloConSaldo) {
+      cell(3, 2, TextCellValue('Solo con saldo pendiente'));
+    }
+
+    const headers = [
+      'Fecha', 'Tipo', 'Nro. Comprobante', 'Debe', 'Haber', 'Saldo', 'Vencimiento'
+    ];
+    for (var i = 0; i < headers.length; i++) {
+      cell(i, 4, TextCellValue(headers[i]), headerStyle);
+    }
+
+    int row = 5;
+    double saldo = saldoAnterior ?? 0;
+    double totalDebe = 0;
+    double totalHaber = 0;
+
+    if (_fechaDesde != null) {
+      cell(0, row, TextCellValue(_dateFormat.format(_fechaDesde!)), saldoAntStyle);
+      cell(1, row, TextCellValue(''), saldoAntStyle);
+      cell(2, row, TextCellValue('Saldo anterior al ${_dateFormat.format(_fechaDesde!)}'), saldoAntStyle);
+      cell(3, row, TextCellValue(''), saldoAntStyle);
+      cell(4, row, TextCellValue(''), saldoAntStyle);
+      cell(5, row, DoubleCellValue(saldo), saldoAntStyle);
+      cell(6, row, TextCellValue(''), saldoAntStyle);
+      row++;
+    }
+
+    final sorted = List<CompProvHeader>.from(comprobantes)
+      ..sort((a, b) {
+        final c = a.fecha.compareTo(b.fecha);
+        return c != 0 ? c : a.comprobante.compareTo(b.comprobante);
+      });
+
+    for (final comp in sorted) {
+      final tipo = tiposMap[comp.tipoComprobante];
+      final mult = tipo?.multiplicador ?? 1;
+      final importe = _soloConSaldo ? comp.saldo : comp.totalImporte;
+      final haber = mult == 1 ? importe : 0.0;
+      final debe = mult == -1 ? importe : 0.0;
+      saldo += haber - debe;
+      totalDebe += debe;
+      totalHaber += haber;
+
+      final tipoDesc = tipo != null
+          ? '${tipo.comprobante} - ${tipo.descripcion}'
+          : 'Tipo ${comp.tipoComprobante}';
+
+      cell(0, row, TextCellValue(_dateFormat.format(comp.fecha)));
+      cell(1, row, TextCellValue(
+          comp.tipoFactura != null ? '$tipoDesc (${comp.tipoFactura})' : tipoDesc));
+      cell(2, row, TextCellValue(comp.nroComprobante));
+      cell(3, row, debe > 0 ? DoubleCellValue(debe) : TextCellValue(''));
+      cell(4, row, haber > 0 ? DoubleCellValue(haber) : TextCellValue(''));
+      cell(5, row, DoubleCellValue(saldo));
+      cell(6, row, TextCellValue(
+          comp.fecha1Venc != null ? _dateFormat.format(comp.fecha1Venc!) : ''));
+      row++;
+    }
+
+    cell(0, row, TextCellValue('TOTALES'), totalStyle);
+    cell(1, row, TextCellValue(''), totalStyle);
+    cell(2, row, TextCellValue(''), totalStyle);
+    cell(3, row, DoubleCellValue(totalDebe), totalStyle);
+    cell(4, row, DoubleCellValue(totalHaber), totalStyle);
+    cell(5, row, DoubleCellValue(saldo), totalStyle);
+    cell(6, row, TextCellValue(''), totalStyle);
+
+    sheet.setColumnWidth(0, 12);
+    sheet.setColumnWidth(1, 32);
+    sheet.setColumnWidth(2, 22);
+    sheet.setColumnWidth(3, 16);
+    sheet.setColumnWidth(4, 16);
+    sheet.setColumnWidth(5, 16);
+    sheet.setColumnWidth(6, 14);
+
+    final bytes = excel.encode();
+    if (bytes == null) return;
+
+    final nombre = (prov?.razonSocial ?? 'proveedor')
+        .toString()
+        .replaceAll(RegExp(r'[^A-Za-z0-9]+'), '_');
+    final fileName =
+        'cc_proveedor_${widget.proveedorId}_${nombre}_${DateFormat('yyyyMMdd').format(DateTime.now())}.xlsx';
+    final blob = html.Blob([bytes]);
+    final url = html.Url.createObjectUrlFromBlob(blob);
+    (html.AnchorElement(href: url)
+      ..setAttribute('download', fileName)
+      ..click());
+    html.Url.revokeObjectUrl(url);
+
+    ScaffoldMessenger.of(context)
+        .showSnackBar(const SnackBar(content: Text('Archivo Excel descargado')));
   }
 
   Widget _buildFiltros() {
@@ -149,6 +298,7 @@ class _CuentaCorrienteProveedorPageState
                 _fechaDesde = date;
                 _currentPage = 1;
               });
+              ref.read(periodoTrabajoProvider.notifier).setDesde(date);
             },
             onClear: () {
               setState(() {
@@ -168,6 +318,7 @@ class _CuentaCorrienteProveedorPageState
                 _fechaHasta = date;
                 _currentPage = 1;
               });
+              ref.read(periodoTrabajoProvider.notifier).setHasta(date);
             },
             onClear: () {
               setState(() {
@@ -243,21 +394,27 @@ class _CuentaCorrienteProveedorPageState
     AsyncValue proveedorAsync,
     AsyncValue<List<CompProvHeader>> comprobantesAsync,
     AsyncValue<double>? saldoAnteriorAsync,
+    AsyncValue<List<TipoComprobanteCompra>> tiposAsync,
   ) {
-    double totalDeuda = 0;
-    double totalPagado = 0;
+    // Misma cuenta que la columna "Saldo" de la tabla: haber (+) / debe (-)
+    // según el multiplicador del tipo de comprobante.
+    double saldoPagina = 0;
     int cantidadComprobantes = 0;
 
     if (comprobantesAsync.hasValue) {
       final comprobantes = comprobantesAsync.value!;
       cantidadComprobantes = comprobantes.length;
+      final tiposMap = {
+        for (final t in tiposAsync.value ?? const <TipoComprobanteCompra>[])
+          t.codigo: t
+      };
       for (final comp in comprobantes) {
-        totalDeuda += comp.totalImporte;
-        totalPagado += comp.cancelado;
+        final mult = tiposMap[comp.tipoComprobante]?.multiplicador ?? 1;
+        final importe = _soloConSaldo ? comp.saldo : comp.totalImporte;
+        saldoPagina += mult == 1 ? importe : (mult == -1 ? -importe : 0);
       }
     }
 
-    final saldoPagina = totalDeuda - totalPagado;
     final saldoAnterior = saldoAnteriorAsync?.value ?? 0.0;
     final saldoTotal = saldoAnterior + saldoPagina;
 

@@ -4,7 +4,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'app_config.dart';
+import 'core/providers/periodo_trabajo_provider.dart';
 import 'core/router/app_router.dart';
 import 'features/cuentas_corrientes/providers/cuentas_corrientes_provider.dart';
 import 'features/comprobantes_prov/providers/orden_pago_provider.dart';
@@ -19,9 +21,12 @@ Future<void> main() async {
     anonKey: AppConfig.supabaseAnonKey,
   );
 
+  final prefs = await SharedPreferences.getInstance();
+
   runApp(
-    const ProviderScope(
-      child: SAOApp(),
+    ProviderScope(
+      overrides: [sharedPreferencesProvider.overrideWithValue(prefs)],
+      child: const SAOApp(),
     ),
   );
 }

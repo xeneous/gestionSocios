@@ -9,6 +9,7 @@ import '../../../../core/presentation/widgets/app_drawer.dart';
 import '../../../cuentas/providers/cuentas_provider.dart';
 import '../../../cuentas/models/cuenta_model.dart';
 import '../../../../core/utils/date_picker_utils.dart';
+import '../../../../core/providers/periodo_trabajo_provider.dart';
 
 /// Modelo para movimiento de cuenta
 class MovimientoCuenta {
@@ -121,9 +122,9 @@ class _MayorCuentasPageState extends ConsumerState<MayorCuentasPage> {
   @override
   void initState() {
     super.initState();
-    final now = DateTime.now();
-    _fechaDesde = DateTime(now.year, now.month, 1);
-    _fechaHasta = DateTime(now.year, now.month + 1, 0);
+    final periodo = ref.read(periodoTrabajoProvider);
+    _fechaDesde = periodo.desde;
+    _fechaHasta = periodo.hasta;
   }
 
   @override
@@ -136,6 +137,7 @@ class _MayorCuentasPageState extends ConsumerState<MayorCuentasPage> {
     final fecha = await pickDate(context, _fechaDesde);
     if (fecha != null) {
       setState(() => _fechaDesde = fecha);
+      ref.read(periodoTrabajoProvider.notifier).setDesde(fecha);
     }
   }
 
@@ -143,6 +145,7 @@ class _MayorCuentasPageState extends ConsumerState<MayorCuentasPage> {
     final fecha = await pickDate(context, _fechaHasta);
     if (fecha != null) {
       setState(() => _fechaHasta = fecha);
+      ref.read(periodoTrabajoProvider.notifier).setHasta(fecha);
     }
   }
 

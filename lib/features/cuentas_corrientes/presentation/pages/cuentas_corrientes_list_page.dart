@@ -10,6 +10,7 @@ import '../../../auth/presentation/providers/user_role_provider.dart';
 import '../../../../core/presentation/widgets/app_drawer.dart';
 import '../../../../core/utils/web_utils.dart';
 import '../../../../core/utils/date_picker_utils.dart';
+import '../../../../core/providers/periodo_trabajo_provider.dart';
 
 class CuentasCorrientesListPage extends ConsumerStatefulWidget {
   const CuentasCorrientesListPage({super.key});
@@ -28,6 +29,14 @@ class _CuentasCorrientesListPageState
   DateTime? _fechaHasta;
   bool _soloPendientes = false;
   CuentasCorrientesSearchParams? _currentSearch;
+
+  @override
+  void initState() {
+    super.initState();
+    final periodo = ref.read(periodoTrabajoProvider);
+    _fechaDesde = periodo.desde;
+    _fechaHasta = periodo.hasta;
+  }
 
   @override
   void dispose() {
@@ -195,6 +204,7 @@ class _CuentasCorrientesListPageState
                         final date = await pickDate(context, _fechaDesde ?? DateTime.now());
                         if (date != null) {
                           setState(() => _fechaDesde = date);
+                          ref.read(periodoTrabajoProvider.notifier).setDesde(date);
                         }
                       },
                       child: InputDecorator(
@@ -218,6 +228,7 @@ class _CuentasCorrientesListPageState
                         final date = await pickDate(context, _fechaHasta ?? DateTime.now());
                         if (date != null) {
                           setState(() => _fechaHasta = date);
+                          ref.read(periodoTrabajoProvider.notifier).setHasta(date);
                         }
                       },
                       child: InputDecorator(
