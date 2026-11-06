@@ -10,6 +10,7 @@ import '../../../cuentas/providers/cuentas_provider.dart';
 import '../../../cuentas/models/cuenta_model.dart';
 import '../../../../core/utils/date_picker_utils.dart';
 import '../../../../core/providers/periodo_trabajo_provider.dart';
+import '../widgets/trazabilidad_movimiento_dialog.dart';
 
 /// Modelo para movimiento de cuenta
 class MovimientoCuenta {
@@ -52,7 +53,11 @@ class MayorCuentaParams {
           acumulado == other.acumulado;
 
   @override
-  int get hashCode => cuenta.hashCode ^ fechaDesde.hashCode ^ fechaHasta.hashCode ^ acumulado.hashCode;
+  int get hashCode =>
+      cuenta.hashCode ^
+      fechaDesde.hashCode ^
+      fechaHasta.hashCode ^
+      acumulado.hashCode;
 }
 
 /// Resultado del mayor de cuenta
@@ -71,7 +76,9 @@ class MayorCuentaResult {
 }
 
 /// Provider para obtener mayor de una cuenta
-final mayorCuentaProvider = FutureProvider.family<MayorCuentaResult, MayorCuentaParams>((ref, params) async {
+final mayorCuentaProvider =
+    FutureProvider.family<MayorCuentaResult, MayorCuentaParams>(
+        (ref, params) async {
   final supabase = ref.watch(supabaseProvider);
 
   final result = await supabase.rpc('get_mayor_cuenta', params: {
@@ -115,7 +122,10 @@ class _MayorCuentasPageState extends ConsumerState<MayorCuentasPage> {
   late DateTime _fechaDesde;
   late DateTime _fechaHasta;
   bool _acumulado = true;
+  bool _trazabilidad = false; // habilita el link asiento -> factura/recibo/cobranza
   bool _hasSearched = false;
+  static const int _tamPagina = 100;
+  int _pagina = 0;
   int? _cuentaSeleccionada;
   String? _cuentaDescripcion;
 
@@ -172,7 +182,10 @@ class _MayorCuentasPageState extends ConsumerState<MayorCuentasPage> {
     }
     // Descarta el resultado cacheado para que "Consultar" siempre lea de la base.
     ref.invalidate(mayorCuentaProvider(_params!));
-    setState(() => _hasSearched = true);
+    setState(() {
+      _hasSearched = true;
+      _pagina = 0;
+    });
   }
 
   MayorCuentaParams? get _params => _cuentaSeleccionada == null
@@ -205,21 +218,39 @@ class _MayorCuentasPageState extends ConsumerState<MayorCuentasPage> {
     );
 
     void cell(int col, int row, CellValue val, [CellStyle? style]) {
-      final c = sheet.cell(CellIndex.indexByColumnRow(columnIndex: col, rowIndex: row));
+      final c = sheet
+          .cell(CellIndex.indexByColumnRow(columnIndex: col, rowIndex: row));
       c.value = val;
       if (style != null) c.cellStyle = style;
     }
 
     // Fila 0: título
     cell(0, 0, TextCellValue('Mayor de Cuenta'));
-    cell(1, 0, TextCellValue('$_cuentaSeleccionada — ${_cuentaDescripcion ?? ""}'));
+    cell(1, 0,
+        TextCellValue('$_cuentaSeleccionada — ${_cuentaDescripcion ?? ""}'));
     // Fila 1: período
     cell(0, 1, TextCellValue('Período:'));
-    cell(1, 1, TextCellValue('${_dateFormat.format(_fechaDesde)} al ${_dateFormat.format(_fechaHasta)}'));
-    cell(3, 1, TextCellValue(_acumulado ? 'Con saldo inicial acumulado' : 'Solo período seleccionado'));
+    cell(
+        1,
+        1,
+        TextCellValue(
+            '${_dateFormat.format(_fechaDesde)} al ${_dateFormat.format(_fechaHasta)}'));
+    cell(
+        3,
+        1,
+        TextCellValue(_acumulado
+            ? 'Con saldo inicial acumulado'
+            : 'Solo período seleccionado'));
 
     // Fila 3: encabezados de columnas
-    const colHeaders = ['Fecha', 'Asiento', 'Detalle', 'Debe', 'Haber', 'Saldo'];
+    const colHeaders = [
+      'Fecha',
+      'Asiento',
+      'Detalle',
+      'Debe',
+      'Haber',
+      'Saldo'
+    ];
     for (var i = 0; i < colHeaders.length; i++) {
       cell(i, 3, TextCellValue(colHeaders[i]), headerStyle);
     }
@@ -229,7 +260,8 @@ class _MayorCuentasPageState extends ConsumerState<MayorCuentasPage> {
 
     // Saldo inicial
     if (_acumulado && mayor.saldoInicial != 0) {
-      cell(0, row, TextCellValue(_dateFormat.format(_fechaDesde)), saldoInicialStyle);
+      cell(0, row, TextCellValue(_dateFormat.format(_fechaDesde)),
+          saldoInicialStyle);
       cell(1, row, TextCellValue('-'), saldoInicialStyle);
       cell(2, row, TextCellValue('SALDO INICIAL'), saldoInicialStyle);
       cell(3, row, TextCellValue(''), saldoInicialStyle);
@@ -244,8 +276,10 @@ class _MayorCuentasPageState extends ConsumerState<MayorCuentasPage> {
       cell(0, row, TextCellValue(_dateFormat.format(mov.fecha)));
       cell(1, row, IntCellValue(mov.asiento));
       cell(2, row, TextCellValue(mov.detalle));
-      cell(3, row, mov.debe > 0 ? DoubleCellValue(mov.debe) : TextCellValue(''));
-      cell(4, row, mov.haber > 0 ? DoubleCellValue(mov.haber) : TextCellValue(''));
+      cell(
+          3, row, mov.debe > 0 ? DoubleCellValue(mov.debe) : TextCellValue(''));
+      cell(4, row,
+          mov.haber > 0 ? DoubleCellValue(mov.haber) : TextCellValue(''));
       cell(5, row, DoubleCellValue(saldoAcumulado));
       row++;
     }
@@ -270,8 +304,8 @@ class _MayorCuentasPageState extends ConsumerState<MayorCuentasPage> {
       ..click());
     html.Url.revokeObjectUrl(url);
 
-    ScaffoldMessenger.of(context)
-        .showSnackBar(const SnackBar(content: Text('Archivo Excel descargado')));
+    ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Archivo Excel descargado')));
   }
 
   @override
@@ -302,7 +336,8 @@ class _MayorCuentasPageState extends ConsumerState<MayorCuentasPage> {
                     const SizedBox(width: 8),
                     const Text(
                       'Mayor de Cuenta Contable',
-                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                      style:
+                          TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                     ),
                   ],
                 ),
@@ -375,6 +410,20 @@ class _MayorCuentasPageState extends ConsumerState<MayorCuentasPage> {
                         contentPadding: EdgeInsets.zero,
                       ),
                     ),
+                    Expanded(
+                      child: CheckboxListTile(
+                        value: _trazabilidad,
+                        onChanged: (value) => setState(() => _trazabilidad = value ?? false),
+                        title: const Text('Trazabilidad'),
+                        subtitle: Text(
+                          _trazabilidad
+                              ? 'Clic en el asiento: factura, recibo y cobranza'
+                              : 'Enlace al asiento desactivado',
+                        ),
+                        dense: true,
+                        contentPadding: EdgeInsets.zero,
+                      ),
+                    ),
                     const SizedBox(width: 16),
                     FilledButton.icon(
                       onPressed: _buscar,
@@ -442,21 +491,24 @@ class _MayorCuentasPageState extends ConsumerState<MayorCuentasPage> {
                         'Saldo Final: ${_currencyFormat.format(mayor.saldoFinal)}',
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
-                          color: mayor.saldoFinal >= 0 ? Colors.blue : Colors.red,
+                          color:
+                              mayor.saldoFinal >= 0 ? Colors.blue : Colors.red,
                         ),
                       ),
                     ],
                   ),
                   const SizedBox(width: 16),
                   FilledButton.icon(
-                    onPressed: mayor.movimientos.isEmpty ? null : () => _descargarExcel(mayor),
+                    onPressed: mayor.movimientos.isEmpty
+                        ? null
+                        : () => _descargarExcel(mayor),
                     icon: const Icon(Icons.download),
                     label: const Text('Descargar Excel'),
                   ),
                 ],
               ),
             ),
-            // Tabla de movimientos
+            // Tabla de movimientos (paginada; el Excel exporta todo)
             Expanded(
               child: SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
@@ -464,18 +516,34 @@ class _MayorCuentasPageState extends ConsumerState<MayorCuentasPage> {
                   child: DataTable(
                     columnSpacing: 24,
                     columns: const [
-                      DataColumn(label: Text('Fecha', style: TextStyle(fontWeight: FontWeight.bold))),
-                      DataColumn(label: Text('Asiento', style: TextStyle(fontWeight: FontWeight.bold))),
-                      DataColumn(label: Text('Detalle', style: TextStyle(fontWeight: FontWeight.bold))),
-                      DataColumn(label: Text('Debe', style: TextStyle(fontWeight: FontWeight.bold)), numeric: true),
-                      DataColumn(label: Text('Haber', style: TextStyle(fontWeight: FontWeight.bold)), numeric: true),
-                      DataColumn(label: Text('Saldo', style: TextStyle(fontWeight: FontWeight.bold)), numeric: true),
+                      DataColumn(
+                          label: Text('Fecha',
+                              style: TextStyle(fontWeight: FontWeight.bold))),
+                      DataColumn(
+                          label: Text('Asiento',
+                              style: TextStyle(fontWeight: FontWeight.bold))),
+                      DataColumn(
+                          label: Text('Detalle',
+                              style: TextStyle(fontWeight: FontWeight.bold))),
+                      DataColumn(
+                          label: Text('Debe',
+                              style: TextStyle(fontWeight: FontWeight.bold)),
+                          numeric: true),
+                      DataColumn(
+                          label: Text('Haber',
+                              style: TextStyle(fontWeight: FontWeight.bold)),
+                          numeric: true),
+                      DataColumn(
+                          label: Text('Saldo',
+                              style: TextStyle(fontWeight: FontWeight.bold)),
+                          numeric: true),
                     ],
                     rows: _buildRows(mayor),
                   ),
                 ),
               ),
             ),
+            _buildPaginador(mayor),
           ],
         );
       },
@@ -493,18 +561,85 @@ class _MayorCuentasPageState extends ConsumerState<MayorCuentasPage> {
     );
   }
 
+  int _totalPaginas(int total) =>
+      total == 0 ? 1 : ((total - 1) ~/ _tamPagina) + 1;
+
+  Widget _buildPaginador(MayorCuentaResult mayor) {
+    final total = mayor.movimientos.length;
+    final paginas = _totalPaginas(total);
+    if (paginas <= 1) return const SizedBox.shrink();
+    final pag = _pagina.clamp(0, paginas - 1);
+    final ini = pag * _tamPagina + 1;
+    final fin =
+        ((pag + 1) * _tamPagina) > total ? total : (pag + 1) * _tamPagina;
+    return Container(
+      color: Colors.grey[100],
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          IconButton(
+            tooltip: 'Primera',
+            icon: const Icon(Icons.first_page),
+            onPressed: pag > 0 ? () => setState(() => _pagina = 0) : null,
+          ),
+          IconButton(
+            tooltip: 'Anterior',
+            icon: const Icon(Icons.chevron_left),
+            onPressed: pag > 0 ? () => setState(() => _pagina = pag - 1) : null,
+          ),
+          Text(
+              'Movimientos $ini–$fin de $total · Página ${pag + 1} de $paginas'),
+          IconButton(
+            tooltip: 'Siguiente',
+            icon: const Icon(Icons.chevron_right),
+            onPressed: pag < paginas - 1
+                ? () => setState(() => _pagina = pag + 1)
+                : null,
+          ),
+          IconButton(
+            tooltip: 'Última',
+            icon: const Icon(Icons.last_page),
+            onPressed: pag < paginas - 1
+                ? () => setState(() => _pagina = paginas - 1)
+                : null,
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _verTrazabilidad(MovimientoCuenta mov) {
+    mostrarTrazabilidadMovimiento(
+      context,
+      asiento: mov.asiento,
+      fecha: mov.fecha,
+      detalle: mov.detalle,
+    );
+  }
+
   List<DataRow> _buildRows(MayorCuentaResult mayor) {
     final rows = <DataRow>[];
     double saldoAcumulado = mayor.saldoInicial;
+    final total = mayor.movimientos.length;
+    final paginas = _totalPaginas(total);
+    final pag = _pagina.clamp(0, paginas - 1);
+    final ini = pag * _tamPagina;
+    final fin = (ini + _tamPagina) > total ? total : ini + _tamPagina;
+    // El saldo de la página arranca con lo acumulado de las páginas anteriores.
+    for (final m in mayor.movimientos.take(ini)) {
+      saldoAcumulado += m.debe - m.haber;
+    }
 
-    // Fila de saldo inicial si es acumulado
-    if (_acumulado && mayor.saldoInicial != 0) {
+    // Fila de saldo inicial si es acumulado (solo en la primera página)
+    if (pag == 0 && _acumulado && mayor.saldoInicial != 0) {
       rows.add(DataRow(
         color: WidgetStateProperty.all(Colors.blue[50]),
         cells: [
           DataCell(Text(_dateFormat.format(_fechaDesde))),
           const DataCell(Text('-')),
-          const DataCell(Text('SALDO INICIAL', style: TextStyle(fontStyle: FontStyle.italic))),
+          const DataCell(Text('SALDO INICIAL',
+              style: TextStyle(fontStyle: FontStyle.italic))),
           const DataCell(Text('')),
           const DataCell(Text('')),
           DataCell(Text(
@@ -519,13 +654,24 @@ class _MayorCuentasPageState extends ConsumerState<MayorCuentasPage> {
     }
 
     // Filas de movimientos
-    for (final mov in mayor.movimientos) {
+    for (final mov in mayor.movimientos.sublist(ini, fin)) {
       saldoAcumulado += mov.debe - mov.haber;
       rows.add(DataRow(
         cells: [
           DataCell(Text(_dateFormat.format(mov.fecha))),
-          DataCell(Text(mov.asiento.toString())),
-          DataCell(Text(mov.detalle)),
+          DataCell(
+            Text(
+              mov.asiento.toString(),
+              style: _trazabilidad
+                  ? const TextStyle(color: Colors.blue, decoration: TextDecoration.underline)
+                  : null,
+            ),
+            onTap: _trazabilidad ? () => _verTrazabilidad(mov) : null,
+          ),
+          DataCell(
+            Text(mov.detalle),
+            onTap: _trazabilidad ? () => _verTrazabilidad(mov) : null,
+          ),
           DataCell(Text(
             mov.debe > 0 ? _currencyFormat.format(mov.debe) : '',
             style: const TextStyle(color: Colors.green),
@@ -545,27 +691,32 @@ class _MayorCuentasPageState extends ConsumerState<MayorCuentasPage> {
       ));
     }
 
-    // Fila de totales
-    rows.add(DataRow(
-      color: WidgetStateProperty.all(Colors.grey[200]),
-      cells: [
-        const DataCell(Text('TOTALES', style: TextStyle(fontWeight: FontWeight.bold))),
-        const DataCell(Text('')),
-        const DataCell(Text('')),
-        DataCell(Text(
-          _currencyFormat.format(mayor.totalDebe),
-          style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green),
-        )),
-        DataCell(Text(
-          _currencyFormat.format(mayor.totalHaber),
-          style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.red),
-        )),
-        DataCell(Text(
-          _currencyFormat.format(mayor.saldoFinal),
-          style: const TextStyle(fontWeight: FontWeight.bold),
-        )),
-      ],
-    ));
+    // Fila de totales (solo en la última página; son los totales de TODO el período)
+    if (pag == paginas - 1) {
+      rows.add(DataRow(
+        color: WidgetStateProperty.all(Colors.grey[200]),
+        cells: [
+          const DataCell(
+              Text('TOTALES', style: TextStyle(fontWeight: FontWeight.bold))),
+          const DataCell(Text('')),
+          const DataCell(Text('')),
+          DataCell(Text(
+            _currencyFormat.format(mayor.totalDebe),
+            style: const TextStyle(
+                fontWeight: FontWeight.bold, color: Colors.green),
+          )),
+          DataCell(Text(
+            _currencyFormat.format(mayor.totalHaber),
+            style:
+                const TextStyle(fontWeight: FontWeight.bold, color: Colors.red),
+          )),
+          DataCell(Text(
+            _currencyFormat.format(mayor.saldoFinal),
+            style: const TextStyle(fontWeight: FontWeight.bold),
+          )),
+        ],
+      ));
+    }
 
     return rows;
   }
@@ -576,7 +727,8 @@ class _CuentaSearchDialog extends ConsumerStatefulWidget {
   const _CuentaSearchDialog();
 
   @override
-  ConsumerState<_CuentaSearchDialog> createState() => _CuentaSearchDialogState();
+  ConsumerState<_CuentaSearchDialog> createState() =>
+      _CuentaSearchDialogState();
 }
 
 class _CuentaSearchDialogState extends ConsumerState<_CuentaSearchDialog> {
@@ -592,7 +744,8 @@ class _CuentaSearchDialogState extends ConsumerState<_CuentaSearchDialog> {
   @override
   Widget build(BuildContext context) {
     final cuentasAsync = ref.watch(
-      cuentasSearchProvider(CuentasSearchParams(searchTerm: _searchTerm.isEmpty ? null : _searchTerm)),
+      cuentasSearchProvider(CuentasSearchParams(
+          searchTerm: _searchTerm.isEmpty ? null : _searchTerm)),
     );
 
     return AlertDialog(

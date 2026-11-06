@@ -30,11 +30,14 @@ class _CuentaCorrienteSocioTablePageState
     extends ConsumerState<CuentaCorrienteSocioTablePage> {
   bool _soloPendientes = true;
   Set<int> _periodosConRechazo = {};
+  // Recibos que se pueden dar de baja con seguridad (100% trazables). Ver _cargarRecibosBajables.
+  Set<int> _recibosBajables = {};
 
   @override
   void initState() {
     super.initState();
     _cargarPeriodosConRechazo();
+    _cargarRecibosBajables();
   }
 
   Future<void> _cargarPeriodosConRechazo() async {
@@ -50,6 +53,72 @@ class _CuentaCorrienteSocioTablePageState
         };
       });
     } catch (_) {}
+  }
+
+  /// Un recibo es 'bajable' solo si es 100% trazable:
+  ///  - tiene operación contable con asiento vinculado,
+  ///  - su número no está repetido (ni entre socios ni profesionales),
+  ///  - tiene un único registro COB de este socio.
+  /// Cualquier duda => no se ofrece el botón de baja.
+  Future<void> _cargarRecibosBajables() async {
+    try {
+      final db = Supabase.instance.client;
+      final ops = await db
+          .from('operaciones_contables')
+          .select('numero_comprobante')
+          .eq('tipo_operacion', 'COBRANZA_SOCIO')
+          .eq('entidad_id', widget.socioId)
+          .not('asiento_numero', 'is', null)
+          .not('asiento_anio_mes', 'is', null)
+          .not('asiento_tipo', 'is', null);
+      final nums = {for (final o in ops as List) o['numero_comprobante'] as int}
+          .toList();
+      if (nums.isEmpty) {
+        if (mounted) setState(() => _recibosBajables = {});
+        return;
+      }
+
+      final todas = await db
+          .from('operaciones_contables')
+          .select('numero_comprobante')
+          .inFilter('tipo_operacion', [
+        'COBRANZA_SOCIO',
+        'COBRANZA_PROFESIONAL'
+      ]).inFilter('numero_comprobante', nums);
+      final conteoOps = <int, int>{};
+      for (final o in todas as List) {
+        final n = o['numero_comprobante'] as int;
+        conteoOps[n] = (conteoOps[n] ?? 0) + 1;
+      }
+
+      final cobs = await db
+          .from('cuentas_corrientes')
+          .select('documento_numero')
+          .eq('tipo_comprobante', 'COB')
+          .eq('socio_id', widget.socioId)
+          .inFilter('documento_numero', nums.map((n) => n.toString()).toList());
+      final conteoCob = <String, int>{};
+      for (final c in cobs as List) {
+        final d = c['documento_numero'].toString();
+        conteoCob[d] = (conteoCob[d] ?? 0) + 1;
+      }
+
+      if (!mounted) return;
+      setState(() {
+        _recibosBajables = {
+          for (final n in nums)
+            if (conteoOps[n] == 1 && conteoCob[n.toString()] == 1) n,
+        };
+      });
+    } catch (_) {
+      // Ante cualquier error no se habilita ninguna baja.
+      if (mounted) setState(() => _recibosBajables = {});
+    }
+  }
+
+  bool _esReciboBajable(CuentaCorrienteCompleta cuenta) {
+    final n = int.tryParse(cuenta.header.documentoNumero ?? '');
+    return n != null && _recibosBajables.contains(n);
   }
 
   @override
@@ -222,39 +291,39 @@ class _CuentaCorrienteSocioTablePageState
           columnSpacing: 20,
           horizontalMargin: 16,
           headingRowColor: WidgetStateProperty.all(Colors.grey[200]),
-              columns: const [
-                DataColumn(
-                    label: Text('Fecha',
-                        style: TextStyle(fontWeight: FontWeight.bold))),
-                DataColumn(
-                    label: Text('Concepto',
-                        style: TextStyle(fontWeight: FontWeight.bold))),
-                DataColumn(
-                    label: Text('Serie',
-                        style: TextStyle(fontWeight: FontWeight.bold))),
-                DataColumn(
-                    label: Text('Documento',
-                        style: TextStyle(fontWeight: FontWeight.bold))),
-                DataColumn(
-                    label: Text('Debe',
-                        style: TextStyle(fontWeight: FontWeight.bold)),
-                    numeric: true),
-                DataColumn(
-                    label: Text('Haber',
-                        style: TextStyle(fontWeight: FontWeight.bold)),
-                    numeric: true),
-                DataColumn(
-                    label: Text('Saldo',
-                        style: TextStyle(fontWeight: FontWeight.bold)),
-                    numeric: true),
-                DataColumn(
-                    label: Text('Rendición',
-                        style: TextStyle(fontWeight: FontWeight.bold))),
-                DataColumn(
-                    label: Text('Acciones',
-                        style: TextStyle(fontWeight: FontWeight.bold))),
-              ],
-              rows: _buildRows(movimientos),
+          columns: const [
+            DataColumn(
+                label: Text('Fecha',
+                    style: TextStyle(fontWeight: FontWeight.bold))),
+            DataColumn(
+                label: Text('Concepto',
+                    style: TextStyle(fontWeight: FontWeight.bold))),
+            DataColumn(
+                label: Text('Serie',
+                    style: TextStyle(fontWeight: FontWeight.bold))),
+            DataColumn(
+                label: Text('Documento',
+                    style: TextStyle(fontWeight: FontWeight.bold))),
+            DataColumn(
+                label:
+                    Text('Debe', style: TextStyle(fontWeight: FontWeight.bold)),
+                numeric: true),
+            DataColumn(
+                label: Text('Haber',
+                    style: TextStyle(fontWeight: FontWeight.bold)),
+                numeric: true),
+            DataColumn(
+                label: Text('Saldo',
+                    style: TextStyle(fontWeight: FontWeight.bold)),
+                numeric: true),
+            DataColumn(
+                label: Text('Rendición',
+                    style: TextStyle(fontWeight: FontWeight.bold))),
+            DataColumn(
+                label: Text('Acciones',
+                    style: TextStyle(fontWeight: FontWeight.bold))),
+          ],
+          rows: _buildRows(movimientos),
         );
       },
       loading: () => const Center(
@@ -293,7 +362,8 @@ class _CuentaCorrienteSocioTablePageState
           ? (cuenta.header.importe ?? 0) - (cuenta.header.cancelado ?? 0)
           : cuenta.header.importe ?? 0;
 
-      final signo = cuenta.header.signo ?? 1;  // Default a débito si no hay signo
+      final signo =
+          cuenta.header.signo ?? 1; // Default a débito si no hay signo
 
       final debe = signo == 1 ? importeAMostrar : 0.0;
       final haber = signo == -1 ? importeAMostrar : 0.0;
@@ -392,28 +462,29 @@ class _CuentaCorrienteSocioTablePageState
                   if (userRole.esAdministrador &&
                       cuenta.header.tipoComprobante == 'COB')
                     IconButton(
-                      icon: const Icon(Icons.print,
-                          size: 18, color: Colors.teal),
+                      icon:
+                          const Icon(Icons.print, size: 18, color: Colors.teal),
                       onPressed: () => _reimprimirRecibo(cuenta),
                       tooltip: 'Reimprimir Recibo',
                       padding: EdgeInsets.zero,
                       constraints: const BoxConstraints(),
                     ),
                   if (userRole.esAdministrador &&
-                      cuenta.header.tipoComprobante == 'COB')
+                      cuenta.header.tipoComprobante == 'COB' &&
+                      _esReciboBajable(cuenta))
                     IconButton(
-                      icon: const Icon(Icons.cancel, size: 18, color: Colors.grey),
-                      // Baja de recibos suspendida: la función actual opera por número de
-                      // recibo y hay números repetidos (ver database/trazabilidad_02_*.sql).
-                      onPressed: null,
-                      tooltip: 'Baja de recibos suspendida temporalmente',
+                      icon:
+                          const Icon(Icons.cancel, size: 18, color: Colors.red),
+                      onPressed: () => _bajarRecibo(cuenta),
+                      tooltip: 'Dar de baja recibo',
                       padding: EdgeInsets.zero,
                       constraints: const BoxConstraints(),
                     ),
                   if (userRole.esAdministrador &&
                       cuenta.header.tipoComprobante != 'COB')
                     IconButton(
-                      icon: const Icon(Icons.delete, size: 18, color: Colors.red),
+                      icon:
+                          const Icon(Icons.delete, size: 18, color: Colors.red),
                       onPressed: () => _confirmDelete(cuenta),
                       tooltip: 'Eliminar',
                       padding: EdgeInsets.zero,
@@ -815,11 +886,12 @@ class _CuentaCorrienteSocioTablePageState
 
     try {
       await ref.read(cobranzasNotifierProvider.notifier).anularRecibo(
-        nroRecibo,
-        motivo: motivo,
-        socioId: widget.socioId,
-      );
+            nroRecibo,
+            motivo: motivo,
+            socioId: widget.socioId,
+          );
 
+      _cargarRecibosBajables();
       if (mounted) {
         Navigator.pop(context);
         ScaffoldMessenger.of(context).showSnackBar(
@@ -1119,16 +1191,26 @@ class _CuentaCorrienteSocioTablePageState
       sheet.merge(CellIndex.indexByString('A1'), CellIndex.indexByString('G1'));
 
       // Subtítulo con filtro
-      final filtroTexto = _soloPendientes ? 'Solo Pendientes' : 'Todos los Movimientos';
+      final filtroTexto =
+          _soloPendientes ? 'Solo Pendientes' : 'Todos los Movimientos';
       sheet.cell(CellIndex.indexByString('A2')).value = TextCellValue(
         'Filtro: $filtroTexto - Exportado: ${DateFormat('dd/MM/yyyy HH:mm').format(DateTime.now())}',
       );
       sheet.merge(CellIndex.indexByString('A2'), CellIndex.indexByString('G2'));
 
       // Fila de encabezados (fila 4)
-      final headers = ['Fecha', 'Concepto', 'Serie', 'Documento', 'Debe', 'Haber', 'Saldo'];
+      final headers = [
+        'Fecha',
+        'Concepto',
+        'Serie',
+        'Documento',
+        'Debe',
+        'Haber',
+        'Saldo'
+      ];
       for (var i = 0; i < headers.length; i++) {
-        final cell = sheet.cell(CellIndex.indexByColumnRow(columnIndex: i, rowIndex: 3));
+        final cell =
+            sheet.cell(CellIndex.indexByColumnRow(columnIndex: i, rowIndex: 3));
         cell.value = TextCellValue(headers[i]);
         cell.cellStyle = headerStyle;
       }
@@ -1142,30 +1224,44 @@ class _CuentaCorrienteSocioTablePageState
         final haber = cuenta.header.cancelado ?? 0;
         saldoAcumulado += debe - haber;
 
-        sheet.cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: rowIndex)).value =
+        sheet
+                .cell(CellIndex.indexByColumnRow(
+                    columnIndex: 0, rowIndex: rowIndex))
+                .value =
             TextCellValue(DateFormat('dd/MM/yyyy').format(cuenta.header.fecha));
 
-        sheet.cell(CellIndex.indexByColumnRow(columnIndex: 1, rowIndex: rowIndex)).value =
-            TextCellValue(cuenta.header.tipoComprobanteDescripcion ?? cuenta.header.tipoComprobante);
+        sheet
+            .cell(
+                CellIndex.indexByColumnRow(columnIndex: 1, rowIndex: rowIndex))
+            .value = TextCellValue(cuenta
+                .header.tipoComprobanteDescripcion ??
+            cuenta.header.tipoComprobante);
 
-        sheet.cell(CellIndex.indexByColumnRow(columnIndex: 2, rowIndex: rowIndex)).value =
-            TextCellValue(cuenta.header.puntoVenta ?? '');
+        sheet
+            .cell(
+                CellIndex.indexByColumnRow(columnIndex: 2, rowIndex: rowIndex))
+            .value = TextCellValue(cuenta.header.puntoVenta ?? '');
 
-        sheet.cell(CellIndex.indexByColumnRow(columnIndex: 3, rowIndex: rowIndex)).value =
-            TextCellValue(cuenta.header.documentoNumero ?? '');
+        sheet
+            .cell(
+                CellIndex.indexByColumnRow(columnIndex: 3, rowIndex: rowIndex))
+            .value = TextCellValue(cuenta.header.documentoNumero ?? '');
 
         // Debe
-        final cellDebe = sheet.cell(CellIndex.indexByColumnRow(columnIndex: 4, rowIndex: rowIndex));
+        final cellDebe = sheet.cell(
+            CellIndex.indexByColumnRow(columnIndex: 4, rowIndex: rowIndex));
         cellDebe.value = DoubleCellValue(debe);
         cellDebe.cellStyle = currencyStyle;
 
         // Haber
-        final cellHaber = sheet.cell(CellIndex.indexByColumnRow(columnIndex: 5, rowIndex: rowIndex));
+        final cellHaber = sheet.cell(
+            CellIndex.indexByColumnRow(columnIndex: 5, rowIndex: rowIndex));
         cellHaber.value = DoubleCellValue(haber);
         cellHaber.cellStyle = currencyStyle;
 
         // Saldo
-        final cellSaldo = sheet.cell(CellIndex.indexByColumnRow(columnIndex: 6, rowIndex: rowIndex));
+        final cellSaldo = sheet.cell(
+            CellIndex.indexByColumnRow(columnIndex: 6, rowIndex: rowIndex));
         cellSaldo.value = DoubleCellValue(saldoAcumulado);
         cellSaldo.cellStyle = currencyStyle;
 
@@ -1174,42 +1270,55 @@ class _CuentaCorrienteSocioTablePageState
 
       // Fila de totales
       rowIndex++;
-      sheet.cell(CellIndex.indexByColumnRow(columnIndex: 3, rowIndex: rowIndex)).value =
-          TextCellValue('TOTALES:');
-      sheet.cell(CellIndex.indexByColumnRow(columnIndex: 3, rowIndex: rowIndex)).cellStyle =
-          CellStyle(bold: true);
+      sheet
+          .cell(CellIndex.indexByColumnRow(columnIndex: 3, rowIndex: rowIndex))
+          .value = TextCellValue('TOTALES:');
+      sheet
+          .cell(CellIndex.indexByColumnRow(columnIndex: 3, rowIndex: rowIndex))
+          .cellStyle = CellStyle(bold: true);
 
-      final totalDebe = movimientos.fold<double>(0, (sum, c) => sum + (c.header.importe ?? 0));
-      final totalHaber = movimientos.fold<double>(0, (sum, c) => sum + (c.header.cancelado ?? 0));
+      final totalDebe = movimientos.fold<double>(
+          0, (sum, c) => sum + (c.header.importe ?? 0));
+      final totalHaber = movimientos.fold<double>(
+          0, (sum, c) => sum + (c.header.cancelado ?? 0));
 
-      final cellTotalDebe = sheet.cell(CellIndex.indexByColumnRow(columnIndex: 4, rowIndex: rowIndex));
+      final cellTotalDebe = sheet
+          .cell(CellIndex.indexByColumnRow(columnIndex: 4, rowIndex: rowIndex));
       cellTotalDebe.value = DoubleCellValue(totalDebe);
-      cellTotalDebe.cellStyle = CellStyle(bold: true, horizontalAlign: HorizontalAlign.Right);
+      cellTotalDebe.cellStyle =
+          CellStyle(bold: true, horizontalAlign: HorizontalAlign.Right);
 
-      final cellTotalHaber = sheet.cell(CellIndex.indexByColumnRow(columnIndex: 5, rowIndex: rowIndex));
+      final cellTotalHaber = sheet
+          .cell(CellIndex.indexByColumnRow(columnIndex: 5, rowIndex: rowIndex));
       cellTotalHaber.value = DoubleCellValue(totalHaber);
-      cellTotalHaber.cellStyle = CellStyle(bold: true, horizontalAlign: HorizontalAlign.Right);
+      cellTotalHaber.cellStyle =
+          CellStyle(bold: true, horizontalAlign: HorizontalAlign.Right);
 
-      final cellTotalSaldo = sheet.cell(CellIndex.indexByColumnRow(columnIndex: 6, rowIndex: rowIndex));
+      final cellTotalSaldo = sheet
+          .cell(CellIndex.indexByColumnRow(columnIndex: 6, rowIndex: rowIndex));
       cellTotalSaldo.value = DoubleCellValue(saldoAcumulado);
-      cellTotalSaldo.cellStyle = CellStyle(bold: true, horizontalAlign: HorizontalAlign.Right);
+      cellTotalSaldo.cellStyle =
+          CellStyle(bold: true, horizontalAlign: HorizontalAlign.Right);
 
       // Ajustar anchos de columna
-      sheet.setColumnWidth(0, 12);  // Fecha
-      sheet.setColumnWidth(1, 25);  // Concepto
-      sheet.setColumnWidth(2, 10);  // Serie
-      sheet.setColumnWidth(3, 12);  // Documento
-      sheet.setColumnWidth(4, 12);  // Debe
-      sheet.setColumnWidth(5, 12);  // Haber
-      sheet.setColumnWidth(6, 12);  // Saldo
+      sheet.setColumnWidth(0, 12); // Fecha
+      sheet.setColumnWidth(1, 25); // Concepto
+      sheet.setColumnWidth(2, 10); // Serie
+      sheet.setColumnWidth(3, 12); // Documento
+      sheet.setColumnWidth(4, 12); // Debe
+      sheet.setColumnWidth(5, 12); // Haber
+      sheet.setColumnWidth(6, 12); // Saldo
 
       // Generar el archivo y descargar
       final bytes = excel.save();
       if (bytes != null) {
-        final blob = html.Blob([bytes], 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        final blob = html.Blob([
+          bytes
+        ], 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
         final url = html.Url.createObjectUrlFromBlob(blob);
         html.AnchorElement(href: url)
-          ..setAttribute('download', 'CuentaCorriente_${widget.socioId}_${DateFormat('yyyyMMdd').format(DateTime.now())}.xlsx')
+          ..setAttribute('download',
+              'CuentaCorriente_${widget.socioId}_${DateFormat('yyyyMMdd').format(DateTime.now())}.xlsx')
           ..click();
         html.Url.revokeObjectUrl(url);
 

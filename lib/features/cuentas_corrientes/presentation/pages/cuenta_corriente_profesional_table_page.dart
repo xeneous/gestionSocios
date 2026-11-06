@@ -315,7 +315,11 @@ class _CuentaCorrienteProfesionalTablePageState
                       padding: EdgeInsets.zero,
                       constraints: const BoxConstraints(),
                     ),
-                  if (userRole.esAdministrador)
+                  // Los recibos (COB) no se borran con este botón: borrar solo la fila deja
+                  // asiento, valores de tesorería y 'cancelado' sin revertir. La baja de recibos
+                  // pasa por anular_recibo_cobranza (hoy solo disponible en la ficha de socios).
+                  if (userRole.esAdministrador &&
+                      cuenta.header.tipoComprobante != 'COB')
                     IconButton(
                       icon:
                           const Icon(Icons.delete, size: 18, color: Colors.red),
