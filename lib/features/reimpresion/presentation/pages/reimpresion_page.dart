@@ -239,7 +239,6 @@ class _ReimpresionPageState extends ConsumerState<ReimpresionPage>
   Future<void> _reimprimirCobranza(Map<String, dynamic> row) async {
     final tipoOp = row['tipo_operacion'] as String;
     final nroRecibo = row['numero_comprobante'] as int;
-    final idTransaccion = row['id'] as int;
 
     await _confirmarYReimprimir(
       titulo: 'Recibo Nro. $nroRecibo',
@@ -248,7 +247,12 @@ class _ReimpresionPageState extends ConsumerState<ReimpresionPage>
 
         if (tipoOp == 'COBRANZA_SPONSOR') {
           final pdfService = ReciboClientePdfService(supabase);
-          final pdf = await pdfService.generarReciboPdf(idTransaccion: idTransaccion);
+          // row['id'] es el id de operaciones_contables, NO el id_transaccion del
+          // recibo: se busca el recibo por número (+ sponsor).
+          final pdf = await pdfService.generarReciboPdf(
+            numeroRecibo: nroRecibo,
+            clienteId: row['entidad_id'] as int?,
+          );
           if (kIsWeb) {
             final bytes = await pdf.save();
             final blob = html.Blob([bytes], 'application/pdf');

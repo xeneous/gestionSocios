@@ -12,9 +12,36 @@ class ReciboClientePdfService {
   ReciboClientePdfService(this._supabase);
 
   /// Genera un PDF del recibo de cobranza
+  ///
+  /// Se identifica el recibo por [idTransaccion] (id de ven_cli_header) o, desde
+  /// la reimpresión, por [numeroRecibo] (+ [clienteId] para desambiguar).
+  /// OJO: el id de operaciones_contables NO es un id_transaccion.
   Future<pw.Document> generarReciboPdf({
-    required int idTransaccion,
+    int? idTransaccion,
+    int? numeroRecibo,
+    int? clienteId,
   }) async {
+    assert(idTransaccion != null || numeroRecibo != null,
+        'Indicar idTransaccion o numeroRecibo');
+
+    if (idTransaccion == null) {
+      var q = _supabase
+          .from('ven_cli_header')
+          .select('id_transaccion')
+          .eq('tipo_comprobante', 0)
+          .eq('comprobante', numeroRecibo!);
+      if (clienteId != null) q = q.eq('cliente', clienteId);
+      final encontrados = await q.limit(2);
+      if ((encontrados as List).isEmpty) {
+        throw Exception('No se encontró el Recibo Nro. $numeroRecibo en la cuenta corriente');
+      }
+      if (encontrados.length > 1) {
+        throw Exception(
+            'Hay más de un Recibo Nro. $numeroRecibo en la cuenta corriente; no se puede reimprimir sin ambigüedad');
+      }
+      idTransaccion = encontrados.first['id_transaccion'] as int;
+    }
+
     // 1. Obtener datos del recibo
     final reciboData = await _supabase
         .from('ven_cli_header')
@@ -22,20 +49,20 @@ class ReciboClientePdfService {
         .eq('id_transaccion', idTransaccion)
         .single();
 
-    final numeroRecibo = reciboData['comprobante'] as int;
+    final nroRecibo = reciboData['comprobante'] as int;
     final fechaRecibo = DateTime.parse(reciboData['fecha'] as String);
     final totalCobrado = (reciboData['total_importe'] as num).toDouble();
-    final clienteId = reciboData['cliente'] as int;
+    final codCliente = reciboData['cliente'] as int;
 
     // 2. Obtener datos del cliente por separado
     final clienteData = await _supabase
         .from('clientes')
         .select('razon_social, cuit, domicilio')
-        .eq('codigo', clienteId)
+        .eq('codigo', codCliente)
         .maybeSingle();
 
     final nombreCliente =
-        clienteData?['razon_social'] as String? ?? 'Sponsor $clienteId';
+        clienteData?['razon_social'] as String? ?? 'Sponsor $codCliente';
     final cuitCliente = clienteData?['cuit'] as String? ?? '';
     final domicilioCliente = clienteData?['domicilio'] as String? ?? '';
 
@@ -173,7 +200,7 @@ class ReciboClientePdfService {
                       crossAxisAlignment: pw.CrossAxisAlignment.end,
                       children: [
                         pw.Text(
-                          'Nº $numeroRecibo',
+                          'Nº $nroRecibo',
                           style: pw.TextStyle(
                             fontSize: 18,
                             fontWeight: pw.FontWeight.bold,
@@ -210,7 +237,7 @@ class ReciboClientePdfService {
                     ),
                     pw.SizedBox(height: 8),
                     pw.Text(
-                      'Sponsor Nº: $clienteId',
+                      'Sponsor Nº: $codCliente',
                       style: const pw.TextStyle(fontSize: 12),
                     ),
                     pw.Text(
@@ -276,6 +303,15 @@ class ReciboClientePdfService {
                 ),
               ),
               pw.SizedBox(height: 8),
+              if (transaccionesList.isEmpty)
+                pw.Padding(
+                  padding: const pw.EdgeInsets.only(bottom: 8),
+                  child: pw.Text(
+                    'Cobranza a cuenta (sin detalle de comprobantes aplicados).',
+                    style: pw.TextStyle(
+                        fontSize: 9, fontStyle: pw.FontStyle.italic),
+                  ),
+                ),
               pw.Table(
                 border: pw.TableBorder.all(),
                 columnWidths: {

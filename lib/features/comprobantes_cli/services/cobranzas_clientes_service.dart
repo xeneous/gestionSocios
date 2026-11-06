@@ -108,7 +108,10 @@ class CobranzasClientesService {
       'tipo_comprobante': tipoReciboCliente,
       'nro_comprobante': nuevoNumeroRecibo.toString().padLeft(8, '0'),
       'total_importe': totalAPagar,
-      'cancelado': 0,
+      // El recibo se aplica completo a las facturas (totalAPagar == suma de
+      // transaccionesAPagar), igual que los recibos históricos: cancelado = total.
+      // Con 0 el recibo figuraba como "no aplicado" y sumaba a la deuda.
+      'cancelado': totalAPagar,
       'fecha_real': now.toIso8601String().split('T')[0],
     };
 

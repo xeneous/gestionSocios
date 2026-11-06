@@ -68,7 +68,7 @@ class _CuentaCorrienteClientePageState
       body: Column(
         children: [
           // Header con info del cliente y saldo
-          _buildInfoHeader(clienteAsync, comprobantesAsync),
+          _buildInfoHeader(clienteAsync, comprobantesAsync, tiposAsync),
 
           const Divider(height: 1),
 
@@ -111,22 +111,25 @@ class _CuentaCorrienteClientePageState
   Widget _buildInfoHeader(
     AsyncValue clienteAsync,
     AsyncValue<List<VenCliHeader>> comprobantesAsync,
+    AsyncValue<List<TipoComprobanteVenta>> tiposAsync,
   ) {
-    // Calcular totales
-    double totalFacturado = 0;
-    double totalCobrado = 0;
+    // Saldo con signo, igual que la tabla: facturas/ND suman, recibos/NC restan.
+    // (Antes se sumaba todo sin signo, y los recibos aumentaban la deuda.)
+    double saldoPendiente = 0;
     int cantidadComprobantes = 0;
 
     if (comprobantesAsync.hasValue) {
       final comprobantes = comprobantesAsync.value!;
       cantidadComprobantes = comprobantes.length;
+      final mults = {
+        for (final t in tiposAsync.value ?? const <TipoComprobanteVenta>[])
+          t.codigo: t.multiplicador
+      };
       for (final comp in comprobantes) {
-        totalFacturado += comp.totalImporte;
-        totalCobrado += comp.cancelado;
+        final mult = mults[comp.tipoComprobante] ?? 1;
+        saldoPendiente += mult * comp.saldo;
       }
     }
-
-    final saldoPendiente = totalFacturado - totalCobrado;
 
     return Container(
       padding: const EdgeInsets.all(16),
