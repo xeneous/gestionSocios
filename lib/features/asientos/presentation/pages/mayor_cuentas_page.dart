@@ -124,6 +124,7 @@ class _MayorCuentasPageState extends ConsumerState<MayorCuentasPage> {
   bool _acumulado = true;
   bool _trazabilidad = false; // habilita el link asiento -> factura/recibo/cobranza
   bool _hasSearched = false;
+  bool _descargandoTodas = false;
   static const int _tamPagina = 100;
   int _pagina = 0;
   int? _cuentaSeleccionada;
@@ -308,6 +309,187 @@ class _MayorCuentasPageState extends ConsumerState<MayorCuentasPage> {
         const SnackBar(content: Text('Archivo Excel descargado')));
   }
 
+  /// Exporta a Excel el mayor de TODAS las cuentas del período, en un solo archivo:
+  /// hoja "Mayor" (cuenta por cuenta, con saldo inicial, movimientos y total) y
+  /// hoja "Resumen" (una fila por cuenta).
+  Future<void> _descargarTodasLasCuentas() async {
+    setState(() => _descargandoTodas = true);
+    try {
+      final supabase = ref.read(supabaseProvider);
+      final raw = await supabase.rpc('get_mayor_todas_cuentas', params: {
+        'p_fecha_desde': _fechaDesde.toIso8601String().split('T')[0],
+        'p_fecha_hasta': _fechaHasta.toIso8601String().split('T')[0],
+        'p_con_apertura': _acumulado,
+      });
+      final cuentas = (raw as List? ?? const []).cast<Map<String, dynamic>>();
+      if (cuentas.isEmpty) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text('No hay movimientos en el período seleccionado')));
+        return;
+      }
+
+      final excel = Excel.createExcel();
+      excel.rename('Sheet1', 'Mayor');
+      final sheet = excel['Mayor'];
+      final resumen = excel['Resumen'];
+
+      final headerStyle = CellStyle(
+        bold: true,
+        backgroundColorHex: ExcelColor.blue,
+        fontColorHex: ExcelColor.white,
+      );
+      final saldoInicialStyle = CellStyle(
+        bold: true,
+        backgroundColorHex: ExcelColor.fromHexString('#DDEEFF'),
+        fontColorHex: ExcelColor.fromHexString('#003399'),
+      );
+      final totalStyle = CellStyle(
+        bold: true,
+        backgroundColorHex: ExcelColor.fromHexString('#D9D9D9'),
+      );
+
+      void put(Sheet s, int col, int row, CellValue val, [CellStyle? style]) {
+        final c =
+            s.cell(CellIndex.indexByColumnRow(columnIndex: col, rowIndex: row));
+        c.value = val;
+        if (style != null) c.cellStyle = style;
+      }
+
+      // ---- Hoja Mayor ----
+      put(sheet, 0, 0, TextCellValue('Mayor de todas las cuentas'));
+      put(
+          sheet,
+          2,
+          0,
+          TextCellValue(
+              'Período: ${_dateFormat.format(_fechaDesde)} al ${_dateFormat.format(_fechaHasta)}'
+              ' · ${_acumulado ? "Con saldo inicial acumulado" : "Solo período seleccionado"}'));
+      const cols = [
+        'Cuenta',
+        'Descripción',
+        'Fecha',
+        'Asiento',
+        'Detalle',
+        'Debe',
+        'Haber',
+        'Saldo'
+      ];
+      for (var i = 0; i < cols.length; i++) {
+        put(sheet, i, 2, TextCellValue(cols[i]), headerStyle);
+      }
+
+      // ---- Hoja Resumen ----
+      const colsRes = [
+        'Cuenta',
+        'Descripción',
+        'Saldo inicial',
+        'Debe',
+        'Haber',
+        'Saldo final'
+      ];
+      for (var i = 0; i < colsRes.length; i++) {
+        put(resumen, i, 0, TextCellValue(colsRes[i]), headerStyle);
+      }
+
+      double granDebe = 0, granHaber = 0;
+      int row = 3;
+      int rowRes = 1;
+      for (final c in cuentas) {
+        final cuenta = c['cuenta'] as int;
+        final desc = (c['descripcion'] as String? ?? '').trim();
+        final saldoIni = (c['saldo_inicial'] as num?)?.toDouble() ?? 0;
+        final movs = (c['movimientos'] as List? ?? const [])
+            .cast<Map<String, dynamic>>();
+
+        var saldo = saldoIni;
+        double totDebe = 0, totHaber = 0;
+
+        if (_acumulado && saldoIni != 0) {
+          put(sheet, 0, row, IntCellValue(cuenta), saldoInicialStyle);
+          put(sheet, 1, row, TextCellValue(desc), saldoInicialStyle);
+          put(sheet, 2, row, TextCellValue(_dateFormat.format(_fechaDesde)),
+              saldoInicialStyle);
+          put(sheet, 3, row, TextCellValue('-'), saldoInicialStyle);
+          put(sheet, 4, row, TextCellValue('SALDO INICIAL'), saldoInicialStyle);
+          put(sheet, 5, row, TextCellValue(''), saldoInicialStyle);
+          put(sheet, 6, row, TextCellValue(''), saldoInicialStyle);
+          put(sheet, 7, row, DoubleCellValue(saldoIni), saldoInicialStyle);
+          row++;
+        }
+
+        for (final m in movs) {
+          final debe = (m['debe'] as num?)?.toDouble() ?? 0;
+          final haber = (m['haber'] as num?)?.toDouble() ?? 0;
+          saldo += debe - haber;
+          totDebe += debe;
+          totHaber += haber;
+          put(sheet, 0, row, IntCellValue(cuenta));
+          put(sheet, 1, row, TextCellValue(desc));
+          put(sheet, 2, row,
+              TextCellValue(_dateFormat.format(DateTime.parse(m['fecha'] as String))));
+          put(sheet, 3, row, IntCellValue(m['asiento'] as int));
+          put(sheet, 4, row, TextCellValue(m['detalle'] as String? ?? ''));
+          put(sheet, 5, row, debe > 0 ? DoubleCellValue(debe) : TextCellValue(''));
+          put(sheet, 6, row, haber > 0 ? DoubleCellValue(haber) : TextCellValue(''));
+          put(sheet, 7, row, DoubleCellValue(saldo));
+          row++;
+        }
+
+        // Total de la cuenta
+        put(sheet, 0, row, IntCellValue(cuenta), totalStyle);
+        put(sheet, 1, row, TextCellValue('TOTAL $desc'), totalStyle);
+        put(sheet, 2, row, TextCellValue(''), totalStyle);
+        put(sheet, 3, row, TextCellValue(''), totalStyle);
+        put(sheet, 4, row, TextCellValue(''), totalStyle);
+        put(sheet, 5, row, DoubleCellValue(totDebe), totalStyle);
+        put(sheet, 6, row, DoubleCellValue(totHaber), totalStyle);
+        put(sheet, 7, row, DoubleCellValue(saldo), totalStyle);
+        row += 2; // línea en blanco entre cuentas
+
+        put(resumen, 0, rowRes, IntCellValue(cuenta));
+        put(resumen, 1, rowRes, TextCellValue(desc));
+        put(resumen, 2, rowRes, DoubleCellValue(saldoIni));
+        put(resumen, 3, rowRes, DoubleCellValue(totDebe));
+        put(resumen, 4, rowRes, DoubleCellValue(totHaber));
+        put(resumen, 5, rowRes, DoubleCellValue(saldo));
+        rowRes++;
+
+        granDebe += totDebe;
+        granHaber += totHaber;
+      }
+
+      put(resumen, 0, rowRes, TextCellValue('TOTALES'), totalStyle);
+      put(resumen, 1, rowRes, TextCellValue(''), totalStyle);
+      put(resumen, 2, rowRes, TextCellValue(''), totalStyle);
+      put(resumen, 3, rowRes, DoubleCellValue(granDebe), totalStyle);
+      put(resumen, 4, rowRes, DoubleCellValue(granHaber), totalStyle);
+      put(resumen, 5, rowRes, TextCellValue(''), totalStyle);
+
+      final bytes = excel.encode();
+      if (bytes == null) return;
+
+      final fileName =
+          'mayor_todas_las_cuentas_${DateFormat('yyyyMMdd').format(_fechaDesde)}_${DateFormat('yyyyMMdd').format(_fechaHasta)}.xlsx';
+      final blob = html.Blob([bytes]);
+      final url = html.Url.createObjectUrlFromBlob(blob);
+      (html.AnchorElement(href: url)
+        ..setAttribute('download', fileName)
+        ..click());
+      html.Url.revokeObjectUrl(url);
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Excel descargado: ${cuentas.length} cuentas')));
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('Error al generar el Excel: $e')));
+    } finally {
+      if (mounted) setState(() => _descargandoTodas = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -425,6 +607,20 @@ class _MayorCuentasPageState extends ConsumerState<MayorCuentasPage> {
                       ),
                     ),
                     const SizedBox(width: 16),
+                    OutlinedButton.icon(
+                      onPressed:
+                          _descargandoTodas ? null : _descargarTodasLasCuentas,
+                      icon: _descargandoTodas
+                          ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2))
+                          : const Icon(Icons.table_view),
+                      label: Text(_descargandoTodas
+                          ? 'Generando...'
+                          : 'Todas las cuentas (Excel)'),
+                    ),
+                    const SizedBox(width: 8),
                     FilledButton.icon(
                       onPressed: _buscar,
                       icon: const Icon(Icons.search),
