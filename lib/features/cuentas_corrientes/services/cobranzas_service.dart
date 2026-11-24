@@ -31,6 +31,7 @@ class CobranzasService {
     required Map<int, double> formasPago,
     int? operadorId,
     int? numeroRecibo,
+    DateTime? fecha,
   }) async {
     assert(socioId != null || profesionalId != null,
         'Debe proveer socioId o profesionalId');
@@ -64,6 +65,9 @@ class CobranzasService {
         'p_formas_pago': formasPagoJson,
         'p_operador_id': operadorId,
         'p_numero_recibo': numeroRecibo,
+        if (fecha != null)
+          'p_fecha':
+              '${fecha.year.toString().padLeft(4, '0')}-${fecha.month.toString().padLeft(2, '0')}-${fecha.day.toString().padLeft(2, '0')}',
       });
 
       if (response == null || (response as List).isEmpty) {

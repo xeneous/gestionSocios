@@ -3,6 +3,7 @@ import 'package:data_table_2/data_table_2.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import '../../../../core/utils/date_picker_utils.dart';
 import '../../providers/cuentas_corrientes_provider.dart';
 import '../../providers/conceptos_tesoreria_provider.dart';
 import '../../providers/cobranzas_provider.dart';
@@ -48,6 +49,16 @@ class _CobranzasPageState extends ConsumerState<CobranzasPage> {
   // Número de recibo
   final _numeroReciboController = TextEditingController();
   bool _numeroReciboCargado = false;
+
+  // Fecha del recibo (por defecto hoy). El asiento y el COB usan esta fecha.
+  DateTime _fechaRecibo = DateTime.now();
+
+  Future<void> _seleccionarFechaRecibo() async {
+    final date = await pickDate(context, _fechaRecibo);
+    if (date != null && mounted) {
+      setState(() => _fechaRecibo = date);
+    }
+  }
 
   @override
   void dispose() {
@@ -727,6 +738,23 @@ class _CobranzasPageState extends ConsumerState<CobranzasPage> {
                                     keyboardType: TextInputType.number,
                                   ),
                                 ),
+                                const SizedBox(width: 12),
+                                SizedBox(
+                                  width: 170,
+                                  child: InkWell(
+                                    onTap: _seleccionarFechaRecibo,
+                                    child: InputDecorator(
+                                      decoration: const InputDecoration(
+                                        labelText: 'Fecha Recibo',
+                                        border: OutlineInputBorder(),
+                                        prefixIcon: Icon(Icons.calendar_today),
+                                        isDense: true,
+                                      ),
+                                      child: Text(DateFormat('dd/MM/yyyy')
+                                          .format(_fechaRecibo)),
+                                    ),
+                                  ),
+                                ),
                                 const SizedBox(width: 16),
                                 Expanded(
                                   child: FilledButton.icon(
@@ -822,6 +850,8 @@ class _CobranzasPageState extends ConsumerState<CobranzasPage> {
                 ? 'Profesional: ID ${widget.profesionalId}'
                 : 'Socio: ID ${widget.socioId}'),
             const SizedBox(height: 8),
+            Text('Fecha: ${DateFormat('dd/MM/yyyy').format(_fechaRecibo)}'),
+            const SizedBox(height: 8),
             Text(
               'Total a cobrar: \$${_getTotalSeleccionado().toStringAsFixed(2)}',
               style: const TextStyle(fontWeight: FontWeight.bold),
@@ -889,6 +919,7 @@ class _CobranzasPageState extends ConsumerState<CobranzasPage> {
             transaccionesAPagar: _selectedPagos,
             formasPago: _formasPago,
             numeroRecibo: nroReciboIngresado,
+            fecha: _fechaRecibo,
           );
 
       final numeroRecibo = resultado['numero_recibo']!;

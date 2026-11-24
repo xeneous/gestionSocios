@@ -39,6 +39,7 @@ class CobranzasNotifier extends Notifier<AsyncValue<void>> {
     required Map<int, double> formasPago,
     int? operadorId,
     int? numeroRecibo,
+    DateTime? fecha,
   }) async {
     assert(socioId != null || profesionalId != null,
         'Debe proveer socioId o profesionalId');
@@ -76,6 +77,7 @@ class CobranzasNotifier extends Notifier<AsyncValue<void>> {
         formasPago: formasPago,
         operadorId: operadorId,
         numeroRecibo: numeroRecibo,
+        fecha: fecha,
       );
 
       // 2. Preparar items del asiento de diario
@@ -161,7 +163,7 @@ class CobranzasNotifier extends Notifier<AsyncValue<void>> {
       }
 
       // 3. Generar asiento usando AsientosService
-      final fechaAsiento = DateTime.now();
+      final fechaAsiento = fecha ?? DateTime.now();
       final numeroAsiento = await asientosService.crearAsiento(
         tipoAsiento: AsientosService.tipoIngreso, // Tipo 1 = Ingreso
         fecha: fechaAsiento,
